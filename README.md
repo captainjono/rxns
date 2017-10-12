@@ -82,14 +82,17 @@ LoginCmd = this.OnExecute(loginDetails => _publish(new UserAttemptingLoginEvent>
 #### On the Server
 
 ```csharp
-public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin> 
+public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin>
 {
-	IObservable<IRxn> Process(UserAttemptingLogin loginDetails) //pure functions are encouraged
-	{
-		return RxObservable.Create(() => _loginService.Verify(loginDetails)) //Func<bool>, IObservable<bool>, with error handling covered
-				.Select(sucess => success ? new LoginSuccessFul(loginDetails) 
-										: new LoginFaulure(loginFailure))
-	}
+    //pure functions are encouraged
+    IObservable<IRxn> Process(UserAttemptingLogin loginDetails) 
+    {
+        //Func<bool>, IObservable<bool>, with error handling covered
+        return RxObservable.Create(() => _loginService.Verify(loginDetails)) 
+                            .Select(success => success 
+                                ? new LoginSuccessFull(loginDetails)
+                                : new LoginFaulure(loginFailure));
+    }
 }
 ```
 
@@ -124,9 +127,9 @@ public SomeClass : WhateverIWant, (... IRxnCfg)
 
 ### Reactors communicate with RxnManagers
 which are pub/sub based
-```csharp
-	var unsubscribe = rxnManager.CreateSubsciption<ToAnEvent>().Do(theEvent => { ... }).Until() // or traditional .Subscribe();
-	rxnManager.Publish(new AnythingThatImplementsIRxn());
+```csharp										
+var unsubscribe = rxnManager.CreateSubsciption<ToAnEvent>().Do(theEvent => { ... }).Until(); 
+rxnManager.Publish(new AnythingThatImplementsIRxn());
 ```
 that use an abstraction for the transport medium so you can scale you apps
 
@@ -165,7 +168,7 @@ IRxnPublisher //a reaction that can publish at will with _publish(new SomethingH
 public class Scoreboard : IRxnPublisher<ScoreUpdate>
 { 
 	...
-	public ConfigurePublishFunc(Action<ScoreUpdate> publish) 
+	public override void ConfigurePublishFunc(Action<ScoreUpdate> publish) 
 	{
 		_publish = publish;
 	}
@@ -219,7 +222,7 @@ public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTas
 
 ```
 
-### And remmber you get metrics for free
+### And remember you get metrics for free
 Whenever u specificy MonitorHealth = true in IRxnCfg
 ![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reaction throughput Per Second")
 
@@ -234,6 +237,8 @@ var myClass = new MyClass();
 //can use any of the below
 myClass.ReportsToConsole();
 myClass.ReportsToDebug();
+myClass.Errors.Do(SendAlert).Until(AppTerminated);
+myClass.Information.Do(LogToWeb).Subscribe() // if u prefer Rx syntax;
 
 //or log for someone else
 var supervisor = new Supervisor();
@@ -241,7 +246,8 @@ myClass.ReportsWith(supervisor)
 superVisor.ReportToConsole()
 
 //can also use OnVerbose, OnWarning, OnErrors - api designed for .net4
-myclass.OnInformation("A general {0}", "message"); //[ThreadId] [10:55:12.12] [Information] [MyClass] A general message
+myclass.OnInformation("A general {0}", "message");
+//On console -> [ThreadId] [10:55:12.12] [Information] [MyClass] A general message
 ...
 
 var rxnDictionary = new RxnDictionary<..>();
@@ -273,16 +279,18 @@ var output = player.Play(tape, new PlaybackSettings { TickSpeed = 10 } //fast fo
 output.Stream.Do(_publish).Subscribe()
 ```
 
-**Built in UI testing** *soon*
-and in the UI we provide a *UserAutomationPlayer* which if u implement our RxnUI pattern correctly, will result in
-actions being played back, UI buttons being pressed and results of snapshots diffed with your recording. 
+**Built in UI testing**
 
-### We care about **backpressure** too
+In the UI we provide a *UserAutomationPlayer* which if u implement our RxnUI pattern correctly, will result in
+actions being played back, UI buttons being pressed and results of snapshots diffed with your recording. 
+***coming soon**
+
+### We dont just log **backpressure**, we mitigate it
 Rxns that are getting backed up can DoS your users (input is quicker then the Process/Rxn chain method can process it)
 
 ```csharp
 rxn.BufferFirstLast/Distinct(); //drop elements from a sequence if they arrive to quickly, 
-								//are repeating, or you only care about the inital or last value 
+				//are repeating, or you only care about the inital or last value 
 
 //soon for lossless event streams
 rxn.OverflowTo(AzureTable).When(backpressure => backpressure > 1000 /*events*/).RequeueWhen(backpressure < 100);
