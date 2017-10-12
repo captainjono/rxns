@@ -1,5 +1,5 @@
 #  .... Introducing *Rxns* 
-![Rxns logo](https://github.com/captainjono/rxns/blob/master/rxns.jpg "Reactions Logo")
+![Rxns logo](https://github.com/captainjono/rxns/blob/master/rxns.png "Reactions Logo")
 (pronounced: **Reactions**)
 
 A C# framework for building highly specialised, testable, event driven *MicroApps* across the stack with [Reactive Extensions *(Rx)*](http://reactivex.io/) 
@@ -50,7 +50,7 @@ orchConnection.Dispose(); //take the orchestrator offline, but leaves push notif
 ```csharp
 //this chart is automatically compiled for u, and uses colours and sizes to display throughput / status / backpressure of ur reactions
 ```
-![Metrics Graph](https://github.com/captainjono/rxns/blob/master/examples/metrics_console.jpg "Metrics Console")
+![Metrics Graph](https://github.com/captainjono/rxns/blob/master/examples/metrics.png "Metrics Console")
 
 ## Dive a little deeper
 
@@ -215,7 +215,7 @@ public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTas
 
 ### And remmber you get metrics for free
 Whenever u specificy MonitorHealth = true in IRxnCfg
-![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.jpg "Reactions Per Second")
+![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reactions Per Second")
 
 ### We consider logging a first order concept
 *IReportStatus*, *ReportStatus*, *ReportStatusService* all provide Information & Error channels as well as IReportHealth that links up to metrics 
@@ -279,7 +279,7 @@ rxn.BufferFirstLast/Distinct(); //drop elements from a sequence if they arrive t
 								//are repeating, or you only care about the inital or last value 
 
 //soon for lossless event streams
-rxn.OverflowTo(AzureTable).When(backpressure => backpressure > 1000 /*events*/);
+rxn.OverflowTo(AzureTable).When(backpressure => backpressure > 1000 /*events*/).RequeueWhen(backpressure < 100);
 ```
 
 ### Thats enough to get you started
