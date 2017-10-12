@@ -1,0 +1,19 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/packages
+/.vs/Rxns/v15
+/src/Rxns/bin/Release
+/src/Rxns/bin
+/src/.vs/Rxns/v15
+/src/Rxns/obj
+/src/Rxns.Autofac/bin
+/src/Rxns.Autofac/obj
+/src/Rxns.NewtonsoftJson/bin
+/src/Rxns.NewtonsoftJson/obj
+/src/Rxns.Xamarin/bin
+/src/Rxns.Xamarin/obj
+/src/Rxns.Xamarin.Autofac/bin/Debug
+/src/Rxns.Xamarin.Autofac/bin/Release
+/src/Rxns.Xamarin.Autofac/obj

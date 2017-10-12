@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{96734D71-3223-4E4B-830C-5498783C162F}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Rxns</RootNamespace>
+    <AssemblyName>Rxns</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TargetFrameworkProfile>Profile78</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="IRxnSystemInfo.cs" />
+    <Compile Include="Cloud\ShardingQueueProcessingService.cs" />
+    <Compile Include="Cloud\SystemStatusMetaEvent.cs" />
+    <Compile Include="Commanding\AsyncMediatorPipeline.cs" />
+    <Compile Include="Commanding\AsyncRequestHandler.cs" />
+    <Compile Include="Commanding\AsyncRequestHandlerWrapper.cs" />
+    <Compile Include="Commanding\Mediator.cs" />
+    <Compile Include="Commanding\MediatorPipeline.cs" />
+    <Compile Include="Commanding\ServiceCommandNotFound.cs" />
+    <Compile Include="Commanding\SingleInstanceFactory.cs" />
+    <Compile Include="Health\BackpressureAction.cs" />
+    <Compile Include="Health\BackpressureFilter.cs" />
+    <Compile Include="Collections\CircularBuffer.cs" />
+    <Compile Include="Collections\ExpiringCache.cs" />
+    <Compile Include="Collections\IExpiringCache.cs" />
+    <Compile Include="Collections\RetryBucket.cs" />
+    <Compile Include="Collections\UseConcurrentReliableOpsWhenCastToIDictionary.cs" />
+    <Compile Include="Commanding\CommandResult.cs" />
+    <Compile Include="Commanding\ContinuationToken.cs" />
+    <Compile Include="Commanding\IAsyncRequest.cs" />
+    <Compile Include="Commanding\IAsyncRequestHandler.cs" />
+    <Compile Include="Commanding\ICommandResult.cs" />
+    <Compile Include="Commanding\IMediator.cs" />
+    <Compile Include="Commanding\IPostRequestHandler.cs" />
+    <Compile Include="Commanding\IPreRequestHandler.cs" />
+    <Compile Include="Commanding\IRequest.cs" />
+    <Compile Include="Commanding\IRequestHandler.cs" />
+    <Compile Include="Commanding\IRxnCommand.cs" />
+    <Compile Include="Commanding\IServiceCommand.cs" />
+    <Compile Include="Commanding\IServiceCommandFactory.cs" />
+    <Compile Include="Commanding\IServiceCommandHandler.cs" />
+    <Compile Include="Commanding\Failure.cs" />
+    <Compile Include="Commanding\PagingToken.cs" />
+    <Compile Include="Commanding\QuestionMediator.cs" />
+    <Compile Include="Commanding\ReactorCmd.cs" />
+    <Compile Include="Commanding\RxnCommand.cs" />
+    <Compile Include="Commanding\ServiceCommand.cs" />
+    <Compile Include="DisposableAction.cs" />
+    <Compile Include="Ensure.cs" />
+    <Compile Include="RxnManager.cs" />
+    <Compile Include="EventPublisherBuilder.cs" />
+    <Compile Include="EventRouteToManagerCfg.cs" />
+    <Compile Include="EventToRouteCfgBuilder.cs" />
+    <Compile Include="Health\FilterAction.cs" />
+    <Compile Include="GarenteedToNeverBeLost.cs" />
+    <Compile Include="Health\HealthEvent.cs" />
+    <Compile Include="Health\HealthMonitor.cs" />
+    <Compile Include="Health\IHealthEvent.cs" />
+    <Compile Include="Health\IReportHealth.cs" />
+    <Compile Include="Health\QueueOverflowEvent.cs" />
+    <Compile Include="Health\QueueSnapshotEvent.cs" />
+    <Compile Include="Health\QueueSpeedEvent.cs" />
+    <Compile Include="CollectionExtensions.cs" />
+    <Compile Include="IDispoableExtensions.cs" />
+    <Compile Include="Health\IMonitorAction.cs" />
+    <Compile Include="Health\IMonitorActionFactory.cs" />
+    <Compile Include="Interfaces\IContainerEvents.cs" />
+    <Compile Include="Interfaces\ICreateReactors.cs" />
+    <Compile Include="Interfaces\IDeliveryScheme.cs" />
+    <Compile Include="Interfaces\IRxn.cs" />
+    <Compile Include="Interfaces\IRxnBackingChannel.cs" />
+    <Compile Include="Interfaces\IRxnHistoryProvider.cs" />
+    <Compile Include="Interfaces\IRxnManager.cs" />
+    <Compile Include="Interfaces\IRxnManagerRegistery.cs" />
+    <Compile Include="Interfaces\IRxnProcessor.cs" />
+    <Compile Include="Interfaces\IRxnPublisher.cs" />
+    <Compile Include="Interfaces\IRxnPulser.cs" />
+    <Compile Include="Interfaces\IRxntPulseService.cs" />
+    <Compile Include="Interfaces\IRxnRouteCfg.cs" />
+    <Compile Include="Interfaces\IRxnTargetCfg.cs" />
+    <Compile Include="Interfaces\IFileMeta.cs" />
+    <Compile Include="Interfaces\IHealReactors.cs" />
+    <Compile Include="Interfaces\IManageReactors.cs" />
+    <Compile Include="Interfaces\IManageResources.cs" />
+    <Compile Include="Interfaces\IObservableQuery.cs" />
+    <Compile Include="Interfaces\IRxnCfg.cs" />
+    <Compile Include="Interfaces\IReactiveEvent.cs" />
+    <Compile Include="Interfaces\IReactor.cs" />
+    <Compile Include="Interfaces\IReactorHealth.cs" />
+    <Compile Include="Interfaces\IReactTo.cs" />
+    <Compile Include="Logging\IReportStatus.cs" />
+    <Compile Include="Interfaces\IRxnResponse.cs" />
+    <Compile Include="Interfaces\IRxnService.cs" />
+    <Compile Include="Logging\LogMessage.cs" />
+    <Compile Include="Interfaces\ReactorConnection.cs" />
+    <Compile Include="IObserableExtensions.cs" />
+    <Compile Include="IObservableQueryExtensions.cs" />
+    <Compile Include="IReportStatusExtensions.cs" />
+    <Compile Include="IRxnQuestion.cs" />
+    <Compile Include="LocalBackingChannel.cs" />
+    <Compile Include="Logging\ErrorReport.cs" />
+    <Compile Include="Logging\GeneralLogging.cs" />
+    <Compile Include="Logging\ReportsStatus.cs" />
+    <Compile Include="Logging\ReportStatusService.cs" />
+    <Compile Include="MonitorAction.cs" />
+    <Compile Include="NeverAnyEventHistoryProvider.cs" />
+    <Compile Include="NoGaretenee.cs" />
+    <Compile Include="ObservableExtensions.cs" />
+    <Compile Include="ObservableFactory.cs" />
+    <Compile Include="ObservableQuery.cs" />
+    <Compile Include="PlatformHelper.cs" />
+    <Compile Include="Playback\CapturedRxn.cs" />
+    <Compile Include="Playback\CapturedEventRecorder.cs" />
+    <Compile Include="Playback\CapturedEventTapeSource.cs" />
+    <Compile Include="Playback\EventTape.cs" />
+    <Compile Include="Playback\IEventTape.cs" />
+    <Compile Include="Playback\InMemoryTapeSource.cs" />
+    <Compile Include="Playback\ITapeRecorder.cs" />
+    <Compile Include="Playback\PlaybackSettings.cs" />
+    <Compile Include="Playback\PlaybackStream.cs" />
+    <Compile Include="Playback\UserAutomationPlayer.cs" />
+    <Compile Include="RxnCreator.cs" />
+    <Compile Include="ReactionException.cs" />
+    <Compile Include="Reactor.cs" />
+    <Compile Include="ReactorManager.cs" />
+    <Compile Include="ReactorNotFound.cs" />
+    <Compile Include="ReflectionExtensions.cs" />
+    <Compile Include="RoutableBackingChannel.cs" />
+    <Compile Include="RxnApp.cs" />
+    <Compile Include="RxnDecorator.cs" />
+    <Compile Include="Collections\RxnDictionary.cs" />
+    <Compile Include="RxnExtensions.cs" />
+    <Compile Include="RxnSource.cs" />
+    <Compile Include="Schedulers.cs" />
+    <Compile Include="StringExtensions.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Commanding\Success.cs" />
+    <Compile Include="SystemClock.cs" />
+    <Compile Include="TaskPoolSchedulerWithLimiter.cs" />
+    <Compile Include="ValueTypeExtensions.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Collections.Concurrent">
+      <HintPath>..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETPortable\v4.5\System.Collections.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reactive.Core, Version=2.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Rx-Core.2.2.4\lib\portable-windows8+net45+wp8\System.Reactive.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reactive.Interfaces, Version=2.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Rx-Interfaces.2.2.4\lib\portable-windows8+net45+wp8\System.Reactive.Interfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reactive.Linq, Version=2.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Rx-Linq.2.2.4\lib\portable-windows8+net45+wp8\System.Reactive.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Reactive.PlatformServices, Version=2.2.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Rx-PlatformServices.2.2.4\lib\portable-windows8+net45+wp8\System.Reactive.PlatformServices.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
