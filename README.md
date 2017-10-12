@@ -1,5 +1,5 @@
-#  .... Introducing *Rxns* 
-![Rxns logo](https://github.com/captainjono/rxns/blob/master/rxns.png "Reactions Logo")
+#  Introducing .... *Rxns* 
+![Rxns logo](https://github.com/captainjono/rxns/blob/master/logo.png "Reactions Logo")
 (pronounced: **Reactions**)
 
 A C# framework for building highly specialised, testable, event driven *MicroApps* across the stack with [Reactive Extensions *(Rx)*](http://reactivex.io/) 
@@ -9,12 +9,16 @@ A C# framework for building highly specialised, testable, event driven *MicroApp
 1. *Fluent first*: Because maintaining documentation is hard and Rx has a domain learning curve
 ```csharp
 //On Reaction to A Todo Item being Created, show a busy signal to the user until its saved
-this.OnReactionTo<ATodoItemCreated>().UpdateUIWith(ShowBusySignal).SelectMany(SaveTodo).UpdateUIWith(HideBusySignal).Until(FormHidden);
+this.OnReactionTo<ATodoItemCreated>()
+        .UpdateUIWith(ShowBusySignal)
+        .SelectMany(SaveTodo)
+        .UpdateUIWith(HideBusySignal)
+        .Until(FormHidden);
 
 this.OnReactionTo<CpuOverThreshHold>().Do(SendAlertToSam).Until(FatalError);
 ```
 
-1. *Composable Actors*: Inspired by *Erlang*, reactions are chain'ed to Reactors which supervise them
+1. *Composable Actors*: Inspired by [Erlang](https://www.erlang.org/), reactions are chain'ed to Reactors which supervise them
 ```csharp
 
 public class TodoOrchestrator : IRxnProcessor<ATodoItemCreated> { ... }
@@ -32,23 +36,24 @@ orchConnection.Dispose(); //take the orchestrator offline, but leaves push notif
 
 1. *Testable*: We beleive your event streams should form the basis of regression testing
 ```csharp
-    public interface ITapeRecorder
-    {
-        PlaybackStream Play(ITapeStuff tape, PlaybackSettings settings = null);
-        IDisposable Record(ITapeStuff tape, IObservable<IRxn> stream);
-    }
+public interface ITapeRecorder
+{
+    PlaybackStream Play(ITapeStuff tape, PlaybackSettings settings = null);
+    IDisposable Record(ITapeStuff tape, IObservable<IRxn> stream);
+}
 
-    public interface IAutomateUserActions
-    {
-        IObservable<bool> AutomateUserActions(Page page, RxnPageModel model, IObservable<IRxn> actions, Action<IRxn> publish);
+public interface IAutomateUserActions
+{
+    IObservable<bool> AutomateUserActions(Page page, RxnPageModel model, IObservable<IRxn> actions, Action<IRxn> publish);
 
-        ITapePlaybackFilter[] Filters { get; }
-    }
+    ITapePlaybackFilter[] Filters { get; }
+}
 ```
 
 1. *Real-time*: Understanding what your reactions are doing in an event storm should not be hard
 ```csharp
-//this chart is automatically compiled for u, and uses colours and sizes to display throughput / status / backpressure of ur reactions
+// this chart is automatically compiled for u, and uses colours and sizes to display 
+// throughput / status / backpressure of ur reactions
 ```
 ![Metrics Graph](https://github.com/captainjono/rxns/blob/master/examples/metrics.png "Metrics Console")
 
@@ -77,12 +82,13 @@ LoginCmd = this.OnExecute(loginDetails => _publish(new UserAttemptingLoginEvent>
 #### On the Server
 
 ```csharp
-public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin> {
-...
+public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin> 
+{
 	IObservable<IRxn> Process(UserAttemptingLogin loginDetails) //pure functions are encouraged
 	{
 		return RxObservable.Create(() => _loginService.Verify(loginDetails)) //Func<bool>, IObservable<bool>, with error handling covered
-				.Select(sucess => success ? new LoginSuccessFul(loginDetails) : new LoginFaulure(loginFailure))
+				.Select(sucess => success ? new LoginSuccessFul(loginDetails) 
+										: new LoginFaulure(loginFailure))
 	}
 }
 ```
@@ -215,7 +221,7 @@ public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTas
 
 ### And remmber you get metrics for free
 Whenever u specificy MonitorHealth = true in IRxnCfg
-![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reactions Per Second")
+![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reaction throughput Per Second")
 
 ### We consider logging a first order concept
 *IReportStatus*, *ReportStatus*, *ReportStatusService* all provide Information & Error channels as well as IReportHealth that links up to metrics 
