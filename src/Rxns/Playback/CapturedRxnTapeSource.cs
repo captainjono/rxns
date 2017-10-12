@@ -7,7 +7,7 @@ using Rxns.Logging;
 
 namespace Rxns.Playback
 {
-    public class CapturedEventTapeSource : IFileTapeSource
+    public class CapturedRxnTapeSource : IFileTapeSource
     {
         private readonly IStringCodec _codec;
         private readonly bool _skipErrors;
@@ -15,7 +15,7 @@ namespace Rxns.Playback
         public IFileMeta File { get; private set; }
         public IEnumerable<ICapturedRxn> Contents { get { return ReadTo(); } }
 
-        public CapturedEventTapeSource(TimeSpan duration, IFileMeta file, IStringCodec codec)
+        public CapturedRxnTapeSource(TimeSpan duration, IFileMeta file, IStringCodec codec)
         {
             _codec = codec;
             _skipErrors = codec.SkipErrors;

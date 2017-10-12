@@ -18,6 +18,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rxns.Xamarin", "src\Rxns.Xa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rxns.Xamarin.Autofac", "src\Rxns.Xamarin.Autofac\Rxns.Xamarin.Autofac.csproj", "{8293991B-E7A3-4204-8CBA-04FE614FFFA8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{0A36FDEE-091D-4213-BACB-659421DCBF77}"
+	ProjectSection(SolutionItems) = preProject
+		examples\eventsPerSecond.png = examples\eventsPerSecond.png
+		examples\metrics.png = examples\metrics.png
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +53,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0A36FDEE-091D-4213-BACB-659421DCBF77} = {ADE52048-A385-4932-8463-A218860125CB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4D4D864E-AA2B-446E-AD84-FADE760963AA}

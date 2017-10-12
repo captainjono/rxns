@@ -141,8 +141,8 @@
     <Compile Include="PlatformHelper.cs" />
     <Compile Include="Playback\CapturedRxn.cs" />
     <Compile Include="Playback\CapturedEventRecorder.cs" />
-    <Compile Include="Playback\CapturedEventTapeSource.cs" />
-    <Compile Include="Playback\EventTape.cs" />
+    <Compile Include="Playback\CapturedRxnTapeSource.cs" />
+    <Compile Include="Playback\RxnTape.cs" />
     <Compile Include="Playback\IEventTape.cs" />
     <Compile Include="Playback\InMemoryTapeSource.cs" />
     <Compile Include="Playback\ITapeRecorder.cs" />
