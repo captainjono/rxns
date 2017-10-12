@@ -13,7 +13,7 @@ this.OnReactionTo<ATodoItemCreated>()
         .UpdateUIWith(ShowBusySignal)
         .SelectMany(SaveTodo)
         .UpdateUIWith(HideBusySignal)
-        .Until(FormHidden);
+        .Until(ohHide);
 
 this.OnReactionTo<CpuOverThreshHold>().Do(SendAlertToSam).Until(FatalError);
 ```
@@ -53,7 +53,8 @@ public interface IAutomateUserActions
 1. *Real-time*: Understanding what your reactions are doing in an event storm should not be hard
 ```csharp
 // this chart is automatically compiled for u, and uses colours and sizes to display 
-// throughput / status / backpressure of ur reactions
+// throughput / backpressure / status of ur reactions, others stream your IReportsStaus log
+// and in the future, remote control, scaling and commanding 
 ```
 ![Metrics Graph](https://github.com/captainjono/rxns/blob/master/examples/metrics.png "Metrics Console")
 
@@ -64,10 +65,10 @@ public interface IAutomateUserActions
 
 **ViewModel**
 ```csharp
-this.OnReactionTo<AnEvent>.Select(SomethingRemotely).UpdateUIWith(TheResult).Until(AnTerminalErrorOuccrs);
+this.OnReactionTo<AnEvent>.Select(SomethingRemotely).UpdateUIWith(TheResult).Until(FormIsHidden);
 ...
-public string Name { get; set;} //impelemnts IPropertyChanged
-this.OnReaction(this, p => p.Name).Do(CallAnApi).Until(OnError)
+public string Name { get; set;} //impelements IPropertyChanged
+this.OnReaction(this, p => p.Name).Do(CallAnApi).Until(ohHide)
 ...
 public LoginCmd {get; set;}
 LoginCmd = this.OnExecute(loginDetails => _publish(new UserAttemptingLoginEvent>(loginDetails));
@@ -76,7 +77,9 @@ LoginCmd = this.OnExecute(loginDetails => _publish(new UserAttemptingLoginEvent>
 **View**
 ```Xaml
 <Label Value={Binding Name}/>
-<Button Command="{Binding LoginCmd}" CommandParameter={Binding LoginDetails}/>
+<Button Command="{Binding LoginCmd}" 
+	CommandParameter={Binding LoginDetails}
+	/>
 ```
 
 #### On the Server
@@ -90,8 +93,8 @@ public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin>
         //Func<bool>, IObservable<bool>, with error handling covered
         return RxObservable.Create(() => _loginService.Verify(loginDetails)) 
                             .Select(success => success 
-                                ? new LoginSuccessFull(loginDetails)
-                                : new LoginFaulure(loginFailure));
+                                ? new LoginSuccessfull(loginDetails.Username)
+                                : new LoginFailure(loginDetails.Username));
     }
 }
 ```
@@ -101,7 +104,7 @@ Keep critical services apart, or index by a microApps feature *optionally* by im
 ```csharp
 public SomeClass : WhateverIWant, (... IRxnCfg)
 {
-		/// <summary>
+	/// <summary>
         /// The name of the reactor that this reaction will be hooked up to. 
         /// Null specifies the system will use the default reactor
         /// </summary>
@@ -119,8 +122,10 @@ public SomeClass : WhateverIWant, (... IRxnCfg)
         /// Null disables using any delivery scheme which.
         /// </summary>
         IDeliveryScheme<IRxn> InputDeliveryScheme { get; }
-	/// Gets your status real-time streamed to metrics
-        bool MonitorHealth { get; }
+        /// <summary>
+	/// Gets your status supervised
+        /// </summary>
+	bool MonitorHealth { get; }
 }
 
 ```
@@ -142,7 +147,7 @@ public class AzureBackingChannal : IBackingChannel { ... } //...or AWS, Akka, Or
 ```
 
 ```csharp
-public class MessagingCenterBackingChannel : LocalBackingChannel { ... } // Xamarin
+public class MessagingCenterBackingChannel : LocalBackingChannel { ... } // Legacy Xamarin code
 ```
 
 ## We use interfaces to magically wire everything up 
@@ -153,6 +158,7 @@ to reduce coupling and also encourage the use of patterns encouraged by the mast
 ```csharp
 IRxnPulser<SomeEvent> //a reaction which produces values at set intervals
 ```
+ie.
 ```csharp
 public class ET : IRxnPulsar<IPhoneHomeEventsNearEndOfMovie> 
 {
@@ -164,6 +170,7 @@ or
 ```csharp
 IRxnPublisher //a reaction that can publish at will with _publish(new SomethingHappened());
 ```
+.ie
 ```csharp
 public class Scoreboard : IRxnPublisher<ScoreUpdate>
 { 
@@ -188,17 +195,16 @@ that make event sourced apps easier to reason about
 //update a cache directly from your event stream
 var modelCache = new RxnDictionary<TEvent, TKey, TValue>(new YourDictionaryImplementation(), 
 								this.OnReactionTo<TEvent>(),
-								(event, dict) => { dict.AddOrUpdate(event.Key, event.Value)); 
+								(event, dict) => { dict.AddOrUpdate(event.Key, event.Value) }); 
 ...
 //event source anything with a method
 var nowEventSourced = RxnDecorator<MouseMoved, LegacyUIPainter>(this.OnReactionTo<MouseMoved>(),
 								new uiPainter(),
-								mouseMoved, LegacyUIPainter) => uiPainter.paintScreen(occoured.X, occoured.Y))
+								(mm, uiPainter) => uiPainter.paintScreen(mm.X, mm.Y))
 
-//and traditional queues for multi-tenant envirvonments
+//traditional queues for multi-tenant envirvonments
 public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTask>
 {
-
     public override IObservable<CommandResult> Start(string @from = null, string options = null)
     {
         return Run(() =>
@@ -226,7 +232,7 @@ public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTas
 Whenever u specificy MonitorHealth = true in IRxnCfg
 ![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reaction throughput Per Second")
 
-### We consider logging a first order concept
+### We consider logging a first order concept ...
 *IReportStatus*, *ReportStatus*, *ReportStatusService* all provide Information & Error channels as well as IReportHealth that links up to metrics 
 
 ```csharp
@@ -262,15 +268,17 @@ rxnDictionary.OnUpdate()
 
 ```
 
-### Just as we do testing 
+### ... just as we do testing 
 Record your event streams in different scenarios and assert on them over and over again
 ```csharp
 var tape = RxnTape.FromSource("LoginTest", source);
-var end = tapeRecorder.Record(tape, this.OnReactionTo<UserAction>();
+var recording = tapeRecorder.Record(tape, this.OnReactionTo<UserAction>();
 
 //make system do stuff, then later
 
-end.Dispose();
+recording.Dispose(); 
+
+//and now in your test suite
 
 var player = new UserAutomationPlayer();
 var output = player.Play(tape, new PlaybackSettings { TickSpeed = 10 } //fast forward
@@ -279,10 +287,19 @@ var output = player.Play(tape, new PlaybackSettings { TickSpeed = 10 } //fast fo
 output.Stream.Do(_publish).Subscribe()
 ```
 
-**Built in UI testing**
+**Built in UI testing for Xamarin / any other .NET app**
+```
+// RxnUI Pattern (aka. Event Sourcing)
+// 1. Every action must start with an event
+// 1. Events triggered by Events should be marked as IReactiveEvent
+```
+If your follow the RxnUI pattern correctly, u can build UI tests on an actual device by using the app u are recording. Uneducated UI testers can take snapShots on demand which assert when you play them back. 
 
-In the UI we provide a *UserAutomationPlayer* which if u implement our RxnUI pattern correctly, will result in
-actions being played back, UI buttons being pressed and results of snapshots diffed with your recording. 
+**Bonus** 
+Use can use the same automation technique to 
+- explain features to users.
+- mostly eliminate no-repo bugs
+- create a bot army that tests the scaling ability of your apps(!!)
 ***coming soon**
 
 ### We dont just log **backpressure**, we mitigate it
@@ -303,6 +320,6 @@ Now go have a play and look at the API... detailed doco comming soon
 
 1. *CmdService*: to build real-time microservices without the boiler-plate
 1. *Event Sync*: To support occasionally connected MicroApps
-1. *JS/Typescript bridge*: A pattern to build ES Domain Aggregates that are universal (share with React, Angular 2 etc.)
+1. *JS/Typescript bridge*: A pattern to build ES Domain Aggregates that are universal (share with [React](https://reactjs.org/), [Angular 2](https://angular.io/) etc.)
 1. IPhoneHome just like E.T with *AppStatus* always watching you app for anomolies
-1. *Serious*: If you outgrow the Queues or Buses of cloud providers, swap to Akka or Orleans on a per Reactor basis.
+1. *Serious*: If you outgrow the Queues or Buses of cloud providers, swap to [Akka](https://getakka.net/) or [Orleans](https://dotnet.github.io/orleans/) on a per Reactor basis.
