@@ -67,6 +67,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Rxns.Autofac.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rxns\Rxns.csproj">

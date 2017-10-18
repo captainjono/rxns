@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>Rxns.Autofac</id>
+    <version>0.9</version>
+    <title>Reactions</title>
+    <authors>Rxns Contributors</authors>
+    <owners>Rxns Contributors</owners>
+    <licenseUrl>http://www.opensource.org/licenses/mit-license.php</licenseUrl>
+    <projectUrl>http://github.com/captainjono/rxns</projectUrl>
+    <iconUrl>https://github.com/captainjono/rxns/blob/master/logo.png?raw=true</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Autofac Rxns extensions</description>
+    <summary>Implements ReactionCreators and other features to stream-line Rxns integration when using Autofac</summary>
+    <language>en-US</language>
+    <tags>rxns IoC autofac</tags>   
+  </metadata>
+</package>

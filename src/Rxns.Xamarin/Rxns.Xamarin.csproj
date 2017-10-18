@@ -146,6 +146,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Rxns.Xamarin.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rxns.NewtonsoftJson\Rxns.NewtonsoftJson.csproj">

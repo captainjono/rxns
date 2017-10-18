@@ -17,3 +17,5 @@
 /src/Rxns.Xamarin.Autofac/bin/Debug
 /src/Rxns.Xamarin.Autofac/bin/Release
 /src/Rxns.Xamarin.Autofac/obj
+*.user
+*.nupkg
