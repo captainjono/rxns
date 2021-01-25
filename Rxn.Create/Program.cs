@@ -224,14 +224,14 @@ namespace RxnCreate
                 if (!Debugger.IsAttached)// ; && args.Contains("Cache"))
                     Debugger.Launch();
 
-                if (args.FirstOrDefault() == "Demo")
+                if (args.FirstOrDefault() == "Demo" || true)
                 {
-                    RunSpareReactor(args: args).Do(_ => { ctx = _; })
+                    RunDemoAppReactor("http://192.168.1.77:888", args).Do(_ => { ctx = _; })
                         .Until(GeneralLogging.Log.OnError);
                 }
                 else
                 {
-                    RunSpareReactor(args: args).Do(_ => { ctx = _; })
+                    RunSpareReactor("http://192.168.1.77:888", args).Do(_ => { ctx = _; })
                         .Until(GeneralLogging.Log.OnError);
                 }
             }
