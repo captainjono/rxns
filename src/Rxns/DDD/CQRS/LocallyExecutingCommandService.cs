@@ -9,49 +9,6 @@ using Rxns.Logging;
 
 namespace Rxns.DDD.CQRS
 {
-    //public class RxnManagerCommandService : ICommandService
-    //{
-    //    private readonly IRxnManager<IRxn> _rxnManager;
-    //    private readonly IServiceCommandFactory _cmdFactory;
-
-    //    public RxnManagerCommandService(IRxnManager<IRxn> rxnManager, IServiceCommandFactory cmdFactory)
-    //    {
-    //        _rxnManager = rxnManager;
-    //        _cmdFactory = cmdFactory;
-    //    }
-
-    //    public IObservable<T> Run<T>(TenantQry<T> query)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    public IObservable<DomainCommandResult<T>> Run<T>(TenantCmd<T> cmd)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    public IObservable<CommandResult> Run(IServiceCommand cmd)
-    //    {
-    //        return Rxn.DfrCreate<CommandResult>(o =>
-    //            {
-    //                var cmdResultResource = _rxnManager.CreateSubscription<CommandResult>()
-    //                    .Where(c => c.InResponseTo == cmd.Id)
-    //                    .FirstOrDefaultAsync()
-    //                    .Subscribe(o);
-
-    //                _rxnManager.Publish(cmd).Subscribe();
-
-    //                return cmdResultResource;
-    //            })
-    //            .Finally(() => GeneralLogging.Log.OnVerbose($"Finished command {cmd.Id}"));
-    //    }
-        
-    //    public IObservable<CommandResult> Run(string cmd)
-    //    {
-    //        var cmdWithparams = cmd.Split(' ');
-    //        return Rxn.Create<CommandResult>(o => Run(_cmdFactory.Get(cmdWithparams[0], cmdWithparams.Skip(1).ToArray())).Subscribe());
-    //    }
-    //}
 
     public class LocallyExecutingCommandService : ICommandService, IRxnProcessor<IServiceCommand>, IRxnProcessor<IDomainQuery>, IRxnProcessor<IDomainCommand>
     {
@@ -174,7 +131,7 @@ namespace Rxns.DDD.CQRS
 
                 return cmdResultResource;
             })
-            .Finally(() => GeneralLogging.Log.OnVerbose($"Finished command {cmd.Id}"))
+            .Finally(() => ReportStatus.Log.OnVerbose($"Finished command {cmd.Id}"))
             ;
         }
 

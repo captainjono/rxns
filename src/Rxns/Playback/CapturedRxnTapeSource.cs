@@ -69,7 +69,7 @@ namespace Rxns.Playback
                                 catch (Exception e)
                                 {
                                     if (_skipErrors)
-                                        GeneralLogging.Log.OnWarning("ReadStream", e.Message);
+                                        ReportStatus.Log.OnWarning("ReadStream", e.Message);
                                     else
                                         throw;
                                 }
@@ -166,7 +166,7 @@ namespace Rxns.Playback
                     catch (Exception e)
                     {
                         if (skipErrors)
-                            GeneralLogging.Log.OnWarning(e.ToString());
+                            ReportStatus.Log.OnWarning(e.ToString());
                         else
                             throw;
                     }
@@ -191,7 +191,7 @@ namespace Rxns.Playback
             catch (Exception e)
             {
                 if (skipErrors)
-                    GeneralLogging.Log.OnWarning(e.ToString());
+                    ReportStatus.Log.OnWarning(e.ToString());
                 else
                     throw;
             }

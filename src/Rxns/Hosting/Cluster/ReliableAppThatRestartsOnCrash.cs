@@ -104,9 +104,9 @@ namespace Rxns.Hosting.Cluster
                 .Where(msg => msg.S == name)
                 .Do(log =>
                 {
-                    GeneralLogging.Log.OnMessage(LogLevel.None, log.ToString(), null, name);
+                    ReportStatus.Log.OnMessage(LogLevel.None, log.ToString(), null, name);
                 })
-                .Until(GeneralLogging.Log.OnError)
+                .Until(ReportStatus.Log.OnError)
                 .DisposedBy(resources);
 
             app.Status
@@ -122,7 +122,7 @@ namespace Rxns.Hosting.Cluster
                         .SelectMany(___ => Rxn.On(CurrentThreadScheduler.Instance, () => app.Start()).SelectMany(s => s));
                 })
                 .Do(_ => $"{name} recovered from a crash".LogDebug())
-                .Until(GeneralLogging.Log.OnError)
+                .Until(ReportStatus.Log.OnError)
                 .DisposedBy(resources);
 
             return resources;

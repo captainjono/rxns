@@ -47,7 +47,7 @@ namespace Rxns.Playback
             var selectedTape = _tapeSelector(@event);
             if (selectedTape == null)
             {
-                GeneralLogging.Log.OnWarning("TapeArray", "Not recording {0}".FormatWith(@event.GetType()));
+                ReportStatus.Log.OnWarning("TapeArray", "Not recording {0}".FormatWith(@event.GetType()));
                 return;
             }
             

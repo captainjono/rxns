@@ -133,7 +133,7 @@ namespace Rxns.Hosting.Cluster
                                      //o.OnCompleted();
                                  });
                          })
-                         .Until(GeneralLogging.Log.OnError);
+                         .Until(ReportStatus.Log.OnError);
                  })
                 .SelectMany(_ => _isOnline)
                 .FirstAsync());
@@ -141,7 +141,7 @@ namespace Rxns.Hosting.Cluster
                 return waitForCOnnection
                     .DoWhile(() => _clients.Count != _macConcurrentClients)
                     .Repeat()
-                    .Until(GeneralLogging.Log.OnError);
+                    .Until(ReportStatus.Log.OnError);
 
             })
             .Merge(Router.Setup(postman))

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Linq;
 using System.Web.Http;
 using Autofac;
 using Newtonsoft.Json;
@@ -52,13 +53,13 @@ namespace RxnsDemo.Micro.App
             rxnApp
                 .Named(appInfo)
                 .OnHost(webApiHost, new RxnAppCfg()) // the apps supervisor
-                .Subscribe(rxnAppContext =>
+                .Do(rxnAppContext =>
                 {
 
                     //send an error report to the appstatus portal
                     //Rxn.In(TimeSpan.FromSeconds(1)).Do(_ =>
                     //{
-                    //    GeneralLogging.Log.OnError("Some error has happened");
+                    //    ReportStatus.Log.OnError("Some error has happened");
                     //}).Subscribe();
 
                     //called each time the app starts
@@ -89,7 +90,8 @@ namespace RxnsDemo.Micro.App
                     //}).Subscribe();
 
 
-                });
+                })
+                .Until(ReportStatus.Log.OnError);
                 //later to end app
                 //.Dispose();
                 
@@ -109,6 +111,7 @@ namespace RxnsDemo.Micro.App
                 //the services to the api
                 .CreatesOncePerApp<SurveyAnswersDomainService>()
                 .CreatesOncePerApp(() => new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>()))
+                .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{s.userId}%{s.AttemptId}")
                 .CreatesOncePerApp<TapeArrayTenantModelRepository<SurveyAnswers, ISurveyAnswer>>()
                 //api
                 .RespondsToCmd<BeginSurveyCmd>()

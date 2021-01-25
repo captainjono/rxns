@@ -33,7 +33,7 @@ namespace Rxns.Windows
             {
                 errorAction = (sender, args) =>
                 {
-                    GeneralLogging.Log.OnWarning("FSW => {0}".FormatWith(path), "Restarting because: {0}".FormatWith(args.GetException()));
+                    ReportStatus.Log.OnWarning("FSW => {0}".FormatWith(path), "Restarting because: {0}".FormatWith(args.GetException()));
 
                     Action retryUntilReady = null;
                     retryUntilReady = () => Rxn.Create(TimeSpan.FromSeconds(10)).Subscribe(_ =>
@@ -44,7 +44,7 @@ namespace Rxns.Windows
                         }
                         catch (Exception e)
                         {
-                            GeneralLogging.Log.OnWarning("FSW => {0}".FormatWith(path), "Cannot restart yet because: {0}".FormatWith(e));
+                            ReportStatus.Log.OnWarning("FSW => {0}".FormatWith(path), "Cannot restart yet because: {0}".FormatWith(e));
                             retryUntilReady();
                         }
                     });

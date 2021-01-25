@@ -61,6 +61,7 @@ namespace Rxns.WebApi
                             //so adapters can be swapped out
                             .Includes<OwinWebApiAdapterModule>()
                             .CreatesOncePerApp(_ => cfg)
+                            .CreatesOncePerApp(_ => app)
                             .CreatesOncePerApp(_ => _cfg);
                     });
 
@@ -75,7 +76,7 @@ namespace Rxns.WebApi
                     .FinallyR(() =>
                     {
                         endWs.Dispose();
-                    }).Subscribe();
+                    }).Subscribe(o);
                 }
                 catch (Exception e)
                 {

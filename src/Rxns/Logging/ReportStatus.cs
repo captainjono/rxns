@@ -3,9 +3,9 @@ using Rxns.Interfaces;
 
 namespace Rxns.Logging
 {
-    public class GeneralLogging : ReportsStatus
+    public class ReportStatus : ReportsStatus
     {
-        public static GeneralLogging Log = new GeneralLogging();
+        public static ReportStatus Log = new ReportStatus();
 
         public override string ReporterName
         {

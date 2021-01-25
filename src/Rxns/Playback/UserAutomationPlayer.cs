@@ -65,7 +65,7 @@ namespace Rxns.Playback
                 })
                 .Subscribe(_ => { }, () =>
                 {
-                    GeneralLogging.Log.OnVerbose("Finished playbackQueue", nameof(UserAutomationPlayer));
+                    ReportStatus.Log.OnVerbose("Finished playbackQueue", nameof(UserAutomationPlayer));
                 });
 
                 var realTimeClock = Rxn.TimerWithPause(DateTimeOffset.MinValue, TimeSpan.FromSeconds(settings.TickSpeed), isPaused, _playbackScheduler)
@@ -88,7 +88,7 @@ namespace Rxns.Playback
                    })
                    .Subscribe(_ => { }, o.OnError, () =>
                    {
-                       GeneralLogging.Log.OnVerbose("Finished position", nameof(UserAutomationPlayer));
+                       ReportStatus.Log.OnVerbose("Finished position", nameof(UserAutomationPlayer));
                    });
 
                 return new CompositeDisposable(realTimeClock, playbackQueue, position, playBackStream.Subscribe(o), isPaused);

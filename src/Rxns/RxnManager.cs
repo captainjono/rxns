@@ -166,7 +166,7 @@ namespace Rxns
 
                 return resources;
             })
-                .Finally(() => GeneralLogging.Log.OnVerbose($"Got answer to question {question.Id}"));
+                .Finally(() => ReportStatus.Log.OnVerbose($"Got answer to question {question.Id}"));
         }
     }
 

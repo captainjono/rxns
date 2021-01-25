@@ -13,8 +13,8 @@ namespace Rxns.Windows
             Observable.FromEventPattern<UnhandledExceptionEventHandler, UnhandledExceptionEventArgs>(
                     h => AppDomain.CurrentDomain.UnhandledException += h,
                     h => AppDomain.CurrentDomain.UnhandledException -= h)
-                .Subscribe(GeneralLogging.Log, (e) => GeneralLogging.Log.OnError(e.EventArgs.ExceptionObject as Exception))
-                .DisposedBy(GeneralLogging.Log);
+                .Subscribe(ReportStatus.Log, (e) => ReportStatus.Log.OnError(e.EventArgs.ExceptionObject as Exception))
+                .DisposedBy(ReportStatus.Log);
 
             PlatformHelper.CallingTypeNameImpl = () =>
             {

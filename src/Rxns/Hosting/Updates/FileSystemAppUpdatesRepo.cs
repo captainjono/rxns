@@ -50,7 +50,7 @@ namespace Rxns.Hosting.Updates
                 {
                     DeleteUpdate(oldest);
                 }
-            }).Until(GeneralLogging.Log.OnError);
+            }).Until(ReportStatus.Log.OnError);
         }
 
         private void DeleteUpdate(string toDelete)
@@ -68,7 +68,7 @@ namespace Rxns.Hosting.Updates
         {
             return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine("updates", GetUpdateName(systemName, version)))).Catch<Stream, Exception>(e =>
             {
-                GeneralLogging.Log.OnWarning($"While downloading update {e}");
+                ReportStatus.Log.OnWarning($"While downloading update {e}");
                 throw new DomainCommandException(String.Format("Could not find '{0}' version '{1}'", systemName, version));
             });
         }

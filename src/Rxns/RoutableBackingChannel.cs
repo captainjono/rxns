@@ -77,7 +77,7 @@ namespace Rxns
 
             if(called) return;
 
-            GeneralLogging.Log.OnWarning("No route for {0}", @event.GetType());
+            ReportStatus.Log.OnWarning("No route for {0}", @event.GetType());
         }
         /// <summary>
         /// The scheme provided to this method is not respected as the this
@@ -95,7 +95,7 @@ namespace Rxns
             if (_setupResource == null)
             {
                 if (_routingScheduler != null) received = received.ObserveOn(_routingScheduler);
-                _setupResource = received.Do(RouteEvent).Until(GeneralLogging.Log.OnError);
+                _setupResource = received.Do(RouteEvent).Until(ReportStatus.Log.OnError);
             }
 
             return Local.Setup(scheme).FinallyR(() =>

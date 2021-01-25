@@ -37,10 +37,10 @@ namespace Rxns.Autofac
 
             _reporterCreated.DisposedBy(this);
 
-            if (!GeneralLogging.Log.ReportExceptions.HasObservers)
+            if (!ReportStatus.Log.ReportExceptions.HasObservers)
             {
-                GeneralLogging.Log.Information.Subscribe(ReportInformation);
-                GeneralLogging.Log.Errors.Subscribe(ReportExceptions);
+                ReportStatus.Log.Information.Subscribe(ReportInformation);
+                ReportStatus.Log.Errors.Subscribe(ReportExceptions);
             }
 
             var logger = container.Resolve<IRxnLogger>();

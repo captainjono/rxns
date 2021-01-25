@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -35,7 +36,7 @@ namespace Autofac
         public static IRxnApp ToRxnsSupporting(this ContainerBuilder cb, Action<IRxnLifecycle> configureWith = null)
         {
             "!!!!!fix issue with never ending rxns!!!!".LogDebug();
-            return ToRxnsSupporting(cb, new Subject<IDisposable>(), null, configureWith);
+            return ToRxnsSupporting(cb, new BehaviorSubject<IDisposable>(Disposable.Empty), null, configureWith);
         }
 
         public static IRxnApp ToRxnsSupporting<T>(this ContainerBuilder cb, IObservable<T> rxn, string[] args, Action<IRxnLifecycle> configureWith = null) where T : IDisposable
