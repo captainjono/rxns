@@ -1,327 +1,225 @@
-#  Introducing .... *Rxns* 
-![Rxns logo](https://github.com/captainjono/rxns/blob/master/logo.png "Reactions Logo")
-(pronounced: **Reactions**)
+<!-- TOC -->
 
-A C# framework for building highly specialised, testable, event driven *MicroApps* across the stack with [Reactive Extensions *(Rx)*](http://reactivex.io/) 
+- [1. Reactions](#1-reactions)
+    - [1.1. Building blocks for *Reactive* Micro Apps](#11-building-blocks-for-reactive-micro-apps)
+    - [1.2. Use-cases](#12-use-cases)
+    - [1.3. Event Driven Primitives](#13-event-driven-primitives)
+        - [1.3.1. Event Manager](#131-event-manager)
+        - [1.3.2. Reactors](#132-reactors)
+        - [1.3.3. Recording and playback](#133-recording-and-playback)
+    - [1.4. Rx Primities](#14-rx-primities)
+    - [1.5. Scheduler](#15-scheduler)
+    - [1.6. Logging](#16-logging)
+    - [1.7. Monitoring](#17-monitoring)
+    - [1.8. Mediated App Pipelines](#18-mediated-app-pipelines)
+    - [1.9. Cloud Resilliancy](#19-cloud-resilliancy)
+    - [1.10. Hosting](#110-hosting)
+        - [1.10.1. Supervised AppHost](#1101-supervised-apphost)
+    - [1.11. A language](#111-a-language)
+- [2. Addons](#2-addons)
 
-[![NuGet](https://img.shields.io/nuget/v/Rxns.svg)](https://nuget.org/packages/Rxns)
+<!-- /TOC -->
 
-## In a nutshell ...
+# 1. Reactions
 
-1. *Fluent first*: Because maintaining documentation is hard and Rx has a domain learning curve
-```csharp
-//On Reaction to A Todo Item being Created, show a busy signal to the user until its saved
-this.OnReactionTo<ATodoItemCreated>()
-        .UpdateUIWith(ShowBusySignal)
-        .SelectMany(SaveTodo)
-        .UpdateUIWith(HideBusySignal)
-        .Until(ohHide);
+Reactions makes building, maintaining and taming reactive apps a pleasure.
+Concentrate on the functionality of your app, while knowing it can scaling horiztonally or vertically with ease.
+Reactions are designed to grow with your app. Reactors move seemlessly from InProsss, to OutOfProcess, to Cloud ***zero-downtime*** in seconds 
+Reactions are a way of seperating concerns in your app, de-coupling your buisness logic from your service logic from your scaling logic. The micro-arcitecture reimagines all facets of your app with a micro-services lense.
+Reactions gives you insight into your app, exposing a rich set of a real-time diagnostics via its appstatus interface that can be access localy or remotely
+Reactions is cloud native, without the cloud lockin. Migrate from in-process to Cloud based Queues, ServiceBuses, Functions with basic configuration changes.
+Reactions support partially or fully event sourced architectures while providing deep insight into the event flow and bottlenecks in your sytsem.
+Reactions belives some services shouldnt be outsourced and provides a base-layer of functionality critical to any reactive app. As your apps hockey-stick kicks in, you can replace any of these core functions with Cloud managed services with a few lines of code.
+Reactions provides isolation and other semantics via its Reactors. (Re-Actors) can be thought of as Actors reimagined for the cloud.
+Shields your app from cloud lockin
 
-this.OnReactionTo<CpuOverThreshHold>().Do(SendAlertToSam).Until(FatalError);
-```
+Highlights
+* [Reactors](reactors.md)
+* [DDD/CQRS](cloudpatterns.md)
+* [RxnHosts](rxnhosts.md)
+* [Cloud scaling](cloudscaling.md)
+* [Docker support](rxncreate.md)
+* [Real-time App Monitoring](scaling.md)
+* [Task Scheduling](scheduler.md)
+* [CI/DI](cicd.md)
+* [Cloud Costings](costings.md) *comming soon*
 
-1. *Composable Actors*: Inspired by [Erlang](https://www.erlang.org/), reactions are chain'ed to Reactors which supervise them
-```csharp
+## 1.1. Building blocks for *Reactive* Micro Apps
 
-public class TodoOrchestrator : IRxnProcessor<ATodoItemCreated> { ... }
+Reactions (*Rxns*) takes a pragmatic view of reactive app design centered around an event driven approach. See [reactors...](reactors.md)
 
-//note: u never have to write this code if you use an IoC container like Autofac, reactions 
-//are hooked up auto-magically
-var todoReactor = new Reactor("TodoCriticalServices");
-var orchConnection = todoReactor.Connect(todoOrchestrator, todoReactor);
-var pushNotiConnection = todoReactor.Connect(todoPushNotificationService, todoReactor);
-var fireDoctor = todoReactor.Monitor(autoRestartAfter10ErrorsDoctor);
+Core motivations include:
 
-//...later an event storm occours...
-orchConnection.Dispose(); //take the orchestrator offline, but leaves push notifications up 
-```
+* `IObservbale<T>` everything
+* All features wrapped in domain interfaces
+* Testability and maintainability are a first order concern, along with speed and ergonomics
+* Sensible defaults that are resillisant to failures in occasionally connected environments
+* Take it as you come. Each building block can be taken in isolation or as a whole *Module*.
+  * Allows you dip your toes in the water before drinking the cool-aid and going all in.
+* Without the cruft - *dependency free* on `.NET5`
+    * Has been PCL complient since `2015`
+    * Will always work on any platform that `.net` supports
+      * `.NET5 .netCore / Full framework 4.0-4.8 / Mono / Xamarin / etc`
+* Modern IDE friendly with an API that is discoverable via *intellisense*. Just start typing `IRxn..` or `Rxn..` and your on your way...
 
-1. *Testable*: We beleive your event streams should form the basis of regression testing
-```csharp
-public interface ITapeRecorder
-{
-    PlaybackStream Play(ITapeStuff tape, PlaybackSettings settings = null);
-    IDisposable Record(ITapeStuff tape, IObservable<IRxn> stream);
-}
+## 1.2. Use-cases
+ 
+* Creating app pipelines that are decoupled and well structured
+* Creating micro-servicess that are highly elastic
+* Creating decoupled micro-frontends with `redux style`, `one-way`  dataflows
+* Creating high performance event sourced apps that run on commodity infrastructure
+* Useful for transitional architectures, adding event driven components to legacy systems in a peicemeal fashion
+* Remove bottlenecks in existing apps without going all in on cloud native concepts
+* Offloading tasks from expensive `monoliths` / `database centeric systems`
+* Sheilding your your `domain modal` / `app` from cloud lock-in
 
-public interface IAutomateUserActions
-{
-    IObservable<bool> AutomateUserActions(Page page, RxnPageModel model, IObservable<IRxn> actions, Action<IRxn> publish);
+<p>
 
-    ITapePlaybackFilter[] Filters { get; }
-}
-```
+<h1> The Building blocks </h1>
 
-1. *Real-time*: Understanding what your reactions are doing in an event storm should not be hard
-```csharp
-// this chart is automatically compiled for u, and uses colours and sizes to display 
-// throughput / backpressure / status of ur reactions, others stream your IReportsStaus log
-// and in the future, remote control, scaling and commanding 
-```
-![Metrics Graph](https://github.com/captainjono/rxns/blob/master/examples/metrics.png "Metrics Console")
+## 1.3. Event Driven Primitives
 
-## Dive a little deeper
+* Supports traditional event sourcing patterns
+* Design now, scale later! Seperates the concern of reacting to an event, from event delivery, allowing your event driven components to evolve seperately from your transport / platform or hosting mechanism
+* Each primivitate can be chained to an [EventManager] or [Reactor](#reactors) to partition your app features
+* Types
+  * `RxnPulsars` publish events on specific intervals
+  * `RxnPublishers` publish events at any point in time based on there own internal semantics
+  * `RxnProcessors` react to events with one or more events as a result
+  * `RxnDectorators` event source the operations of *anything*
+  * `RxnDictionary<T, V>` are a specialised use-case optimised for in-memory caches
+  * `LazyCacheDecorator<T, TV>` takes it a step further, debouncing operations to the backing store in time-slipping buffers where last value wins and writes can be skipped
+  * `ShardingQueueProcessingService`
+    * Supports `duplexing` tenanted data over a single queue serviced by a configurable amount of workers
+    * Allows you to *project* `events` into *stores* or *views* in a highly scalable way for highly scalable consumption
 
-### Rxns 
-##### *On the UI* with the MV* pattern
+### 1.3.1. Event Manager
 
-**ViewModel**
-```csharp
-this.OnReactionTo<AnEvent>.Select(SomethingRemotely).UpdateUIWith(TheResult).Until(FormIsHidden);
-...
-public string Name { get; set;} //impelements IPropertyChanged
-this.OnReaction(this, p => p.Name).Do(CallAnApi).Until(ohHide)
-...
-public LoginCmd {get; set;}
-LoginCmd = this.OnExecute(loginDetails => _publish(new UserAttemptingLoginEvent>(loginDetails));
-```
+* Allows your event driven app to ***pub***lish and ***sub***scribe to events
+* Allows you to worry about scaling later, and not be blocked by a design choice made early on
+* Runs on a *backing channel* that allows you to evolve your eventbus capability seperatly to your domain logic
+  * The `IBackingChannel` *is the transport mechansim*
+  * `LocalbackingChannel` : events are routed in process only    
+  * `AzureServiceBusBackingChannel` :events are routed over an a Azure Service Bus    
+  * `LowestCostServiceBusBackingChannel` : events are routed over a cloud provider whos cost is lowest for the events you are sending *todo
+  * `MessagaingCenterChannel` : send events over [Xamarins](http://xamarin.com/) building sub/sub system
+  * `RoutablebackingChannel` : events are routed to different event managers depending on a condition
+  * and more...
+  
+### 1.3.2. [Reactors](reactors.md)
 
-**View**
-```Xaml
-<Label Value={Binding Name}/>
-<Button Command="{Binding LoginCmd}" 
-	CommandParameter={Binding LoginDetails}
-	/>
-```
+* Event Managers and other [primitives](#event-driven-primitives) can be `chained` to reactors to, communicating in an isolated way from other app components.
+* Couples components together to create resiliant, isolated, self-managed, sub-systems
+* A scale out vector, as the `Reactor` grows, move it out of process without modifying a single line of code
+* A reactors lifecycle is independant of your apps lifecycle, so they can be stopped or started without your app going down
+* Mimics the supervisor pattern used in [Erlang](erlang.org)
+* Automatically setups up metrics channel that provides deep insights into the event-flow of your system including the `back-pressure` of your reactions
+  * Critical to understanding why your app is [event storming]()
+  * Can be remotely viewed in real-time via the [AppStatus](#hosting) portal
 
-#### On the Server
+### 1.3.3. Recording and playback
 
-```csharp
-public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin>
-{
-    //pure functions are encouraged
-    IObservable<IRxn> Process(UserAttemptingLogin loginDetails) 
-    {
-        //Func<bool>, IObservable<bool>, with error handling covered
-        return Rxn.Create(() => _loginService.Verify(loginDetails)) 
-                            .Select(success => success 
-                                ? new LoginSuccessfull(loginDetails.Username)
-                                : new LoginFailure(loginDetails.Username));
-    }
-}
-```
+* Great tools to make your app more battle hardended
+* Unlock advanced event sourcing features such as `undo`, `redo`
+* Unit/Integration testing via tape playback
+  * Automate integration test generation by recording user actions and storing in ITapeRepository for playback by the `UserAutomationPlayer`
+*  Can be used to level up error reporting and diagnosis and produce piplines that empower devs with full-repo steps
 
-### Rxns cluster in Reactor's
-Keep critical services apart, or index by a microApps feature *optionally* by implementing IRxnCfg
-```csharp
-public SomeClass : WhateverIWant, (... IRxnCfg)
-{
-	/// <summary>
-        /// The name of the reactor that this reaction will be hooked up to. 
-        /// Null specifies the system will use the default reactor
-        /// </summary>
-        string Reactor { get; }
-        /// <summary>
-        /// Configures the input pipeline that is feeds any reations implemented by this
-        /// class/interface. returning the pipeline fed into this method is the equivilant
-        /// of not doing anything to it.
-        /// </summary>
-        /// <param name="pipeline"></param>
-        /// <returns></returns>
-        IObservable<IRxn> ConfigureInput(IObservable<IRxn> pipeline);
-        /// <summary>
-        /// The delivery scheme used to control the events that are observed on the input pipeline. 
-        /// Null disables using any delivery scheme which.
-        /// </summary>
-        IDeliveryScheme<IRxn> InputDeliveryScheme { get; }
-        /// <summary>
-	/// Gets your status supervised
-        /// </summary>
-	bool MonitorHealth { get; }
-}
+The gist is...
+* `EventTapes` store events in chronolical order via a `ITapeRecorder` 
+* `ITapeArrays` represent a series of tapes and can be combined with a `ITapeToTenantRepoPlaybackAutomator` to create tenanted recording and playback pipelines
+  
+## 1.4. Rx Primities
 
-```
+* Rxns attempts to simplify the cognatic load and resulting code when utilising Rx with *vigour* throughout your app
+* Its not just sugar though, the primiviates come default with error handling to help reduce maintainece overhead
+* Api is designed with intellisense in mind
+  * Start typing `Rxn..` and you will discover the api naturally
+  * `Rxn.Create` is your friend, use it whenever you want to `Create` a `reaction` out of `something`. 
+      * From an action `Rxn.Create(Action) : IObservable<Unit>;`
+    * From a function result `Rxn.Create(Func<T>) :     IObservable<T>;`  
+    * From another reaction `Rxn.Create(Rxn.In(Timespan.FromSeconds(2)))`
 
-### Reactors communicate with RxnManagers
-which are pub/sub based
-```csharp										
-var unsubscribe = rxnManager.CreateSubsciption<ToAnEvent>().Do(theEvent => { ... }).Until(); 
-rxnManager.Publish(new AnythingThatImplementsIRxn());
-```
-that use an abstraction for the transport medium so you can scale you apps
+## 1.5. [Scheduler](scheduler.md)
+* `RxScheduler` implemented behind `IRxScedhuler`
+* highly configurable, tasks can come from one or more sources
+  * `ITaskProvider` with a default implementations for exposing tasks via a `tasks.json` file or `inline`      
+* Tasks are hot-reloaded on configuraiton updates
+* Batteries included binding system that allows any properties on a task to be dervied from dynamic values in your system
+* High resolution - schedule tasks on in `ms`'s or `years`
+  * Supports cron schedulers with addon
+* Resillisant - no time slippage. No matter when your tasks finish, it will maintain a consistant schedule
+* Tasks can can be grouped and combined to create workflows that can use common logic operators to model complex buisness logic. 
+* Runs on pure `Rx` so its *fast* & *portable* with your app
 
-```csharp
-public class LocalBackingChannel : IBackingChannel { ... } //batteries-included, pibbybacks off Rx.Subject<>
-```
+## 1.6. Logging
 
-```csharp
-public class AzureBackingChannal : IBackingChannel { ... } //...or AWS, Akka, Orealens - add them at your will
-```
+* Basic logging, simplified `Logger.WriteToDebug()` then later`"HellowWorld".LogInfo()` `.LogDebug()` `.LogError(ex)`
+* Apps which use logging to alter system state can use a formalised approach of `IReportsStatus` and create `Rxns` out of their log streams with methods `OnInformation()` `OnWarning` `OnError`
 
-```csharp
-public class MessagingCenterBackingChannel : LocalBackingChannel { ... } // Legacy Xamarin code
-```
+## 1.7. [Monitoring](#scaling)
 
-## We use interfaces to magically wire everything up 
-to reduce coupling and also encourage the use of patterns encouraged by the masters
-1. https://martinfowler.com/eaaDev/EventSourcing.html
-1. http://udidahan.com/2009/06/14/domain-events-salvation/
+* Monitor your app remotely via a centralised `AppStatus` portal
+* Supports any of the following
+  * `Heartbeating` provides real-time metrics on your app on predefined intervals. Submit any metric you want with your heartbeat and it will be displayed in the portal
+  * `Remote Commanding` control your app remotely, sending it commands like `UploadLogs` `Restart` and `Update`  
+  * `Error Reporting` your app can be configured with various `IErrorChannels` and the `AppStatusErrorChannel` will surface the stacks and a dump of log messages around the time of the error for your to later catalog and browse
+  * `App Updates` upload versions of your app to the portal then by utilising the `UpdatesModule` to your app you can seemlessly have it update on `demand` or `automatically` whenever versions are published
+  * `Monitor Event`
+  * `Real-time logging` connect to the appstatus portal and stream your apps logs in real-time or historically
+  * `Log uploads` sometimes your apps logs might not stream that well, in those cases you can instruct your app to upload its logs *(as a zip)* and for your analyis.
 
-```csharp
-IRxnPulser<SomeEvent> //a reaction which produces values at set intervals
-```
-ie.
-```csharp
-public class ET : IRxnPulsar<IPhoneHomeEventsNearEndOfMovie> 
-{
-	public Interval { get { return TimeSpan.FromSecond(10); } }
-}
-```
+## 1.8. Mediated App Pipelines
+* Create CQRS / DDD style systems that react to `IDomainCommand<T>` or `IDomainQuery<T>`
+* Handle them with `IDomainCommandHandler<T>` 
+* `ICommandService` allows you to call these APi functions in same way from the client or the server
+* These pipelines that are mediated by `IDomainCommandMediator<T>` can be augmented with `IDomainCommandPreHandler<T>` or `IDomainCommandPostHandler[]<T, TR>` request handlers to perform transformations, validation and more
 
-or
-```csharp
-IRxnPublisher //a reaction that can publish at will with _publish(new SomethingHappened());
-```
-.ie
-```csharp
-public class Scoreboard : IRxnPublisher<ScoreUpdate>
-{ 
-	...
-	public override void ConfigurePublishFunc(Action<ScoreUpdate> publish) 
-	{
-		_publish = publish;
-	}
-}
-```
+## 1.9. Cloud Resilliancy
 
-or 
-```csharp 
-IRxnProcessor //as described in the inital example, for Rxns which produce 0 or more Events as a result
-```
+* Exposes a `IReliabilityManager` that is based on [Polly](http://www.thepollyproject.org/)
+* Makes your app predictable in unpredictable environments
+* Supports common cloud patterns
+  * Circut breaker
+  * Retry policies based on error messages  
+    * ie. Use `progressive backoffs, that settle into 30minute indefinate retries` for some error cases, or `3 retries at most` for others
+  * Define retry semantics that are decoupled from domain logic
+* Scalout reactors seemlessly from inprocess <-> out of process <-> into the cloud
 
-## We provide various helpers 
-that make event sourced apps easier to reason about 
+## 1.10. Hosting
 
-### With a functional programming style
-```csharp
-//update a cache directly from your event stream
-var modelCache = new RxnDictionary<TEvent, TKey, TValue>(new YourDictionaryImplementation(), 
-								this.OnReactionTo<TEvent>(),
-								(event, dict) => { dict.AddOrUpdate(event.Key, event.Value) }); 
-...
-//event source anything with a method
-var nowEventSourced = RxnDecorator<MouseMoved, LegacyUIPainter>(this.OnReactionTo<MouseMoved>(),
-								new uiPainter(),
-								(mm, uiPainter) => uiPainter.paintScreen(mm.X, mm.Y))
+* Reactions can be hosted anywhere `.net code` runs. Integrate it into your existing app or favourate framework using `Rxn.Create()` or..
+* Reactions also run on *AppHosts* which are basic abstractions used to decouple your app from its operating system
+* Batteries included with:
+  * `ConsoleHost` exposes your reaction via the `.NET` console app
+  * `ServiceHost` exposes your reaction via `.NET` service
+  * `WebApiHost` or `KrestalHost` exposes your reaction via a `.NET4.8 Owin WebApi` or `.NET5 Krestal` web server
+    * Can be combined with an [AppStatus Portal](#monitoring) to create a monitoring agent
+  * Simple to extend and create your hosts
 
-//traditional queues for multi-tenant envIRxnonments
-public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTask>
-{
-    public override IObservable<CommandResult> Start(string @from = null, string options = null)
-    {
-        return Run(() =>
-        {
-            var allTenants = _tenants.GetAll()
-					.Select(tenant =>
-					{
-						return new Func<AnImportantTask, bool>(i =>
-						{
-							return i.Tenant == tenant;
-						});
-					})
-					.ToArray();
+### 1.10.1. [Supervised AppHost](rxnhosts.md)
+  * JSON configurable to run any `.NET` `.dll`
+    * Perfect for [Docker](http://docker.org/) deployments
+  * Will launch your app *in a seperate process* and monitor it
+  * Will automatically restart your app on failure
+    * Supports the "let it crash" philisphohy of Erkabg
+    * Logs app output
+  * Allows your app to hot-update via an `IUpdateService`
+      * Which can be hosted easily in an `AppStatus` portal
+      * ...or any other Rxn!
+* Soon
+  * Clustering support, run multiple processes chains to a single AppHost
+  * Cluster around an `IEventManager` which will round-robin deliver messages to support out-of-process workers
+  * Define elastisiticy of cluster to `auto-spawn` processes based on condiditional logic
+  * Can be used to create reactive-auto-scaling micro-services that are scale based on system resource consumption or other metrics
+  
+## 1.11. [A language](#rxncreate)
 
-            _queueWorkerScheduler = TaskPoolSchedulerWithLimiter.ToScheduler(allTenants.Length > 0 ? allTenants.Length : 8);
-            StartQueue(allTenants);
-        })
-    
-    }
-}
+* Rxns can also be taken as a language. "I react to something" "This reaction performs the notifications"
+* The synatax attempts to be fluent and create living documentation
 
-```
+# 2. Addons
 
-### And remember you get metrics for free
-Whenever u specificy MonitorHealth = true in IRxnCfg
-![Events per second](https://github.com/captainjono/rxns/blob/master/examples/eventsPerSecond.png "Reaction throughput Per Second")
-
-### We consider logging a first order concept ...
-*IReportStatus*, *ReportStatus*, *ReportStatusService* all provide Information & Error channels as well as IReportHealth that links up to metrics 
-
-```csharp
-public MyClass : ReportsStatus { }
-
-var myClass = new MyClass();
-
-//can use any of the below
-myClass.ReportsToConsole();
-myClass.ReportsToDebug();
-myClass.Errors.Do(SendAlert).Until(AppTerminated);
-myClass.Information.Do(LogToWeb).Subscribe() // if u prefer Rx syntax;
-
-//or log for someone else
-var supervisor = new Supervisor();
-myClass.ReportsWith(supervisor)
-superVisor.ReportToConsole()
-
-//can also use OnVerbose, OnWarning, OnErrors - api designed for .net4
-myclass.OnInformation("A general {0}", "message");
-//On console -> [ThreadId] [10:55:12.12] [Information] [MyClass] A general message
-...
-
-var rxnDictionary = new RxnDictionary<..>();
-rxnDictionary.SubscribeAll(info => { //info }, error => { SmsMikeAt1AM(error)})
-
-
-//we make Rx safer for, if the subscription function throws an exception, its reported on the OnError 
-//channel of *this Reporter* instead of crashing ur app
-rxnDictionary.OnUpdate()
-			.Buffer(10)
-			.Subscribe(this /*IReportStatus*/, @events => { CaptureEventsForLater(events); })
-
-```
-
-### ... just as we do testing 
-Record your event streams in different scenarios and assert on them over and over again
-```csharp
-var tape = RxnTape.FromSource("LoginTest", source);
-var recording = tapeRecorder.Record(tape, this.OnReactionTo<UserAction>();
-
-//make system do stuff, then later
-
-recording.Dispose(); 
-
-//and now in your test suite
-
-var player = new UserAutomationPlayer();
-var output = player.Play(tape, new PlaybackSettings { TickSpeed = 10 } //fast forward
-
-//play back all to the RxnManager as they were recorded
-output.Stream.Do(_publish).Subscribe()
-```
-
-**Built in UI testing for Xamarin / any other .NET app**
-```
-// RxnUI Pattern (aka. Event Sourcing)
-// 1. Every action must start with an event
-// 1. Events triggered by Events should be marked as IReactiveEvent
-```
-If your follow the RxnUI pattern correctly, u can build UI tests on an actual device by using the app u are recording. Uneducated UI testers can take snapShots on demand which assert when you play them back. 
-
-**Bonus** 
-Use can use the same automation technique to 
-- explain features to users.
-- mostly eliminate no-repo bugs
-- create a bot army that tests the scaling ability of your apps(!!)
-***coming soon**
-
-### We dont just log **backpressure**, we mitigate it
-Rxns that are getting backed up can DoS your users (input is quicker then the Process/Rxn chain method can process it)
-
-```csharp
-rxn.BufferFirstLast/Distinct(); //drop elements from a sequence if they arrive to quickly, 
-				//are repeating, or you only care about the inital or last value 
-
-//soon for lossless event streams
-rxn.OverflowTo(AzureTable).When(backpressure => backpressure > 1000 /*events*/).RequeueWhen(backpressure < 100);
-```
-
-### Thats enough to get you started
-Now go have a play and look at the API... detailed doco comming soon
-
-## Features in the pipeline ...
-
-1. *CmdService*: to build real-time microservices without the boiler-plate
-1. *Event Sync*: To support occasionally connected MicroApps
-1. *JS/Typescript bridge*: A pattern to build ES Domain Aggregates that are universal (share with [React](https://reactjs.org/), [Angular 2](https://angular.io/) etc.)
-1. IPhoneHome just like E.T with *AppStatus* always watching you app for anomolies
-1. *Serious*: If you outgrow the Queues or Buses of cloud providers, swap to [Akka](https://getakka.net/) or [Orleans](https://dotnet.github.io/orleans/) on a per Reactor basis.
+* While Rxns is dependecy free, but it works great with
+  * *Autofac* `new Container().ToRxns()` will turn any container into a RxnApp
+  * `AutofacModule`
