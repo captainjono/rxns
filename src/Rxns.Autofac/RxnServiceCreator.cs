@@ -2,18 +2,17 @@
 using System.Collections.Generic;
 using System.Reactive.Linq;
 using Autofac;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
 namespace Rxns.Autofac
 {
     /// <summary>
-    /// This is a container build service which handles types that implement IRedViweService
-    /// and starts them up when the container is built
+    /// Creates reactions after the container has been built
     /// </summary>
     public class RxnsServiceCreator : IContainerPostBuildService
     {
-        public void Run(IReportStatus logger, IContainer container)
+        public void Run(IReportStatus logger, IResolveTypes container)
         {
             foreach (var service in container.Resolve<IEnumerable<IRxnService>>())
                 try

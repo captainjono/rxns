@@ -1,6 +1,6 @@
 ﻿using System.Reactive;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// Marker interface to represent a request with a void response

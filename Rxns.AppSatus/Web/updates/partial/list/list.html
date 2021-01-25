@@ -1,0 +1,8 @@
+<div class="col-md-12" ng-controller="ListCtrl">
+    <li>
+        App
+        <div ng-repeat="update in getAppUpdates">
+            <a link="{{update}}" ng-attr-url="updates/app/{{update}}/get" file-download></a>
+        </div>
+    </li>
+</div>

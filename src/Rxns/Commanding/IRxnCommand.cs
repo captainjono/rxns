@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Input;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     public interface IRxnCommand : ICommand, IDisposable
     {

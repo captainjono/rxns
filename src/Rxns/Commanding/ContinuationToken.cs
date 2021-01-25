@@ -1,4 +1,4 @@
-﻿namespace Rxns.Commanding
+﻿namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// A thread-safe immutable data structure that communicates cursor/paging like information

@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Rxn.Create</AssemblyName>
+    <RootNamespace>RxnCreate</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="3.5.0" />
+    <PackageReference Include="DotNetZip.NetStandard" Version="1.12.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
+    <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="echo &quot;Uploading rxn&quot;&#xD;&#xA;echo &quot;$(TargetDir)Rxn.Create&quot; NewAppUpdate &quot;SpareReactor&quot; &quot;Latest-1.0&quot; &quot;$(TargetDir)\&quot; &quot;false&quot;" />
+  </Target>
+
+</Project>

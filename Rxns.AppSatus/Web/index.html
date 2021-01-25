@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html ng-app="portal">
+<head>
+    <title></title>
+    <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="app.less" type="text/css" rel="stylesheet/less">
+
+    <link href="bower_components/vis/dist/vis.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+    <!--
+
+        Grunt commands
+        - grunt serve - run web portal on localhot:90001
+        - grunt build - builds the site ready for deployment from the dist folder
+
+        Yeoman commands for cg-angular. This is the generate used to create the portal
+
+        yo cg-angular:directive my-awesome-directive
+        yo cg-angular:partial my-partial
+        yo cg-angular:service my-service
+        yo cg-angular:filter my-filter
+        yo cg-angular:module my-module
+        yo cg-angular:modal my-modal
+
+        -->
+    <!-- Livereload script for development only (stripped during dist build) -->
+    <script src="http://localhost:35729/livereload.js" data-concat="false"></script>
+
+    <!-- JS from Bower Components -->
+    <script src="bower_components/less.js/dist/less-1.6.2.js" data-concat="false"></script>
+    <script src="bower_components/jquery/jquery.js"></script>
+    <script src="bower_components/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="bower_components/underscore/underscore.js"></script>
+    <script src="bower_components/moment/moment.js"></script>
+    <script src="bower_components/angular/angular.js"></script>
+    <script src="bower_components/angular-ui-router/release/angular-ui-router.js"></script>
+    <script src="bower_components/angular-animate/angular-animate.js"></script>
+    <script src="bower_components/angular-resource/angular-resource.js"></script>
+    <script src="bower_components/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+    <script src="bower_components/angular-ui-utils/ui-utils.js"></script>
+    <script src="bower_components/angular-moment/angular-moment.js"></script>
+    <script src="bower_components/angular-duration-filter/src/duration.js"></script>
+    <script src="bower_components/angular-loading-bar/build/loading-bar.min.js"></script>
+    <script src="bower_components/ngstorage/ngStorage.js"></script>
+    <script src="bower_components/ng-file-upload/ng-file-upload-all.min.js"></script>
+    <script src="bower_components/angular-visjs/angular-vis.js"></script>
+    <script src="bower_components/vis/dist/vis.min.js"></script>
+    <!-- Add New Bower Component JS Above -->
+    <!-- Shared JS -->
+    <script src="bower_components/linqjs/linq.js"></script>
+    <script src="shared_components/angular-ux-datagrid.js"></script>
+    <script src="shared_components/infinite-scroll.js"></script>
+    <script src="shared_components/jquery.color-2.1.2.js"></script>
+    <script src="bower_components/signalr/jquery.signalR.js"></script>
+    <script src="bower_components/angular-signalr-hub/signalr-hub.js"></script>
+    <script src="bower_components/Rx/dist/rx.all.min.js"></script>
+    <script src="bower_components/angular-rx/dist/rx.angular.js"></script>
+    <!-- Add New Shared Component JS Above -->
+    <!-- Main App JS -->
+    <script src="app.js"></script>
+    <script src="shared_components/rxnPortalConfiguration.js"></script>
+    <script src="errors/errors.js"></script>
+    <script src="errors/service/errorsService.js"></script>
+    <script src="errors/partial/errors/ErrorsCtrl.js"></script>
+    <script src="metrics/metrics.js"></script>
+    <script src="metrics/service/metricsService.js"></script>
+    <script src="metrics/partial/metrics/MetricsCtrl.js"></script>
+    <script src="shared_directives/rr-fade-background-by-time.js"></script>
+    <script src="systemstatus/systemstatus.js"></script>
+    <script src="systemstatus/partial/applicationStatus/ApplicationStatusCtrl.js"></script>
+    <script src="systemstatus/service/statusService.js"></script>
+    <script src="partials/allModules.js"></script>
+    <script src="systemstatus/partial/systemLog/SystemLogCtrl.js"></script>
+    <script src="authentication/authentication.js"></script>
+    <script src="authentication/service/rxnAuthService.js"></script>
+    <script src="authentication/partial/login/login.js"></script>
+    <script src="authentication/service/authHttpInterceptorService.js"></script>
+    <script src="authentication/service/tokenManagerService.js"></script>
+    <script src="authentication/partial/refresh/refresh.js"></script>
+    <script src="systemstatus/partial/remoteCommand/remoteCommand.js"></script>
+    <script src="service/eventHubService.js"></script>
+    <script src="systemstatus/partial/appStatus/appStatus.js"></script>
+    <script src="metrics/service/metricsHubService.js"></script>
+    <script src="updates/updates.js"></script>
+    <script src="updates/service/updatesService.js"></script>
+    <script src="updates/partial/list/list.js"></script>
+    <script src="directive/fileDownload/fileDownload.js"></script>
+    <!-- Add New Component JS Above -->
+
+    <div>
+        <div id="content" class="container">
+            <div class="row">
+                <div ui-view>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

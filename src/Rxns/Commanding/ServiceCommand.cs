@@ -1,18 +1,20 @@
 ﻿using System;
 using System.Linq;
 using System.Runtime.Serialization;
-using Rxns.System.Collections.Generic;
+using System.Collections.Generic;
 
-namespace Rxns.Commanding
+
+namespace Rxns.DDD.Commanding
 {
     public abstract class ServiceCommand : IServiceCommand
     {
-        [IgnoreDataMember]
-        public Guid Id { get; private set; }
+        //[IgnoreDataMember]
+        public string Id { get; set; }
+
 
         public ServiceCommand()
         {
-            Id = Guid.NewGuid();
+            Id = Guid.NewGuid().ToString();
         }
 
         /// <summary>
@@ -56,9 +58,9 @@ namespace Rxns.Commanding
     //    /// </summary>
     //    /// <param name="cmd"></param>
     //    /// <returns></returns>
-    //    public static RemoteCommandEvent AsRemoteCommand(this IServiceCommand cmd)
+    //    public static RxnQuestion AsQuestion(this IServiceCommand cmd)
     //    {
-    //        return new RemoteCommandEvent
+    //        return new RxnQuestion
     //        {
     //            Action = SystemCommand.ServiceCommand,
     //            Options = cmd.ToString(),

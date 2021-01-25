@@ -2,24 +2,27 @@
 using System.Reactive.Linq;
 using Rxns.Interfaces;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
-    public interface ICommandResult
+    public interface IRxnResult : IRxn
     {
-        Guid InResponseTo { get; }
+        string InResponseTo { get; }
+    }
+    public interface ICommandResult : IRxnResult
+    {
         CmdResult Result { get; }
     }
 
     public interface IUniqueRxn : IRxn
     {
-        Guid Id { get; }
+        string Id { get; }
     }
 
     public class CommandResult : IRxn, ICommandResult
     {
         public CmdResult Result { get; private set; }
         public string Message;
-        public Guid InResponseTo { get; private set; }
+        public string InResponseTo { get; private set; }
 
         public static CommandResult Success()
         {

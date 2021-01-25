@@ -93,7 +93,7 @@ public class ServerEventProcessor : IRxnProcessor<UserAttemptingLogin>
     IObservable<IRxn> Process(UserAttemptingLogin loginDetails) 
     {
         //Func<bool>, IObservable<bool>, with error handling covered
-        return RxObservable.Create(() => _loginService.Verify(loginDetails)) 
+        return Rxn.Create(() => _loginService.Verify(loginDetails)) 
                             .Select(success => success 
                                 ? new LoginSuccessfull(loginDetails.Username)
                                 : new LoginFailure(loginDetails.Username));
@@ -204,7 +204,7 @@ var nowEventSourced = RxnDecorator<MouseMoved, LegacyUIPainter>(this.OnReactionT
 								new uiPainter(),
 								(mm, uiPainter) => uiPainter.paintScreen(mm.X, mm.Y))
 
-//traditional queues for multi-tenant envirvonments
+//traditional queues for multi-tenant envIRxnonments
 public class AnEventSourcedQueue : ShardingQueueProcessingService<AnImportantTask>
 {
     public override IObservable<CommandResult> Start(string @from = null, string options = null)

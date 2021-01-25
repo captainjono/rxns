@@ -7,7 +7,8 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Rxns.Interfaces;
-using Rxns.System.Collections.Generic;
+using Rxns.Logging;
+
 
 namespace Rxns.Playback
 {
@@ -35,11 +36,10 @@ namespace Rxns.Playback
 
             //todo: join buffers up using a gate to stop more actions buffering before they
             //have been played
-            var sourceEventBuffer = RxObservable.DfrCreate<ICapturedRxn>(o =>
+            var sourceEventBuffer = Rxn.DfrCreate<ICapturedRxn>(o =>
             {
                 return tape.Source
                             .Contents
-                            .ToObservableSequence()
                             .Buffer(settings.ActionBuffer)
                             .Do(events =>
                             {
@@ -54,7 +54,7 @@ namespace Rxns.Playback
             });
 
             var isPaused = new BehaviorSubject<bool>(false);
-            var setupOnPlayBack = RxObservable.DfrCreate<IRxn>(o =>
+            var setupOnPlayBack = Rxn.DfrCreate<IRxn>(o =>
             {
                 var sincePlay = TimeSpan.Zero;
                 var playbackBuffer = new Queue<ICapturedRxn>();
@@ -65,10 +65,10 @@ namespace Rxns.Playback
                 })
                 .Subscribe(_ => { }, () =>
                 {
-                    Debug.WriteLine("finsihed playbackQueue");
+                    GeneralLogging.Log.OnVerbose("Finished playbackQueue", nameof(UserAutomationPlayer));
                 });
 
-                var realTimeClock = RxObservable.TimerWithPause(DateTimeOffset.MinValue, TimeSpan.FromSeconds(settings.TickSpeed), isPaused, _playbackScheduler)
+                var realTimeClock = Rxn.TimerWithPause(DateTimeOffset.MinValue, TimeSpan.FromSeconds(settings.TickSpeed), isPaused, _playbackScheduler)
                    .Skip(1) //so we can buffer the stream. need a better mechanism!?
                    .Do(tick =>
                    {
@@ -88,7 +88,7 @@ namespace Rxns.Playback
                    })
                    .Subscribe(_ => { }, o.OnError, () =>
                    {
-                       Debug.WriteLine("Finished position");
+                       GeneralLogging.Log.OnVerbose("Finished position", nameof(UserAutomationPlayer));
                    });
 
                 return new CompositeDisposable(realTimeClock, playbackQueue, position, playBackStream.Subscribe(o), isPaused);

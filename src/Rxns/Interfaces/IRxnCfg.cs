@@ -30,5 +30,6 @@ namespace Rxns.Interfaces
         IDeliveryScheme<IRxn> InputDeliveryScheme { get; }
 
         bool MonitorHealth { get; }
+        RxnMode Mode { get; }
     }
 }

@@ -1,6 +1,6 @@
-﻿using Rxns.Commanding;
+﻿using Rxns.DDD.Commanding;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     public interface IServiceCommandFactory
     {

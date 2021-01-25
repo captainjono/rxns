@@ -1,17 +1,20 @@
-﻿namespace Rxns.Interfaces
+﻿using System.Collections.Generic;
+
+namespace Rxns.Interfaces
 {
     /// <summary>
     /// Defines a set of operation used to th life-cycle of reactors and their reactons in the system
     /// </summary>
     public interface IManageReactors
     {
+        Dictionary<string, ReactorConnection> Reactors { get; }
         /// <summary>
         /// Starts and connects a reactor to the specified parent or default reactor if none is
         /// specified.
         /// </summary>
         /// <param name="reactorName"></param>
         /// <param name="parent"></param>
-        ReactorConnection StartReactor(string reactorName, IReactor<IRxn> parent = null);
+        ReactorConnection StartReactor(string reactorName, RxnMode mode, IReactor<IRxn> parent = null);
 
         /// <summary>
         /// Disconnects the reactor from its parent, effectively isolating it and all its services
@@ -20,6 +23,8 @@
         /// </summary>
         /// <param name="reactorName"></param>
         void StopReactor(string reactorName);
+
+        ReactorConnection GetOrCreate(string reactorName);
     }
 
 }

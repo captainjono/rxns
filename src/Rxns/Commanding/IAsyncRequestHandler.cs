@@ -1,13 +1,13 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// Defines an asynchronous handler for a request
     /// </summary>
     /// <typeparam name="TRequest">The type of request being handled</typeparam>
     /// <typeparam name="TResponse">The type of response from the handler</typeparam>
-    public interface IAsyncRequestHandler<in TRequest, TResponse>
+    public interface IRxnMediatorPipeline<in TRequest, TResponse> : IAsyncRequestHandler<TRequest, TResponse>
         where TRequest : IAsyncRequest<TResponse>
     {
         /// <summary>

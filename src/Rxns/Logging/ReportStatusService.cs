@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Reactive;
 using System.Reactive.Linq;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
 namespace Rxns.Logging
@@ -40,7 +40,7 @@ namespace Rxns.Logging
 
         protected IObservable<CommandResult> Run(Action work)
         {
-            return RxObservable.DfrCreate(() =>
+            return Rxn.DfrCreate(() =>
             {
                 try
                 {

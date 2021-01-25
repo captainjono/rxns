@@ -31,7 +31,7 @@ namespace Rxns.Playback
 
     public interface ITapeSource : IDisposable
     {
-        IEnumerable<ICapturedRxn> Contents { get; }
+        IObservable<ICapturedRxn> Contents { get; }
         void Rewind();
         void SkipTo(Func<IRxn, bool> selector = null);
         IRecording StartRecording();
@@ -45,7 +45,7 @@ namespace Rxns.Playback
 
         ITapeStuff GetOrCreate(string name, IStringCodec codec = null);
 
-        IEnumerable<ITapeStuff> GetAll(string directory = "", IStringCodec codec = null);
+        IEnumerable<ITapeStuff> GetAll(string directory = "", string mask = "*.*", IStringCodec codec = null);
     }
 
     public interface ICapturedRxn : IRxn

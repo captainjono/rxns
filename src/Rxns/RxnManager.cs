@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Linq;
+using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 using Rxns.Logging;
 
@@ -47,27 +51,35 @@ namespace Rxns
                 //at the moment, if an error is detected lets try and reactivate the queue
                 //because its probably died for some reason.
                 _isActive = false;
-                Activate();
+                Activate().Until(OnError);
             });
         }
 
-        public void Activate()
+        public IObservable<Unit> Activate()
         {
-            if (!_isActive)
+            return Rxn.Create<Unit>(o =>
             {
-                OnInformation("Activating rxn manager with backing channel: {0}", _channel.GetType().Name);
-
-                if (_queueSub != null)
-                    _queueSub.Dispose();
-
-                _queueSub = _channel.Setup(_postman).Subscribe(this, message =>
+                if (!_isActive)
                 {
-                    OnVerbose("Message received: {0}", message.GetType().Name);
-                    _inChannel.OnNext(message);
-                });
+                    OnInformation("Activating rxn manager with backing channel: {0}", _channel.GetType().Name);
 
+                    if (_queueSub != null)
+                        _queueSub.Dispose();
+
+                    _queueSub = _channel.Setup(_postman).Subscribe(this, message =>
+                        {
+                            if(typeof(RLM) != message.GetType())
+                                OnVerbose("Message received: {0}", message.GetType().Name);
+
+                            _inChannel.OnNext(message);
+                        });
+                }
                 _isActive = true;
-            }
+
+                o.OnNext(new Unit());
+                o.OnCompleted();
+                return Disposable.Empty;
+            });
         }
 
         /// <summary>
@@ -86,9 +98,8 @@ namespace Rxns
         /// <returns></returns>
         public IObservable<TMessageType> CreateSubscription<TMessageType>()
         {
-            Activate();
             OnVerbose("Creating subscription for '{0}' of type: {1}", PlatformHelper.CallingTypeName, typeof(TMessageType).Name);
-            return _inChannel.OfType<TMessageType>().ObserveOn(DefaultScheduler);
+            return Activate().SelectMany(_ => _inChannel.OfType<TMessageType>().ObserveOn(DefaultScheduler));
         }
 
         private static readonly object singleThread = new object();
@@ -96,20 +107,32 @@ namespace Rxns
         /// publishes a message to all subscribers
         /// </summary>
         /// <param name="message">The message to send</param>
-        public void Publish(T message)
+        public IObservable<Unit> Publish(T message)
         {
-            lock(singleThread)
+            return Rxn.Create<Unit>(o =>
             {
-                if (!_isActive)
-                    Activate();
-
-                if (message == null)
-                    OnWarning("Cannot publish null value");
-                else
+                lock(singleThread)
                 {
-                    OnVerbose("Message published: {0}", message.GetType().Name);
-                    _channel.Publish(message);
+                    if (!_isActive)
+                        return Activate().Do(_ => PublishMsg(message)).Subscribe();
+                    else
+                        PublishMsg(message);
+                    
+                    o.OnNext(new Unit());
+                    o.OnCompleted();
+                    return Disposable.Empty;
                 }
+            });
+        }
+
+        private void PublishMsg(T message)
+        {
+            if (message == null)
+                OnWarning("Cannot publish null value");
+            else
+            {
+                //  OnVerbose("Message published: {0}", message.GetType().Name);
+                _channel.Publish(message);
             }
         }
         
@@ -124,4 +147,27 @@ namespace Rxns
             }
         }
     }
+
+    public static class RxnManagerExt
+    {
+        public static IObservable<T> Ask<T>(this IRxnManager<IRxn> rxnManager, IUniqueRxn question) where T : IRxnResult, IRxn
+        {
+            return Rxn.DfrCreate<T>(o =>
+            {
+                var resources = new CompositeDisposable(2);
+
+                rxnManager.CreateSubscription<T>()
+                    .Where(c => c.InResponseTo == question.Id)
+                    .FirstOrDefaultAsync()
+                    .Subscribe(o)
+                    .DisposedBy(resources);
+
+                rxnManager.Publish(question).Until(o.OnError).DisposedBy(resources);
+
+                return resources;
+            })
+                .Finally(() => GeneralLogging.Log.OnVerbose($"Got answer to question {question.Id}"));
+        }
+    }
+
 }

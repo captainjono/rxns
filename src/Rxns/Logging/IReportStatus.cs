@@ -1,11 +1,54 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Rxns.Logging;
 
 namespace Rxns.Interfaces
 {
+
+    public interface IRxnLogger
+    {
+        Action<LogMessage<string>> Information { get; }
+        Action<LogMessage<Exception>> Errors { get; }
+    }
+
+    public class RxnDebugLogger : RxnLogger
+    {
+        public RxnDebugLogger() : base(i =>
+        {
+            if(Debugger.IsAttached)
+                Debug.WriteLine(i);
+            else
+                Console.WriteLine(i);
+
+        }, e =>
+        {
+            if (Debugger.IsAttached)
+                Debug.WriteLine(e);
+            else
+                Console.WriteLine(e); 
+        })
+        {
+
+        }
+    }
+
+    public class RxnLogger : IRxnLogger
+    {
+        public RxnLogger(Action<LogMessage<string>> information, Action<LogMessage<Exception>> errors)
+        {
+            Information = information;
+            Errors = errors;
+        }
+
+        public Action<LogMessage<string>> Information { get; }
+        public Action<LogMessage<Exception>> Errors { get; }
+    }
+
+
     public interface IReporterName
     {
         string ReporterName { get; }

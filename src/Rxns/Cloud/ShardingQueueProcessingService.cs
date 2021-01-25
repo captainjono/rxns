@@ -8,7 +8,6 @@ using System.Reactive.Subjects;
 using System.Threading;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
 
 namespace Rxns.Cloud
 {
@@ -45,10 +44,10 @@ namespace Rxns.Cloud
             OnDispose(new DisposableAction(StopQueue));
         }
 
-        public void ConfigiurePublishFunc(Action<IRxn> eventFunc)
+        public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            _publish = eventFunc;
-            eventFunc(new SystemStatusMetaEvent()
+            _publish = publish;
+            publish(new SystemStatusMetaEvent()
             {
                 Meta = () => new
                 {
@@ -166,7 +165,7 @@ namespace Rxns.Cloud
 
         protected virtual IObservable<IRxn> ProcessQueueItem(TQueueItem item)
         {
-            return RxObservable.DfrCreate(() => ProcessQueueItemSync(item));
+            return Rxn.DfrCreate(() => ProcessQueueItemSync(item));
         }
 
         protected virtual IRxn ProcessQueueItemSync(TQueueItem item)

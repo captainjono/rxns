@@ -99,6 +99,12 @@ namespace Rxns.Interfaces
         /// <returns></returns>
         IDisposable Connect(IReactTo<TEvent> reaction, IScheduler inputScheduler = null);
 
+        /// <summary>
+        /// Registers a set of routes with the reactor
+        /// </summary>
+        /// <param name="allProcessorTypes"></param>
+        void Handles(params Type[] allProcessorTypes);
 
+        Type[] Route { get; }
     }
 }

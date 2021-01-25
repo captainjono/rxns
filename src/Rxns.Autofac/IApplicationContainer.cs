@@ -1,7 +1,7 @@
 ﻿using Autofac;
 using Rxns.Interfaces;
 
-namespace Rxns
+namespace Rxns.Autofac
 {
     public interface IApplicationContainer : IReportStatus
     {

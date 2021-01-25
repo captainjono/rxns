@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reactive;
 using Rxns.Interfaces;
 
 namespace Rxns.Playback
@@ -33,17 +34,12 @@ namespace Rxns.Playback
     public class InMemoryTapeSource : ITapeSource
     {
         public TimeSpan Duration { get; private set; }
-        public IEnumerable<ICapturedRxn> Contents { get { return _contents; } }
+        public IObservable<ICapturedRxn> Contents => Rxn.Empty<ICapturedRxn>();
 
-        private readonly List<ICapturedRxn> _contents = new List<ICapturedRxn>();
-
-        public InMemoryTapeSource()
-        {
-        }
 
         public IRecording StartRecording()
         {
-            return new ListRecorder(_contents);
+            return new NotRecording();
         }
 
         public void Rewind()
@@ -55,6 +51,22 @@ namespace Rxns.Playback
         }
 
         public void Dispose()
+        {
+        }
+    }
+
+    public class NotRecording : IRecording
+    {
+        public void Dispose()
+        {
+            
+        }
+
+        public void Record(IRxn rxn, TimeSpan? sinceBeginning = null)
+        {
+        }
+
+        public void FlushNow()
         {
         }
     }

@@ -124,11 +124,11 @@ namespace Rxns.Logging
             OnMessage(LogLevel.Verbose, info, args);
         }
 
-        private void OnMessage(LogLevel level, string message, params object[] args)
+        public void OnMessage(LogLevel level, string message, object[] args, string reporter = null)
         {
             if (!ReportInformation.HasObservers) return;
 
-            ReportInformation.OnNext(new LogMessage<string>() { Reporter = ReporterName, Level = level, Message = String.Format(message, args) });
+            ReportInformation.OnNext(new LogMessage<string>() { Reporter = reporter ?? ReporterName, Level = level, Message = args == null ? message : String.Format(message, args) });
         }
 
         /// <summary>

@@ -1,5 +1,5 @@
 ﻿using System;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 
 namespace Rxns.Interfaces
 {

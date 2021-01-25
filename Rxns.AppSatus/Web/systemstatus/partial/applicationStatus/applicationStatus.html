@@ -1,0 +1,24 @@
+<div class="col-md-12" ng-controller="ApplicationStatusCtrl">
+    <span class="fa fa-question-circle fa-4x" ng-hide="hasMachines"></span>
+    <ul id="machine-status" ng-repeat="machine in machines">
+        <li id="machine-status" class="fa fa-laptop">
+            {{machine.tenant}}
+        </li>
+        <ul>
+            <li class="list-unstyled" ng-repeat="status in machine.systems.$values">
+                <span class="fa fa-cloud" ng-class="{error: status.system.status == '1', infor: status.system.status == '0'}"></span>
+                [{{status.system.version}}] <span id="machine-status-application">{{status.system.systemName}}</span> <div id="machine-status-last-update" am-time-ago="status.system.timestamp"></div>
+
+                <div class="fa fa-gears" style="padding-left: 20px"> {{status.system.ipAddress}}</div>
+                <div style="padding-left: 20px" ng-repeat="meta in status.meta">
+                <div class="fa fa-bar-chart" ng-class="{error: meta.CpuAverage > '70' || meta.MemAverage > '89', infor: meta.CpuAverage < '70' || meta.MemAverage < '89'}" ng-if="meta.CpuAverage != null"> CPU: [{{meta.CpuAverage | number:1}}%] RAM: [{{meta.MemAverage | number:1}}%] Threads: [{{meta.Threads}}] TaskPool: [{{meta.AppThreadsSize}} / {{meta.AppThreadsMax}}]</div>
+                <div style="padding-left: 20px" ng-repeat="(key,value) in meta">
+                    <div class="fa fa-task">{{key}} : <i>{{value}}</i></div>
+                </div>
+                <div class="fa fa-gears" ng-if="meta.OS != null"> OS: {{meta.OS}}</div>
+                </div>
+            </li>
+        </ul>
+    </ul>
+</div>
+    

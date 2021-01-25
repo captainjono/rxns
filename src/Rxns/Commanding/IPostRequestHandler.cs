@@ -1,4 +1,4 @@
-﻿namespace Rxns.Commanding
+﻿namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// A handler which is executed after a commandhandler has run but before its result is returned to the user

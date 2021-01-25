@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 using Rxns.Interfaces;
+using Rxns.Logging;
+using Rxns.Metrics;
 
 namespace Rxns
 {
@@ -90,7 +94,7 @@ namespace Rxns
         public static IDisposable Until<TStuff>(this IObservable<TStuff> context, Action<Exception> errorHandler = null,
             IScheduler scheduler = null)
         {
-            errorHandler = errorHandler ?? (e => { Debug.WriteLine("Until() swallowed {0}", e); });
+            errorHandler = errorHandler ?? (e => { "Until() swallowed {0}".FormatWith(e).LogDebug(); });
             IObservable<TStuff> c = context;
             if (scheduler != null) c = c.ObserveOn(scheduler);
 
@@ -197,7 +201,7 @@ namespace Rxns
         public static IObservable<Dictionary<string, object>> OnReaction<T>(this T source, bool observeInitial,
             IScheduler scheduler, params Expression<Func<T, object>>[] properties) where T : INotifyPropertyChanged
         {
-            return RxObservable.DfrCreate<Dictionary<string, object>>(o =>
+            return Rxn.DfrCreate<Dictionary<string, object>>(o =>
                 {
                     try
                     {
@@ -348,5 +352,79 @@ namespace Rxns
         {
             return askedBy != null && context.InReplyTo == askedBy.Id;
         }
+
+        public static Func<object, string> SerialiseImpl = msg => msg.ToString();
+        public static Func<Type, string, object> DeserialiseImpl = (type, msg) => msg;
+
+        public static string Serialise(this object str)
+        {
+            return SerialiseImpl(str);
+        }
+
+        public static T Deserialise<T>(this string json)
+        {
+            return (T) DeserialiseImpl(typeof(T), json);
+        }
+        public static string Serialise(this IEnumerable<TimeSeriesData> data)
+        {
+            return data.Aggregate<IRxn, string>(null, (current, @event) => "{0}{1}{2}".FormatWith(current, current.IsNullOrWhitespace() ? "" : "", @event.Serialise()));
+        }
+
+        public static string Serialise(this IRxn @event)
+        {
+            return RxnExtensions.Serialise((object)@event).ResolveAs(@event.GetType());
+        }
+        public static object Deserialise(this string json, Type type)
+        {
+            return DeserialiseImpl(type, json);
+        }
+
+        private static string[] _jsonTypeLeadingFormat = new[] { "\"T\" : \"", "\"T\":\"" };
+
+        public static Type GetTypeFromJson(this string json, IResolveTypes resolver)
+        {
+            int startToken = 0;
+            foreach (var token in _jsonTypeLeadingFormat)
+            {
+                startToken = json.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+                if (startToken > 0)
+                {
+                    startToken += token.Length;
+                    var type = json.Substring(startToken, json.IndexOf('"', startToken) - startToken);
+                    var assemblyAndType = type.Split(',');
+                    try
+                    {
+                        return resolver.Resolve(assemblyAndType[0].TrimEnd('\\', '"')).GetType();
+                    }
+                    catch (TypeLoadException e)
+                    {
+                        throw new TypeLoadException("Cannot locate the type '{0}' as specified in the json".FormatWith(assemblyAndType[0]), e);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new Exception("Could not parse the type from the specified json. Ensure json is created with AttachTypeToJson() extension method", e);
+                    }
+                };
+            }
+
+            throw new Exception("Could not parse the type from the specified json. Ensure json is created with AttachTypeToJson() extension method or has T property;");
+        }
+
+        public static string ResolveAs(this string json, Type deserialisedType)
+        {
+            if (json.IsNullOrWhitespace()) return json;
+            return json.Insert(json.IndexOf('{') + 1, "{0}{1}\",".FormatWith(_jsonTypeLeadingFormat[0], deserialisedType.FullName));
+        }
+
+        public static T WaitR<T>(this Task<T> task)
+        {
+            return task.Result;
+        }
+
+        public static void WaitR<T>(this Task task)
+        {
+            task.Wait();
+        }
     }
+
 }

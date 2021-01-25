@@ -1,4 +1,4 @@
-﻿namespace Rxns.Commanding
+﻿namespace Rxns.DDD.Commanding
 {
     public interface IRequestHandler<in TRequest, out TResponse>
         where TRequest : IRequest<TResponse>

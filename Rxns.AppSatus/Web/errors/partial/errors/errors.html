@@ -1,0 +1,75 @@
+<div ng-controller="ErrorsCtrl">
+    <div infinite-scroll="getMoreErrors()" infinite-scroll-distance='1' infinite-scroll-immediate-check='true'>
+        <accordion class="bg-danger" close-others="true">
+            <accordion-group heading="{{error.error}}" ng-repeat="error in errors"> <!--rr-fade-background-by-time="{{error.timestamp}}" rr-to-color="#ffffff"--> 
+                <accordion-heading>
+                    <div class="media">
+                        <div class="pull-left">
+                            <i style="vertical-align: central" class="fa fa-chain-broken fa-3x fa-border"></i>
+                        </div>
+                        <div class="media-body">
+                            <div class="media-heading h4" >
+                                <i>{{error.tenant}}</i> - {{error.system}}
+                            </div>
+                        </div>
+                        <div class="media-body h5 no-overflow">{{error.error}}</div>
+                        <div class="pull-right h5 media-body">
+                            <div am-time-ago="error.timestamp"></div>
+                        </div>
+
+                    </div>
+                </accordion-heading>
+                <tabset>
+                    <tab heading="Stacktrace">
+                        <div class="well well-large">
+                            <code class="bold">{{error.error}}</code>
+                            <p></p>
+                            <code>{{error.stackTrace}}</code>
+                        </div>
+                    </tab>
+                    
+                    <tab heading="Log" ng-click="getLog(error.errorId)">
+                        <table class="table table-hover table-striped table-condensed h6">
+                            <thead>
+                                <th>Timestamp</th>
+                                <th>Reporter</th>
+                                <th>Level</th>
+                                <th>Message</th>
+                            </thead>
+                            <tbody>
+
+                                <!--<span class="fa fa-cog fa-spin" ng-show="$parent.logLoading" />-->
+                                <tr ng-class="{error: entry.level === 'Error', infor: entry.level === 'Info', verbose: entry.level === 'Verbose'}" ng-repeat="entry in log">
+                                    <td>{{entry.timestamp | amDateFormat:'hh:mm:ss.SSS'}}</td>
+                                    <td>{{entry.reporter}}</td>
+                                    <td>{{entry.level}}</td>
+                                    <td>{{entry.message}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </tab>
+                    <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        Action
+                        <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li><a href="">Resolve...</a></li>
+                        <li><a href="">Dismiss...</a></li>
+                        <li class="divider"></li>
+                        <li><a class="dropdown-menu-item" href="">File Bug...</a></li>
+                    </ul>
+                </tabset>
+            </accordion-group>
+        </accordion>
+    </div>
+    <!--<span class="fa fa-cog fa-spin center-block" ng-show="loading" />-->
+</div>
+
+<!--<div class="col-md-12" ng-controller="ErrorsCtrl" data-ux-datagrid="errors">
+    <script type="template/html" data-template-name="default" data-template-item="error">
+        <li>
+            {{error.error}}
+        </li>
+    </script>
+</div>-->

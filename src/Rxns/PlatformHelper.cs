@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace Rxns
 {
@@ -17,6 +14,11 @@ namespace Rxns
         /// </summary>
         public static string CallingTypeName { get { return CallingTypeNameImpl(); } }
 
-        public static Func<string> CallingTypeNameImpl = () => "unknown";
+        public static Func<string> CallingTypeNameImpl = () =>
+        {
+            var callerMethod = new StackFrame(3).GetMethod();
+
+            return callerMethod == null ? "Unknown" : $"{callerMethod.DeclaringType?.DeclaringType?.Name ?? ""}:{callerMethod.DeclaringType.Name}:{callerMethod.Name}";
+        };
     }
 }

@@ -6,14 +6,14 @@ using Rxns.Interfaces;
 
 namespace Rxns.Logging
 {
-    public class ErrorReport
+    public class ErrorReport : IRxn
     {
         public DateTime Timestamp { get; set; }
         public string Tenant { get; set; }
         public string System { get; set; }
 
         public LogMessage<Exception> Error { get; set; }
-        public IEnumerable<LogMessage<string>> History { get; set; }
+        public LogMessage<string>[] History { get; set; }
 
         public override string ToString()
         {
@@ -38,7 +38,7 @@ namespace Rxns.Logging
     /// An ErrorReport that can be reliably serlised as sometimes
     /// Exceptions objects can cause problems!
     /// </summary>
-    public class BasicErrorReport
+    public class BasicErrorReport : IRxn
     {
         public string Error { get; set; }
         public string StackTrace { get; set; }
@@ -47,7 +47,8 @@ namespace Rxns.Logging
         public DateTime Timestamp { get; set; }
         public string Reporter { get; set; }
 
-        public IEnumerable<LogMessage<string>> History { get; set; }
+        public LogMessage<string>[] History { get; set; }
+        public string ErrorId { get; set; }
 
         public override string ToString()
         {

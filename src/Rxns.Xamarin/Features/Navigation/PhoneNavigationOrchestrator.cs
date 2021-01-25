@@ -1,10 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
 using Rxns.Xamarin.Features.Composition;
 using Rxns.Xamarin.Features.Navigation.Pages;
 using Rxns.Xamarin.Features.UserDomain;
@@ -111,7 +111,7 @@ namespace Rxns.Xamarin.Features.Navigation
         /// <returns></returns>
         public IObservable<IRxn> Process(NavigationAction navTo)
         {
-            return RxObservable.Create<IRxn>(o =>
+            return Rxn.Create<IRxn>(o =>
             {
                 if (navTo.IsPushing || navTo.IsSwapping)
                 {
@@ -187,13 +187,13 @@ namespace Rxns.Xamarin.Features.Navigation
             new DisposableAction(() => _mainNavigationPage.Popped -= DisposeCurrentPageWhenBackNavigationPressed).DisposedBy(this);
             Swap(page, model);
 
-            RxnApp.UIScheduler.Run(() =>
+            RxnAppCfg.UIScheduler.Run(() =>
             {
                 _setMainPage(page);
                 //only dispose of the loginpage once we are loaded
                 //top stop the going black
 
-                RxnApp.BackgroundScheduler.Run(() =>
+                RxnAppCfg.BackgroundScheduler.Run(() =>
                 {
                     if (oldMain != null)
                     {
@@ -205,7 +205,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<IRxn> Process(UserLoggedIn @event)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 var mainPage = _defaultPages.MainPage();
                 PushRoot(mainPage, (IRxnPageModel)mainPage.BindingContext, _defaultPages.MainPageHasNav);
@@ -215,7 +215,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<IRxn> Process(UserLoggingOut @event)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 var loginPage = _defaultPages.LoginPage();
                 PushRoot(loginPage, (IRxnPageModel)loginPage.BindingContext);
@@ -234,7 +234,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> ShowRootPage(Page page, bool hasNavbar = false)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 OnInformation("Swapping>> {0}", page.GetType());
                 PushRoot(page, (IRxnPageModel)page.BindingContext, hasNavbar);
@@ -243,7 +243,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> ShowPage(Page page)
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 OnInformation("Showing>> {0}", page.GetType());
                 _mainNavigationPage.Navigation.PushAsync(page, true);
@@ -252,7 +252,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> ShowPageModal(Page page)
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 OnInformation("ShowingModal>> {0}", page.GetType());
                 _mainNavigationPage.Navigation.PushModalAsync(page, true);
@@ -261,7 +261,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> HideCurrentPage()
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 _mainNavigationPage.Navigation.PopAsync(true);//.Wait();
             });
@@ -269,7 +269,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> HideCurrentPageModal()
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 _mainNavigationPage.Navigation.PopModalAsync(true); //.Wait();
             });
@@ -277,7 +277,7 @@ namespace Rxns.Xamarin.Features.Navigation
         //
         public IObservable<Unit> HideManyPages(int pagesToPop)
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 var i = 0;
                 do
@@ -291,7 +291,7 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<Unit> HideManyPagesModal(int pagesToPop)
         {
-            return RxnApp.UIScheduler.Run(() =>
+            return RxnAppCfg.UIScheduler.Run(() =>
             {
                 var i = 0;
                 do
@@ -331,12 +331,12 @@ namespace Rxns.Xamarin.Features.Navigation
 
         public IObservable<IRxn> Process(EventPublishingOsBridge.AppResumed @event)
         {
-            return RxObservable.Create<IRxn>(() =>
+            return Rxn.Create<IRxn>(() =>
             {
                 if (_appNav.Current != null && _appNav.Current.Model != null)
                 {
                     OnInformation("Resuming app @ {0}", _appNav.Current);
-                    RxnApp.BackgroundScheduler.Run(() => this.TryCatch(() => _appNav.Current.Model.BackgroundShow()));
+                    RxnAppCfg.BackgroundScheduler.Run(() => this.TryCatch(() => _appNav.Current.Model.BackgroundShow()));
                 }
                 else
                     OnWarning("No current page set, cannot resume page, this is probably means an error has occoured!");

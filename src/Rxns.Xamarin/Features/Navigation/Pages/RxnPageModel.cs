@@ -65,7 +65,7 @@ namespace Rxns.Xamarin.Features.Navigation.Pages
             _shownViewOnce = true;
 
             Show().DisposedBy(_onHide);
-            RxnApp.BackgroundScheduler.Run(() => this.TryCatch(() => ShowLongRunning().Do(resources => resources.DisposedBy(_onHide))
+            RxnAppCfg.BackgroundScheduler.Run(() => this.TryCatch(() => ShowLongRunning().Do(resources => resources.DisposedBy(_onHide))
                                                                                        .FinallyR(() => IsLoading = false)
                                                                                        .Until(OnError)
                                                                                        .DisposedBy(_onHide))

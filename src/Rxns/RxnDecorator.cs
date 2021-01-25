@@ -1,8 +1,9 @@
 ﻿using System;
-using System.Reactive;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
+using System.Collections.Generic;
+using System.Reactive;
 
 namespace Rxns
 {

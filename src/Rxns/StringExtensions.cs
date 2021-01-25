@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace System
 {
@@ -13,10 +12,15 @@ namespace System
         {
             return String.IsNullOrWhiteSpace(str);
         }
-        public static string IsNullOrWhitespace(this string str, string returnThis)
+
+        public static IEnumerable<T> EmptyIfNull<T>(this IEnumerable<T> context)
         {
-            return str.IsNullOrWhitespace() ? returnThis : str;
+            if (context == null)
+                return new T[] { };
+            else
+                return context;
         }
+        
 
         public static string FormatWith(this string source, params object[] args)
         {
@@ -68,6 +72,21 @@ namespace System
         public static string ToStringOrNull(this object context)
         {
             return context == null ? null : context.ToString();
+        }
+
+        public static Stream ToStream(this string contents)
+        {
+            var stream = new StreamWriter(new MemoryStream());
+            stream.Write(contents);
+            stream.Flush();
+            stream.BaseStream.Position = 0;
+            return stream.BaseStream;
+        }
+
+        public static Regex _passwordExpression = new Regex(@"password=[^;]*;|key[=:].*|password:[^;]*", RegexOptions.IgnoreCase);
+        public static string Sanatise(this string input)
+        {
+            return _passwordExpression.Replace(input, "(sanatised)");
         }
     }
 }

@@ -8,7 +8,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.PlatformServices;
 using System.Threading;
-using Rxns.System.Collections.Generic;
+
 
 namespace Rxns.Collections
 {
@@ -94,7 +94,7 @@ namespace Rxns.Collections
         /// or
         /// at the same time stream the rxn to the aggregate on an "input" stream to augment its output stream. a Isubject? it can search for methods on the agg that take the rxn (exactly?) and then rxn them.
         /// 
-        /// the cahce could sit in between? it doesnt need to goto the store? Or is the cache best for lookup matching - circut breaker on cache match.
+        /// the cahce could sit in between? it doesnt need to goto the store? Or is the cache best for lookup matching - circut breaker on cache match?
         ///     
         /// </summary>
         /// <param name="decorated"></param>
@@ -123,7 +123,7 @@ namespace Rxns.Collections
         {
             var keyLock = _expiryTimes.GetOrAdd(key, new ExpireyLock());
 
-            return RxObservable.DfrCreate(() =>
+            return Rxn.DfrCreate(() =>
             {
                     //keyLock.Lock.Wait(_lockTime);
 
@@ -146,7 +146,7 @@ namespace Rxns.Collections
 
             //we need to defer create so people who wont subscribe wont deadlock the cache.
             //because they will take a lock but never release it because finally isnt called
-            return RxObservable.DfrCreate<TValue>(o =>
+            return Rxn.DfrCreate<TValue>(o =>
             {
                     // keyLock.Lock.Wait();
 

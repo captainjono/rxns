@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// An object which mediators the execution of something, decoupling the corcerns to a request and response scenario

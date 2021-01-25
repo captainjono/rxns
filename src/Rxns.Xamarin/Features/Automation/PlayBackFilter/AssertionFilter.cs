@@ -38,7 +38,7 @@ namespace Rxns.Xamarin.Features.Automation.PlayBackFilter
                 {
                     var currentValue = Snapshot(_appNav.Current.Model);
                     //need a better comparision, like the cmdServiceCache hashing function to be ok with datetimes etc that will always be different
-                    Ensure.Equal(currentValue.ToJson(), assert.Value.ToJson(), "The model should be the same as when originally recorded");
+                    Ensure.Equal(currentValue.Serialise(), assert.Value.Serialise(), "The model should be the same as when originally recorded");
                     return null;
                 }
 
@@ -52,7 +52,7 @@ namespace Rxns.Xamarin.Features.Automation.PlayBackFilter
 
         private string Snapshot(IRxnPageModel model)
         {
-            return model.ToJson();
+            return model.Serialise();
         }
     }
 }

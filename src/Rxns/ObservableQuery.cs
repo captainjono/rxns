@@ -7,9 +7,9 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
-using Rxns.System.Collections.Generic;
+
 
 namespace Rxns
 {

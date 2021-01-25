@@ -15,7 +15,7 @@ namespace Rxns.Xamarin
 
             public static string Wrap(IRxn @event)
             {
-                return new MsgWrapper(@event).ToJson();
+                return new MsgWrapper(@event).Serialise();
             }
 
             public class MsgWrapper
@@ -30,13 +30,13 @@ namespace Rxns.Xamarin
         }
         public override IObservable<IRxn> Setup(IDeliveryScheme<IRxn> postman)
         {
-            return RxObservable.DfrCreate<IRxn>(o =>
+            return Rxn.DfrCreate<IRxn>(o =>
             {
                 var localStream = base.Setup(postman).Subscribe(o);
              
                 MessagingCenter.Subscribe<Bridge, string>(Bridge.Instance, Bridge.WrappedMsg, (sender, objAsJson) =>
                 {
-                    var wrapped = objAsJson.FromJson<Bridge.MsgWrapper>();
+                    var wrapped = objAsJson.Deserialise<Bridge.MsgWrapper>();
                     if(wrapped != null)
                     o.OnNext(wrapped.Msg);
                 });

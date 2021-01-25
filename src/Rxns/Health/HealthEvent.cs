@@ -5,7 +5,8 @@ namespace Rxns.Health
     public abstract class HealthEvent : IHealthEvent
     {
         public string ReporterName { get; private set; }
-
+        public DateTime TimeCaptured { get; }
+        
         public HealthEvent()
         {
             TimeCaptured = DateTime.Now;
@@ -16,8 +17,6 @@ namespace Rxns.Health
         {
             ReporterName = name;
         }
-
-        public DateTime TimeCaptured { get; private set; }
 
         public IHealthEvent Tunnel(IReportHealth another)
         {

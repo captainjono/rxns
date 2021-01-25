@@ -1,0 +1,23 @@
+.chartTitle { /*CSS for enlarged image*/
+    position: relative;
+
+    /*display: none; remove this */
+
+    color: black;
+    text-decoration: none;
+    opacity:0.0;
+    filter:alpha(opacity=0);
+}
+
+.chartTitle:hover { /*CSS for enlarged image on hover*/
+
+    top: 0px; /* adjust as needed */
+    left: -25px; 
+    opacity:1.0;
+    filter:alpha(opacity=100);/*position where      
+    enlarged image should offset horizontally */
+    -webkit-transition: all 0.2s ease-in-out;
+    -moz-transition: all 0.2s ease-in-out;
+    -o-transition: all 0.2s ease-in-out;
+    transition: all 0.2s ease-in-out;
+}

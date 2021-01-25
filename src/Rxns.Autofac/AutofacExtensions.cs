@@ -5,7 +5,8 @@ using System.Reflection;
 using Autofac.Builder;
 using Autofac.Core;
 using Rxns.Interfaces;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
+using Rxns.Logging;
 
 namespace Autofac
 {
@@ -62,6 +63,11 @@ namespace Autofac
             }
         }
 
+        public static void RegisterEvent<T>(this ContainerBuilder cb)
+        {
+            cb.RegisterType<T>().AsSelf().InstancePerDependency();
+        }
+
         public static void RegisterEvents(this ContainerBuilder cb, Type assembly)
         {
             foreach (var type in assembly.GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IRxn>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
@@ -74,6 +80,7 @@ namespace Autofac
         {
             foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IServiceCommand>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
             {
+                $"registering {type.Name}".LogDebug();
                 cb.RegisterType(type).As<IServiceCommand>().Named<IServiceCommand>(type.Name).InstancePerDependency();
             }
         }
@@ -99,9 +106,9 @@ namespace Autofac
         internal class StartableBootstrap<T> : IStartable
         {
             private readonly IComponentContext _context;
-            private readonly IContainerEvents _systemEvents;
+            private readonly IAppEvents _systemEvents;
 
-            public StartableBootstrap(IComponentContext context, IContainerEvents systemEvents)
+            public StartableBootstrap(IComponentContext context, IAppEvents systemEvents)
             {
                 _context = context;
                 _systemEvents = systemEvents;

@@ -16,7 +16,7 @@ namespace Rxns
             _conditions = new List<Func<object, bool>>(new[] { condition });
         }
 
-        public IRxnRouteCfg<T> PublishTo<T>(IRxnManager<T> rxnManager)
+        public IRxnRouteCfg<T> PublishTo<T>(Action<T> rxnManager)
         {
             return new EventRouteToManagerCfg<T>(_conditions, rxnManager);
         }

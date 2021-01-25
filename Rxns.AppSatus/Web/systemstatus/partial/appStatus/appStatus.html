@@ -1,0 +1,24 @@
+<div class="col-md-12" ng-controller="AppstatusCtrl">
+    <span class="fa fa-question-circle fa-4x" ng-hide="hasMachines"></span>
+    <ul id="machine-status" ng-repeat="machine in machines">
+        <li id="machine-status" class="fa fa-laptop">
+            {{machine.Tenant}}
+        </li>
+        <ul>
+            <li class="list-unstyled" ng-repeat="status in machine.Systems">
+                <span class="fa fa-cloud" ng-class="{error: status.System.Status == '1', infor: status.System.Status == '0'}"></span>[{{status.System.Version}}] <span id="machine-status-application">{{status.System.SystemName}}</span> <div id="machine-status-last-update" am-time-ago="status.System.Timestamp"></div>
+                <div class="fa fa-gears" style="padding-left: 20px"> {{status.System.IpAddress}}</div>
+                <div style="padding-left: 20px" ng-repeat="meta in status.Meta">
+                    <div class="fa fa-bar-chart" ng-class="{error: meta.CpuAverage > '70' || meta.MemAverage > '89', infor: meta.CpuAverage < '70' || meta.MemAverage < '89'}" ng-if="meta.CpuAverage != null"> CPU: [{{meta.CpuAverage | number:1}}%] RAM: [{{meta.MemAverage | number:1}}%] Threads: [{{meta.Threads}}] TaskPool: [{{meta.AppThreadsSize}} / {{meta.AppThreadsMax}}]</div>
+                    <div class="fa fa-gears" ng-if="meta.ToProcess != null"> Synced: {{meta.Total - meta.ToProcess}} / {{meta.Total}} [{{meta.SourceTotal}}] ({{((meta.Total - meta.ToProcess) / meta.Total) * 100 | number: 2}}%)</div>
+                    <div class="fa fa-gears" ng-if="meta.LastSync != null && meta.Duration == null"> Last Sync: {{meta.Count}} records <span am-time-ago="meta.LastSync"></span></div>
+                    <div class="fa fa-gears" ng-if="meta.Duration != null"> Last Sync: {{meta.Count}} records ({{meta.Duration | duration: 'seconds':'1'}}) <span am-time-ago="meta.LastSync"></span></div>
+                    <div class="fa fa-gears" ng-if="meta.InFlight != null"> InFlght/Discarded: {{meta.InFlight}} / <span ng-class="{error: meta.Discarded !== '0', infor: meta.Discarded == '0'}">{{meta.Discarded | number:0}} </span><span id="machine-status-last-update" am-time-ago="meta.LastUpload"></span></div>
+                </div>
+                <div style="padding-left: 20px" ng-repeat="meta in status.Meta | filter: onlyQueues">
+                    <div class="fa fa-inbox" ng-if="meta.QueueName != null"> {{meta.QueueName}} : {{meta.QueueCurrent}} / {{meta.QueueSize}}</div>
+                </div>
+            </li>
+        </ul>
+    </ul>
+</div>
