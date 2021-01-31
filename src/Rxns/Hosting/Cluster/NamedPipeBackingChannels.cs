@@ -285,7 +285,6 @@ namespace Rxns.Hosting.Cluster
             var nameb = Encoding.UTF8.GetBytes(clientName);
             pipeClient.Write(nameb, 0, nameb.Length);
             pipeClient.Flush();
-            pipeClient.WaitForPipeDrain();
         }
         public override void Publish(IRxn message)
         {

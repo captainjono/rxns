@@ -226,7 +226,7 @@ namespace RxnCreate
                 if (!Debugger.IsAttached)// ; && args.Contains("Cache"))
                     Debugger.Launch();
 
-                if (args.FirstOrDefault() == "Demo")
+                if (args.FirstOrDefault() == "Demo" || true)
                 {
                     RunSpareReactor().Do(_ => { ctx = _; })
                         .Until(ReportStatus.Log.OnError);
