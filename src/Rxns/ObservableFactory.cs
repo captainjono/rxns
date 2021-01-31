@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
@@ -11,6 +12,7 @@ using System.Reflection;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 
 namespace Rxns
 {
@@ -137,6 +139,64 @@ namespace Rxns
         public static IObservable<T> CreatePulse<T>(TimeSpan repeats, Func<T> action, IScheduler seconds = null)
         {
             return Observable.Timer(repeats, repeats, seconds ?? Scheduler.Default).Select(_ => action());
+        }
+
+        public static IObservable<IDisposable> Create(string pathToProcess, string args, Action<string> onInfo, Action<string> onError)
+        {
+            return Create<Process>(o =>
+            {
+                $"Starting {pathToProcess}".LogDebug();
+
+                var reactorProcess = new ProcessStartInfo
+                {
+
+                    ErrorDialog = false,
+                    WorkingDirectory = new FileInfo(pathToProcess).DirectoryName,
+                    FileName = pathToProcess,
+                    Arguments = args,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                };
+
+                var p = new Process
+                {
+                    StartInfo = reactorProcess,
+                    EnableRaisingEvents = true,
+                };
+
+                var nameOfProcess = new FileInfo(pathToProcess).Name;
+
+                p.Start();
+
+                p.StandardOutput.ReadToEndAsync().ToObservable().Do(msg =>
+                {
+                    onInfo(msg.Result);
+                });
+
+                p.StandardError.ReadToEndAsync().ToObservable().Do(msg =>
+                {
+                    onError(nameOfProcess);
+                });
+
+                p.Exited += (__, _) =>
+                {
+                    o.OnError(new Exception($"{pathToProcess} exited"));
+                };
+
+
+                p.KillOnExit();
+
+                var exit = new DisposableAction(() =>
+                {
+                    $"Stopping supervisor for {pathToProcess}".LogDebug();
+                    p.Kill();
+                    o.OnCompleted();
+                });
+
+                o.OnNext(p);
+
+                return exit;
+            });
         }
 
         public static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> toExecute)

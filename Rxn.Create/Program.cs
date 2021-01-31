@@ -148,11 +148,13 @@ namespace RxnCreate
             }
         }
 
+  
+
         static void Main(string[] args)
         {
 
-            GeneralLogging.Log.ReportToConsole();
-            GeneralLogging.Log.ReportToDebug();
+            //ReportStatus.Log.ReportToConsole();
+            //ReportStatus.Log.ReportToDebug();
             
             //test with
             //PublishAppUpdate "sparereactor" "1.0" ".\"
@@ -167,7 +169,7 @@ namespace RxnCreate
                 CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhitespace(true.ToString())), appStatusUrl).Catch<Unit, Exception>(
                     e =>
                     {
-                        GeneralLogging.Log.OnError("Push failed", e);
+                        ReportStatus.Log.OnError("Push failed", e);
                         throw e;
                     }).WaitR();
                 
@@ -199,11 +201,11 @@ namespace RxnCreate
             if (args.FirstOrDefault() == "SpareReactor")
             {
                 "Running SpareReactor for auto scaleout".LogDebug();
-                RunSpareReactor(url: args.Skip(1).FirstOrDefault(), args: args).Do(_ =>
+                RunSpareReactor(url: args.Skip(1).FirstOrDefault()).Do(_ =>
                 {
                     ctx = _;
                 })
-                .Until(GeneralLogging.Log.OnError);
+                .Until(ReportStatus.Log.OnError);
             }
             else
             {
@@ -226,13 +228,18 @@ namespace RxnCreate
 
                 if (args.FirstOrDefault() == "Demo")
                 {
-                    RunSpareReactor(args: args).Do(_ => { ctx = _; })
-                        .Until(GeneralLogging.Log.OnError);
+                    RunSpareReactor().Do(_ => { ctx = _; })
+                        .Until(ReportStatus.Log.OnError);
+                }
+                if (args.FirstOrDefault() == "TestAgent")
+                {
+                    RunDemoAppReactor(args: args).Do(_ => { ctx = _; })
+                        .Until(ReportStatus.Log.OnError);
                 }
                 else
                 {
-                    RunSpareReactor(args: args).Do(_ => { ctx = _; })
-                        .Until(GeneralLogging.Log.OnError);
+                    RunSpareReactor().Do(_ => { ctx = _; })
+                        .Until(ReportStatus.Log.OnError);
                 }
             }
 
@@ -245,70 +252,15 @@ namespace RxnCreate
 
             ConsoleHostedApp.StartREPL(new RxnManagerCommandService(ctx.RxnManager, ctx.Resolver.Resolve<ICommandFactory>(), ctx.Resolver.Resolve<IServiceCommandFactory>()));
         }
-
         
-
         public static IObservable<IDisposable> SupervisedProcess(string pathToProcess)
         {
-            return Rxns.Rxn.Create<IDisposable>(o =>
-            {
-                $"Starting {pathToProcess}".LogDebug();
-
-                var reactorProcess = new ProcessStartInfo
-                {
-                    
-                    ErrorDialog = false,
-                    WorkingDirectory = new FileInfo(pathToProcess).DirectoryName,
-                    FileName = pathToProcess,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true
-                };
-                
-                var p = new Process
-                {
-                    StartInfo = reactorProcess,
-                    EnableRaisingEvents = true,
-                };
-
-                var nameOfProcess = new FileInfo(pathToProcess).Name;
-
-                p.Start();
-                
-                p.StandardOutput.ReadToEndAsync().ToObservable().Do(msg =>
-                {
-                    msg.Result.LogDebug(nameOfProcess);
-                });
-
-                p.StandardError.ReadToEndAsync().ToObservable().Do(msg =>
-                {
-                    GeneralLogging.Log.OnError(new Exception(msg.Result), nameOfProcess);
-                });
-
-                p.Exited += (sender, args) =>
-                {
-                    GeneralLogging.Log.OnError($"{pathToProcess} exited");
-                    o.OnCompleted();
-                };
-
-
-                p.KillOnExit();
-
-                var exit = new DisposableAction(() =>
-                {
-                    $"Stopping supervisor for {pathToProcess}".LogDebug();
-                    o.OnCompleted();
-                });
-
-                o.OnNext(exit);
-
-                return exit;
-            });
+            return Rxn.Create(pathToProcess, null, i => ReportStatus.Log.OnInformation(pathToProcess, i), e => ReportStatus.Log.OnError(pathToProcess, e));
         }
-
 
         private static IObservable<IRxnAppContext> RunSupervisorReactor(string pathToExe, string version, string url = "http://localhost:888/", params string[] args)
         {
-            return Rxns.Rxn.Create<IRxnAppContext>(o =>
+            return Rxn.Create<IRxnAppContext>(o =>
             {
                 $"Running supervisor for {pathToExe}".LogDebug();
 
@@ -334,7 +286,7 @@ namespace RxnCreate
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();
-                        app.RxnManager.Publish(new PerformAPing()).Until(GeneralLogging.Log.OnError);
+                        app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
                     })
                     .Subscribe(o);
             });
@@ -377,14 +329,14 @@ namespace RxnCreate
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();
-                        app.RxnManager.Publish(new PerformAPing()).Until(GeneralLogging.Log.OnError);
+                        app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
                     })
                     .Subscribe(o);
             });
         }
 
 
-        private static IObservable<IRxnAppContext> RunSpareReactor(string url = "http://localhost:888/", params string[] args)
+        private static IObservable<IRxnAppContext> RunSpareReactor(string url = "http://localhost:888/", Func<Action<IRxnLifecycle>, Action<IRxnLifecycle>> mod = null)
         {
             return Rxns.Rxn.Create<IRxnAppContext>(o =>
             {
@@ -392,18 +344,22 @@ namespace RxnCreate
                 RxnExtensions.DeserialiseImpl = (t, json) => JsonExtensions.FromJson(json, t);
                 RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
 
+                mod = mod ?? (_ => _);
                 //think i need to read the rxn.cfg here to get the name of the app and populate it here. a sparereactor will then become
                 //a supervisor for the app...
                 //i will call that mode Supervisor?
 
-                return SpareReator(url)
+                return mod(SpareReator(url))
                     .ToRxns()
                     .Named(new AppVersionInfo("SpareReactor", "1.0.0", true))
                     .OnHost(new ConsoleHostedApp(), new RxnAppCfg())
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();
-                        app.RxnManager.Publish(new PerformAPing()).Until(GeneralLogging.Log.OnError);
+                        app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
+
+                        $"Streaming logs".LogDebug();
+                        app.RxnManager.Publish(new StreamLogs()).WaitR();
                     })
                     .Subscribe(o);
             });

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Linq;
 using Rxns.Collections;
 using Rxns.Health.AppStatus;
@@ -75,17 +77,26 @@ namespace Rxns.Metrics
             return _repoFactory.GetOrCreate($"repos/meta_{errorId}").Source.Contents.Select(c => c.Recorded as SystemLogMeta);
         }
 
-        public IObservable<SystemErrors> GetErrors(Func<SystemErrors, bool> where = null, Page pageWith = null)
+        public IEnumerable<SystemErrors> GetErrors(Func<SystemErrors, bool> where = null, Page pageWith = null)
         {
-            return _repoFactory.GetAll("repos", "error_*.*").ToObservable().SelectMany(s => s.Source.Contents.Select(c => c.Recorded as BasicErrorReport).Where(c => c != null).Select(e => new SystemErrors()
+            var all = _repoFactory.GetAll("repos", "error_*").ToArray();
+
+            foreach (var ee in all)
             {
-                Error = e.Error,
-                Actioned = false,
-                ErrorId = e.ErrorId,
-                StackTrace = e.StackTrace,
-                System = e.System,
-                Tenant = e.Tenant
-            }));
+                var ce = ee.Source.Contents.Take(1).WaitR() as CapturedRxn;
+                var e = ce.Recorded as BasicErrorReport;
+                
+
+                yield return new SystemErrors()
+                {
+                    Error = e.Error,
+                    Actioned = false,
+                    ErrorId = e.ErrorId,
+                    StackTrace = e.StackTrace,
+                    System = e.System,
+                    Tenant = e.Tenant
+                };
+            }
         }
 
         public void Dispose()

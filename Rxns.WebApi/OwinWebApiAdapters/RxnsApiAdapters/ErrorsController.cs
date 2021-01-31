@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 using System.Web.Http;
 using Newtonsoft.Json.Linq;
 using Rxns.Collections;
@@ -33,7 +34,7 @@ namespace Rxns.WebApi.MsWebApiAdapters.RxnsApiAdapters
         [HttpGet]
         public IEnumerable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null)
         {
-            return _errorMgr.GetAllErrors(page, size, tenant).ToEnumerable();
+            return _errorMgr.GetAllErrors(page, size, tenant);
         }
 
         //[HideUncaughtExceptions]
@@ -41,7 +42,7 @@ namespace Rxns.WebApi.MsWebApiAdapters.RxnsApiAdapters
         [HttpGet]
         public IEnumerable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null)
         {
-            return _errorMgr.GetOutstandingErrors(page, size, tenant, systemName).ToEnumerable();
+            return _errorMgr.GetOutstandingErrors(page, size, tenant, systemName);
         }
 
         [Route("{errorId}/meta")]

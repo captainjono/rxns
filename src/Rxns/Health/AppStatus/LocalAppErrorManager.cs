@@ -59,7 +59,7 @@ namespace Rxns.Health.AppStatus
         }
 
 
-        public IObservable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null)
+        public IEnumerable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null)
         {
             try
             {
@@ -69,22 +69,24 @@ namespace Rxns.Health.AppStatus
             catch (Exception e)
             {
                 OnWarning(e.ToString());
-                return Rxn.Empty<SystemErrors>();
+                return new SystemErrors[] { };
             }
         }
 
-        public IObservable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null)
+        public IEnumerable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null)
         {
             try
             {
                 OnInformation("Getting outstanding errors: page='{0}', size={1}'", page, size);
 
-                return _errorsRepo.GetErrors(new Func<SystemErrors, bool>(w => w.Actioned == false && w.Tenant == (tenant ?? w.Tenant) && w.System == (systemName ?? w.System)), new Page() { Number = page, Size = size });
+                return _errorsRepo.GetErrors(new Func<SystemErrors, bool>(w => true), new Page() { Number = page, Size = size })
+                    
+                        ;
             }
             catch (Exception e)
             {
                 OnWarning(e.ToString());
-                return Rxn.Empty<SystemErrors>();
+                return new SystemErrors[] { };
             }
         }
 

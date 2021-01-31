@@ -99,26 +99,28 @@ namespace Rxns.Health.AppStatus
         public IObservable<RxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, object meta)
         {
             return UpdateSystemStatus(status, meta)
-                .SelectMany(wasAdded => _appStatus.FlushCommands(appRoute).ToObservable().ToArray().Concat(UpdateSystemCommandIfOutofDate(status)));
+                .SelectMany(wasAdded => _appStatus.FlushCommands(appRoute).ToArray().ToObservable().Concat(UpdateSystemCommandIfOutofDate(status)));
         }
 
         private IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
         {
-            return _updates.AllUpdates(status.SystemName, 1).FirstAsync().Select(currentVersion =>
+            return _updates.AllUpdates(status.SystemName, 1)
+                .FirstOrDefaultAsync()
+                .Where(e => !e.IsNullOrWhitespace())
+                .Select(currentVersion =>
                 {
                     if (!status.KeepUpToDate)
                     {
-                        return null;
+                        return new RxnQuestion[0];
                     }
 
                     if (currentVersion.Equals(status.Version, StringComparison.OrdinalIgnoreCase))
                     {
-                        return null;
+                        return new RxnQuestion[0];
                     }
 
                     return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion, status.GetRoute())};
-                })
-                .Where(c => c != null);
+                });
         }
 
         public dynamic GetSystemLog()

@@ -57,9 +57,11 @@ namespace Rxns.Hosting
                 .CreatesOncePerApp<LocalAppStatusServer>()
                 
                 .CreatesOncePerApp<SystemStatusService>()
-                .CreatesOncePerApp<HttpAppStatusServiceClient>()
                 .CreatesOncePerApp<ReporterErrorLogger>()
                 .CreatesOncePerApp<SystemStatusPublisher>()
+                .RespondsToSvcCmds<StreamLogs>()
+                .CreatesOncePerApp<HttpEventsServiceClient>()
+                .CreatesOncePerApp<HttpAppStatusServiceClient>()
                 .CreatesOncePerApp<HttpUpdateServiceClient>()
                 .CreateGenericOncePerAppAs(typeof(DomainCommandMetricsWatcher<>), typeof(IDomainCommandPreHandler<>))
                 .CreateGenericOncePerAppAs(typeof(DomainQueryMetricsWatcher<>), typeof(IDomainQueryPreHandler<>))

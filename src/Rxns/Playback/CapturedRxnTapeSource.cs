@@ -80,6 +80,8 @@ namespace Rxns.Playback
                                 }
                                 nextEvent.Clear();
                             }
+
+                        if (charsRead == 0) break;
                     }
 
                     o.OnCompleted();

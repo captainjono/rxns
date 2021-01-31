@@ -21,7 +21,7 @@ namespace Rxns.Health.AppStatus
         /// <param name="where">A clause which constrains the results</param>
         /// <param name="pageWith">Paging data used to contrain the results</param>
         /// <returns>The metrics which match the conditions</returns>
-        IObservable<SystemErrors> GetErrors(Func<SystemErrors, bool> where = null, Page pageWith = null);
+        IEnumerable<SystemErrors> GetErrors(Func<SystemErrors, bool> where = null, Page pageWith = null);
 
         /// <summary>
         /// Retrieves error log information from the store

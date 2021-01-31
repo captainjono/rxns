@@ -39,7 +39,7 @@ namespace Rxns.Health.AppStatus
                 .EmitsAnyIn<CpuSnapshotEvent>()
                 .CreatesOncePerApp(c => new RealtimeReportStream(c.ResolveTag<ITimeSeriesView>("system"), c.Resolve<IReportConnectionManager>()))
                 //for diagnostic portal
-                .CreatesOncePerApp<InMemoryTapeSource>(true)
+                .CreatesOncePerApp<FileSystemTapeRepository>(true)
                 .CreatesOncePerApp<InMemoryAppStatusStore>()
                 .CreatesOncePerApp<ErrorsTapeRepository>()
                 //reporting

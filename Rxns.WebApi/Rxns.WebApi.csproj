@@ -119,6 +119,7 @@
     <Compile Include="OwinWebApiAdapters\AesDataProtectorProvider.cs" />
     <Compile Include="OwinWebApiAdapters\OwinWebApiAdapterModule.cs" />
     <Compile Include="OwinWebApiAdapters\RxnsApiAdapters\ErrorsController.cs" />
+    <Compile Include="OwinWebApiAdapters\RxnsApiAdapters\EventController.cs" />
     <Compile Include="OwinWebApiAdapters\RxnsApiAdapters\EventsHub.cs" />
     <Compile Include="OwinWebApiAdapters\CompressionHandler.cs" />
     <Compile Include="OwinWebApiAdapters\RxnsApiAdapters\SystemMetricsHub.cs" />

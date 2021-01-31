@@ -21,7 +21,7 @@ namespace Rxns.Health.AppStatus
         /// <param name="size">The number of results per page</param>
         /// <param name="tenant">The tenant to restrict the query too</param>
         /// <returns>A list of errors</returns>
-        IObservable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null);
+        IEnumerable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null);
         /// <summary>
         /// Lists the errors that have not been actioned in the system.
         /// All parameters are optional.
@@ -31,7 +31,7 @@ namespace Rxns.Health.AppStatus
         /// <param name="tenant"></param>
         /// <param name="systemName"></param>
         /// <returns></returns>
-        IObservable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null);
+        IEnumerable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null);
         /// <summary>
         /// Retrieves the log information related to an error
         /// </summary>
