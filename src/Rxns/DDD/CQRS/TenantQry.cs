@@ -5,7 +5,7 @@ namespace Rxns.DDD.CQRS
 {
     public class TenantQry<TResult> : IDomainQuery<TResult>, IRequireTenantContext
     {
-        public string Id { get; private set; }
+        public string Id { get; set; }
         public string Tenant { get; set; }
 
 

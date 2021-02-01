@@ -359,7 +359,7 @@ namespace RxnCreate
                         app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
 
                         $"Streaming logs".LogDebug();
-                        app.RxnManager.Publish(new StreamLogs()).WaitR();
+                        app.RxnManager.Ask<CommandResult>(new StreamLogs()).WaitR();
                     })
                     .Subscribe(o);
             });

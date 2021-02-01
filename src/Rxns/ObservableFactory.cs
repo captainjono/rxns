@@ -532,7 +532,7 @@ namespace Rxns
             });
         }
 
-        public static IObservable<long> In(this TimeSpan when, bool repeat = false, IScheduler schedler = null)
+        public static IObservable<long> Then(this TimeSpan when, bool repeat = false, IScheduler schedler = null)
         {
             if (schedler != null)
                 return repeat ? Observable.Timer(when, when, schedler) : Observable.Timer(when, schedler);

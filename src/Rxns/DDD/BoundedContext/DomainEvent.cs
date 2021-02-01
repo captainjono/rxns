@@ -4,7 +4,7 @@ namespace Rxns.DDD.BoundedContext
 {
     public class DomainEvent : IDomainEvent
     {
-        public string Id { get; private set; }
+        public string Id { get; set; }
         public DateTime Timestamp { get; set; }
         public string Tenant { get; private set; }
 

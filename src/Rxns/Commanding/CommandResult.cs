@@ -15,7 +15,10 @@ namespace Rxns.DDD.Commanding
 
     public interface IUniqueRxn : IRxn
     {
-        string Id { get; }
+        /// <summary>
+        /// WARNING: only set this if you know what you're doing
+        /// </summary>
+        string Id { get; set; }
     }
 
     public class CommandResult : IRxn, ICommandResult

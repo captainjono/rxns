@@ -6,7 +6,7 @@ namespace Rxns.CQRS
 {
     public class TenantCmd<T> : IDomainCommand<T>, IRequireTenantContext
     {
-        public string Id { get; private set; }
+        public string Id { get; set; }
         public string Tenant { get; set; }
 
         public TenantCmd()

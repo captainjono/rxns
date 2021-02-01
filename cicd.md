@@ -83,9 +83,9 @@ and then your app will heartbeat every `10 minutes`, at which time it will *auto
 >NOTE:   Reactions supports more advanced deployment scenarios including *auto-rollback* to previous versions when *deployments fail*.
 >More Info: [see Realiable Rxns](rxninstall.md)
 
-# Scaling guide
+# Scale out with updates
 
-Your app updates can double as mechanism to scale your infrastructure to hockey-stick like uptake. 
+Your app updates can double as mechanism to scale your infrastructure to hockey-stick resistant uptime. 
 
 1. To configure your [AppStatus](appstatus.md) portal with a Scale out plan:
 
@@ -107,7 +107,8 @@ AutoBalancingHostManager
 
 It will connect and the AppStatus portal will update it with your scaleout plan.
 
-Thats the basics of acheving solid CD with reactions.  
+Thats the basics of acheving solid CD with reactions. 
+>More info: [see scaling](scaling.md) 
 
 # Advanced Scenarios
 

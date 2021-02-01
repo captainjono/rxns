@@ -12,7 +12,7 @@ using Rxns.Logging;
 
 namespace Rxns.Health.AppStatus
 {
-    public class ServiceCommandExecutor : ReportsStatus, IRxnProcessor<RxnQuestion> //this should probably be deprecated and replace by a IServiceCommandHandler
+    public class ServiceCommandExecutor : ReportsStatus, IRxnProcessor<RxnQuestion>, IRxnProcessor<ServiceCommand> //this should probably be deprecated and replace by a IServiceCommandHandler
     {
         private readonly IServiceCommandFactory _cmdFactory;
         private readonly IResolveTypes _resolver;
@@ -41,6 +41,11 @@ namespace Rxns.Health.AppStatus
             return (IObservable<dynamic>)_cmds.Run(cmd);
         }
 
+        public IObservable<IRxn> Process(ServiceCommand @event)
+        {
+            return Run(@event);
+        }
+
         /// <summary>
         /// this is a pretty crap implementation because of the fact that every class needs to resolve the same command
         /// and possibly fail it. realitistically it should resolve the command somewhere else then feed broadcast a service
@@ -51,7 +56,7 @@ namespace Rxns.Health.AppStatus
         public IObservable<IRxn> Process(RxnQuestion command)
         {
             OnVerbose("Saw: {0}", command.Options);
-            if (command.Destination != _local.GetLocalBaseRoute())
+            if (!command.Destination.IsNullOrWhitespace() && command.Destination != _local.GetLocalBaseRoute())
             {
                 if (_statusStore == null) return null;
 
@@ -61,7 +66,13 @@ namespace Rxns.Health.AppStatus
             };
 
             var cmdToRun = ServiceCommand.Parse(command.Options, _cmdFactory);
-            
+            cmdToRun.Id = command.Id;//use original msg id
+
+            return Run(cmdToRun);
+        }
+
+        private IObservable<IRxn> Run(IServiceCommand cmdToRun)
+        {
             if (cmdToRun is IDomainQuery || cmdToRun is IDomainCommand)
             {
                 if (!_respondsToRoute.Any(r => r == cmdToRun.GetType()))
@@ -69,10 +80,8 @@ namespace Rxns.Health.AppStatus
 
                 OnInformation("Asking: {0}", cmdToRun.GetType().Name);
 
-                return RunIt(cmdToRun).Select(r => new DomainQueryResult<dynamic>(command.Id, r.Result));
+                return RunIt(cmdToRun).Select(r => new DomainQueryResult<dynamic>(cmdToRun.Id, r.Result));
             }
-
- 
 
             OnInformation("Running: {0}", cmdToRun.GetType().Name);
 
@@ -122,5 +131,6 @@ namespace Rxns.Health.AppStatus
                 }).Subscribe(o);
             });
         }
+
     }
 }
