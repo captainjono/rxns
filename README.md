@@ -1,39 +1,50 @@
 <!-- TOC -->
 
-- [1. Reactions](#1-reactions)
-    - [1.1. Building blocks for *Reactive* Micro Apps](#11-building-blocks-for-reactive-micro-apps)
-    - [1.2. Use-cases](#12-use-cases)
-    - [1.3. Event Driven Primitives](#13-event-driven-primitives)
-        - [1.3.1. Event Manager](#131-event-manager)
-        - [1.3.2. Reactors](#132-reactors)
-        - [1.3.3. Recording and playback](#133-recording-and-playback)
-    - [1.4. Rx Primities](#14-rx-primities)
-    - [1.5. Scheduler](#15-scheduler)
-    - [1.6. Logging](#16-logging)
-    - [1.7. Monitoring](#17-monitoring)
-    - [1.8. Mediated App Pipelines](#18-mediated-app-pipelines)
-    - [1.9. Cloud Resilliancy](#19-cloud-resilliancy)
-    - [1.10. Hosting](#110-hosting)
-        - [1.10.1. Supervised AppHost](#1101-supervised-apphost)
-    - [1.11. A language](#111-a-language)
-- [2. Addons](#2-addons)
+1. [1. Reactions](#1-reactions)
+   1. [1.1. Building blocks for *Reactive* Micro Apps](#11-building-blocks-for-reactive-micro-apps)
+   2. [1.2. Use-cases](#12-use-cases)
+   3. [1.3. Event Driven Primitives](#13-event-driven-primitives)
+      1. [1.3.1. Event Manager](#131-event-manager)
+      2. [1.3.2. Reactors](#132-reactors)
+      3. [1.3.3. Recording and playback](#133-recording-and-playback)
+   4. [1.4. Rx Primities](#14-rx-primities)
+   5. [1.5. Scheduler](#15-scheduler)
+   6. [1.6. Logging](#16-logging)
+   7. [1.7. Monitoring](#17-monitoring)
+   8. [1.8. Mediated App Pipelines](#18-mediated-app-pipelines)
+   9. [1.9. Cloud Resilliancy](#19-cloud-resilliancy)
+   10. [1.10. Hosting](#110-hosting)
+      1. [1.10.1. Supervised AppHost](#1101-supervised-apphost)
+   11. [1.11. A language](#111-a-language)
+2. [2. Addons](#2-addons)
 
 <!-- /TOC -->
 
 # 1. Reactions
 
-Reactions makes building, maintaining and taming reactive apps a pleasure.
-Concentrate on the functionality of your app, while knowing it can scaling horiztonally or vertically with ease.
-Reactions are designed to grow with your app. Reactors move seemlessly from InProsss, to OutOfProcess, to Cloud ***zero-downtime*** in seconds 
-Reactions are a way of seperating concerns in your app, de-coupling your buisness logic from your service logic from your scaling logic. The micro-arcitecture reimagines all facets of your app with a micro-services lense.
-Reactions gives you insight into your app, exposing a rich set of a real-time diagnostics via its appstatus interface that can be access localy or remotely
-Reactions is cloud native, without the cloud lockin. Migrate from in-process to Cloud based Queues, ServiceBuses, Functions with basic configuration changes.
-Reactions support partially or fully event sourced architectures while providing deep insight into the event flow and bottlenecks in your sytsem.
-Reactions belives some services shouldnt be outsourced and provides a base-layer of functionality critical to any reactive app. As your apps hockey-stick kicks in, you can replace any of these core functions with Cloud managed services with a few lines of code.
-Reactions provides isolation and other semantics via its Reactors. (Re-Actors) can be thought of as Actors reimagined for the cloud.
-Shields your app from cloud lockin
+- Multi-Cloud Native
+- Elastically scalable
+- Reactive building blocks
+- Reliable & self-documenting
 
-Highlights
+
+Reactions makes building, maintaining and taming reactive apps a pleasure.
+
+Concentrate on the functionality of your app, while knowing it can scaling horiztonally or vertically with ease.
+
+- Reactions are designed to grow with your app. 
+  Reactors move seemlessly from InProsss, to OutOfProcess, to Cloud with ***zero-downtime*** in seconds 
+
+- Reactions are a way of seperating concerns in your app, de-coupling your buisness logic from your service logic from your scaling logic. The micro-arcitecture reimagines all facets of your app with a micro-service lense.
+- Reactions gives you insight into your app, exposing a rich set of a real-time diagnostics via its appstatus interface that can be accessed localy or remotely
+- Reactions is cloud native, without the cloud lockin. Migrate from in-process to Cloud based Queues, ServiceBuses, Functions with basic configuration changes.
+- Reactions support partially or fully event sourced architectures while providing deep insight into the event flow and bottlenecks in your App.
+
+> Philisophy 
+- Reactions belives some services shouldnt be outsourced and provides a base-layer of functionality critical to any reactive app. Made up of intelligently choosen patterns and practices that dont lock you in...  The idea being, as your apps hockey-stick kicks' in, you can replace any of these core functions with Cloud managed services in a cost-effective, piecemeal way, with a few lines of code.
+
+> In a nutshell, whats capabailities does Reactions provide?
+
 * [Reactors](reactors.md)
 * [DDD/CQRS](cloudpatterns.md)
 * [RxnHosts](rxnhosts.md)
@@ -57,7 +68,7 @@ Core motivations include:
 * Take it as you come. Each building block can be taken in isolation or as a whole *Module*.
   * Allows you dip your toes in the water before drinking the cool-aid and going all in.
 * Without the cruft - *dependency free* on `.NET5`
-    * Has been PCL complient since `2015`
+    * Has been PCL complient since `2013`
     * Will always work on any platform that `.net` supports
       * `.NET5 .netCore / Full framework 4.0-4.8 / Mono / Xamarin / etc`
 * Modern IDE friendly with an API that is discoverable via *intellisense*. Just start typing `IRxn..` or `Rxn..` and your on your way...
@@ -66,9 +77,9 @@ Core motivations include:
  
 * Creating app pipelines that are decoupled and well structured
 * Creating micro-servicess that are highly elastic
-* Creating decoupled micro-frontends with `redux style`, `one-way`  dataflows
+* Creating decoupled micro-frontends with `redux style`, `one-way`  data->flows
 * Creating high performance event sourced apps that run on commodity infrastructure
-* Useful for transitional architectures, adding event driven components to legacy systems in a peicemeal fashion
+* Useful for transitional architectures, adding event driven components to legacy systems in a peice-meal fashion
 * Remove bottlenecks in existing apps without going all in on cloud native concepts
 * Offloading tasks from expensive `monoliths` / `database centeric systems`
 * Sheilding your your `domain modal` / `app` from cloud lock-in

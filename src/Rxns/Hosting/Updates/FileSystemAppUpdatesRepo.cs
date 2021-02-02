@@ -36,7 +36,7 @@ namespace Rxns.Hosting.Updates
 
                 return true;
             })
-                .Do(_ => TruncateUpdatesIf(systemName));
+            .Do(_ => TruncateUpdatesIf(systemName));
         }
 
         private void TruncateUpdatesIf(string systemName)
@@ -46,16 +46,16 @@ namespace Rxns.Hosting.Updates
                 var total = all.Length;
                 var oldest = all.LastOrDefault();
 
-                if (total > _cfg.NumberOfRollingAppUpdates)
+                while (total > _cfg.NumberOfRollingAppUpdates)
                 {
-                    DeleteUpdate(oldest);
+                    DeleteUpdate(systemName, all[--total].LogDebug("ROLLING DELETE"));
                 }
             }).Until(ReportStatus.Log.OnError);
         }
 
-        private void DeleteUpdate(string toDelete)
+        private void DeleteUpdate(string systemName, string version)
         {
-            _fs.DeleteFile(_fs.PathCombine("updates", toDelete));
+            _fs.DeleteFile(_fs.PathCombine("updates", $"{systemName}-{version}.zip"));
         }
 
 
