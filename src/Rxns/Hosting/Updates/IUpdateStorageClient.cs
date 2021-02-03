@@ -12,6 +12,13 @@ namespace Rxns.Hosting.Updates
     }
 
 
+    public class AppUpdateInfo
+    {
+        public string Version { get; set; }
+        public string SystemName { get; set; }
+    }
+
+
     /// <summary>
     /// Represents the storage mechanism for system updates
     /// </summary>
@@ -40,7 +47,7 @@ namespace Rxns.Hosting.Updates
         /// <param name="systemName">The system to query</param>
         /// <param name="top">The max number of updates returned</param>
         /// <returns>A list of updates, not lazily evaluated</returns>
-        IObservable<string> ListUpdates(string systemName, int top = 3);
+        IObservable<AppUpdateInfo[]> ListUpdates(string systemName, int top = 3);
     }
 
     public interface IUpdateServiceClient

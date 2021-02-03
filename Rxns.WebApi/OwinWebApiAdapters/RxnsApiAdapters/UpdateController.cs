@@ -99,6 +99,9 @@ namespace Rxns.Hosting.Updates
         {
             try
             {
+                if (systemName.IsNullOrWhitespace("all").Equals("all", StringComparison.OrdinalIgnoreCase))
+                    systemName = null;
+
                 var updates = await _updateManager.AllUpdates(systemName, top).ToArray();
 
                 return Ok(updates);

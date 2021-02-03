@@ -10,7 +10,7 @@ namespace Rxns.Hosting.Updates
 
         IObservable<Stream> GetUpdate(string systemName, string version);
 
-        IObservable<string> AllUpdates(string systemName = null, int top = 3);
+        IObservable<AppUpdateInfo[]> AllUpdates(string systemName = null, int top = 3);
 
         IObservable<bool> PushUpdate(string systemName, string version, string username, string[] tenants);
 

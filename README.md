@@ -22,42 +22,26 @@
 
 # 1. Reactions
 
-- Multi-Cloud Native
+*What?*
+- *Multi*-Cloud Native
 - Elastically scalable
 - Reactive building blocks
-- Reliable & self-documenting
+- For Reliable & Self-documenting
+- Cross-platform Apps
 
+*And that means*?
 
 Reactions makes building, maintaining and taming reactive apps a pleasure.
 
-Concentrate on the functionality of your app, while knowing it can scaling horiztonally or vertically with ease.
+Concentrate on the functionality of your app, while knowing your can scale horiztonally or vertically with ease.
 
 - Reactions are designed to grow with your app. 
   Reactors move seemlessly from InProsss, to OutOfProcess, to Cloud with ***zero-downtime*** in seconds 
 
 - Reactions are a way of seperating concerns in your app, de-coupling your buisness logic from your service logic from your scaling logic. The micro-arcitecture reimagines all facets of your app with a micro-service lense.
 - Reactions gives you insight into your app, exposing a rich set of a real-time diagnostics via its appstatus interface that can be accessed localy or remotely
-- Reactions is cloud native, without the cloud lockin. Migrate from in-process to Cloud based Queues, ServiceBuses, Functions with basic configuration changes.
+- Reactions is cloud native, without the cloud lockin. Migrate from in-process to Cloud based Queues, ServiceBuses, Functions with basic code changes.
 - Reactions support partially or fully event sourced architectures while providing deep insight into the event flow and bottlenecks in your App.
-
-> Philisophy 
-- Reactions belives some services shouldnt be outsourced and provides a base-layer of functionality critical to any reactive app. Made up of intelligently choosen patterns and practices that dont lock you in...  The idea being, as your apps hockey-stick kicks' in, you can replace any of these core functions with Cloud managed services in a cost-effective, piecemeal way, with a few lines of code.
-
-> In a nutshell, whats capabailities does Reactions provide?
-
-* [Reactors](reactors.md)
-* [DDD/CQRS](cloudpatterns.md)
-* [RxnHosts](rxnhosts.md)
-* [Cloud scaling](cloudscaling.md)
-* [Docker support](rxncreate.md)
-* [Real-time App Monitoring](scaling.md)
-* [Task Scheduling](scheduler.md)
-* [CI/DI](cicd.md)
-* [Cloud Costings](costings.md) *comming soon*
-
-## 1.1. Building blocks for *Reactive* Micro Apps
-
-Reactions (*Rxns*) takes a pragmatic view of reactive app design centered around an event driven approach. See [reactors...](reactors.md)
 
 Core motivations include:
 
@@ -72,6 +56,29 @@ Core motivations include:
     * Will always work on any platform that `.net` supports
       * `.NET5 .netCore / Full framework 4.0-4.8 / Mono / Xamarin / etc`
 * Modern IDE friendly with an API that is discoverable via *intellisense*. Just start typing `IRxn..` or `Rxn..` and your on your way...
+
+
+*....Philisophy?* 
+- Reactions belives some services shouldnt be outsourced and provides a base-layer of functionality critical to any reactive app. Made up of intelligently choosen patterns and practices that dont lock you in...  The idea being, as your apps hockey-stick kicks' in, you can replace any of these core functions with Cloud managed services in a cost-effective, piecemeal way.
+
+*What capabilities does Reactions provide?*
+
+* [Reactors](reactors.md)
+* [AppStatus](appstatus.md)
+* [DDD/CQRS](cloudpatterns.md)
+* [BuildingBlocks](buildingblocks.md)
+* [RxnHosts](rxnhosts.md)
+* [Cloud scaling](cloudscaling.md)
+* [Docker support](rxncreate.md)
+* [Real-time App Monitoring](scaling.md)
+* [Task Scheduling](scheduler.md)
+* [CI/DI](cicd.md)
+* [Cloud Costings](costings.md) *comming soon*
+
+## 1.1. Building blocks for *Reactive* Micro Apps
+
+Reactions (*Rxns*) takes a pragmatic view of reactive app design centered around an event driven approach. See [reactors...](reactors.md)
+
 
 ## 1.2. Use-cases
  
@@ -93,12 +100,12 @@ Core motivations include:
 * Supports traditional event sourcing patterns
 * Design now, scale later! Seperates the concern of reacting to an event, from event delivery, allowing your event driven components to evolve seperately from your transport / platform or hosting mechanism
 * Each primivitate can be chained to an [EventManager] or [Reactor](#reactors) to partition your app features
-* Types
+* Primitives include:
   * `RxnPulsars` publish events on specific intervals
   * `RxnPublishers` publish events at any point in time based on there own internal semantics
   * `RxnProcessors` react to events with one or more events as a result
   * `RxnDectorators` event source the operations of *anything*
-  * `RxnDictionary<T, V>` are a specialised use-case optimised for in-memory caches
+  * `RxnDictionary<T, V>` are a specialised use-case optimised for key/value stores
   * `LazyCacheDecorator<T, TV>` takes it a step further, debouncing operations to the backing store in time-slipping buffers where last value wins and writes can be skipped
   * `ShardingQueueProcessingService`
     * Supports `duplexing` tenanted data over a single queue serviced by a configurable amount of workers
@@ -115,16 +122,17 @@ Core motivations include:
   * `LowestCostServiceBusBackingChannel` : events are routed over a cloud provider whos cost is lowest for the events you are sending *todo
   * `MessagaingCenterChannel` : send events over [Xamarins](http://xamarin.com/) building sub/sub system
   * `RoutablebackingChannel` : events are routed to different event managers depending on a condition
+  * `NamedPipeBackingChannel`: uses the native operating systems IPC bus to send messages between processes
   * and more...
   
 ### 1.3.2. [Reactors](reactors.md)
 
-* Event Managers and other [primitives](#event-driven-primitives) can be `chained` to reactors to, communicating in an isolated way from other app components.
-* Couples components together to create resiliant, isolated, self-managed, sub-systems
+* Event Managers and other [primitives](#event-driven-primitives) can be `chained` to reactors, communicating in an isolated way from other app components.
+* These reactors couple components together to create resiliant, isolated, self-managed, micro-subsystems
 * A scale out vector, as the `Reactor` grows, move it out of process without modifying a single line of code
 * A reactors lifecycle is independant of your apps lifecycle, so they can be stopped or started without your app going down
-* Mimics the supervisor pattern used in [Erlang](erlang.org)
-* Automatically setups up metrics channel that provides deep insights into the event-flow of your system including the `back-pressure` of your reactions
+* Mimics the supervisor pattern made popular by [Erlang](erlang.org)
+* Automatically sets ups up metrics channel that provides deep insights into the event-flow of your system including the `back-pressure` of your reactions
   * Critical to understanding why your app is [event storming]()
   * Can be remotely viewed in real-time via the [AppStatus](#hosting) portal
 
@@ -133,7 +141,7 @@ Core motivations include:
 * Great tools to make your app more battle hardended
 * Unlock advanced event sourcing features such as `undo`, `redo`
 * Unit/Integration testing via tape playback
-  * Automate integration test generation by recording user actions and storing in ITapeRepository for playback by the `UserAutomationPlayer`
+  * Automate integration test generation by recording user actions and storing in `ITapeRepository` for playback by the `UserAutomationPlayer`
 *  Can be used to level up error reporting and diagnosis and produce piplines that empower devs with full-repo steps
 
 The gist is...

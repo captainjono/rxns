@@ -97,7 +97,7 @@ namespace Rxns.Hosting.Updates
             {
                 return AllUpdates(systemName, 1).SelectMany(latest =>
                 {
-                    return _client.GetUpdate(systemName, latest).Select(update =>
+                    return _client.GetUpdate(systemName, latest.FirstOrDefault()?.Version).Select(update =>
                     {
                         update.Seek(0, SeekOrigin.Begin);
                         return update;
@@ -114,7 +114,7 @@ namespace Rxns.Hosting.Updates
             });
         }
 
-        public IObservable<string> AllUpdates(string systemName = null, int top = 3)
+        public IObservable<AppUpdateInfo[]> AllUpdates(string systemName = null, int top = 3)
         {
             OnInformation("Retrieving list of last '{0}' updates for '{1}'", top, systemName);
 

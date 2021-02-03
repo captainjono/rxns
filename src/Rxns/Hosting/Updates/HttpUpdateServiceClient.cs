@@ -35,14 +35,14 @@ namespace Rxns.Hosting.Updates
                 });
         }
 
-        public IObservable<string> ListUpdates(string systemName, int top = 3)
+        public IObservable<AppUpdateInfo[]> ListUpdates(string systemName, int top = 3)
         {
             return Connection.Call(client => client.GetAsync(WithBaseUrl(string.Format("updates/{0}/list?top={1}", systemName, top))))
                 .SelectMany(resp =>
                 {
                     resp.EnsureSuccessStatusCode();
                     return resp.Content.ReadAsStringAsync();
-                }).SelectMany(r => r.Deserialise<string[]>());
+                }).Select(r => r.Deserialise<AppUpdateInfo[]>());
         }
     }
 }

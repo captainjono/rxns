@@ -106,7 +106,8 @@ namespace Rxns.Health.AppStatus
         {
             return _updates.AllUpdates(status.SystemName, 1)
                 .FirstOrDefaultAsync()
-                .Where(e => !e.IsNullOrWhitespace())
+                .Select(e => e.FirstOrDefault())
+                .Where(e => e != null)
                 .Select(currentVersion =>
                 {
                     if (!status.KeepUpToDate)
@@ -114,12 +115,12 @@ namespace Rxns.Health.AppStatus
                         return new RxnQuestion[0];
                     }
 
-                    if (currentVersion.Equals(status.Version, StringComparison.OrdinalIgnoreCase))
+                    if (currentVersion.Version.Equals(status.Version, StringComparison.OrdinalIgnoreCase))
                     {
                         return new RxnQuestion[0];
                     }
 
-                    return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion, status.GetRoute())};
+                    return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion.Version, status.GetRoute())};
                 });
         }
 
