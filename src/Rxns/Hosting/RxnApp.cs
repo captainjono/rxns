@@ -1,6 +1,11 @@
 ﻿using System;
 using System.Reactive.Linq;
+using Rxns.DDD.CQRS;
+using Rxns.Health;
+using Rxns.Health.AppStatus;
 using Rxns.Logging;
+using Rxns.Metrics;
+using Rxns.NewtonsoftJson;
 
 namespace Rxns.Hosting
 {
@@ -35,6 +40,27 @@ namespace Rxns.Hosting
 
             return _app.Start().Select(_app => app);//.DisposedBy(app);
         }
+        
+        public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spaceReactor =>
+        {
+            appStatusUrl ??= "http://localhost:888";
+
+            spaceReactor
+                .Includes<AppStatusClientModule>()
+                .Includes<RxnsModule>()
+                .CreatesOncePerApp<NoOpSystemResourceService>()
+                .CreatesOncePerApp(_ => new ReliableAppThatHeartbeatsEvery(TimeSpan.FromSeconds(10)))
+                .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
+                .CreatesOncePerApp(() => new AggViewCfg()
+                {
+                    ReportDir = "reports"
+                })
+                .CreatesOncePerApp(() => new AppServiceRegistry()
+                {
+                    AppStatusUrl = appStatusUrl
+                })
+                .CreatesOncePerApp<UseDeserialiseCodec>();
+        };
     }
 
     public class NoInstaller : IAppSetup

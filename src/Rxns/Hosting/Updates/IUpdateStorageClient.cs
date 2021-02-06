@@ -11,14 +11,6 @@ namespace Rxns.Hosting.Updates
         public int NumberOfRollingAppUpdates { get; set; }
     }
 
-
-    public class AppUpdateInfo
-    {
-        public string Version { get; set; }
-        public string SystemName { get; set; }
-    }
-
-
     /// <summary>
     /// Represents the storage mechanism for system updates
     /// </summary>
@@ -52,7 +44,17 @@ namespace Rxns.Hosting.Updates
 
     public interface IUpdateServiceClient
     {
-        IObservable<Unit> Download(string system, string version, string destinationFolder, bool overwrite = true);
+        /// <summary>
+        /// Downloads a system at a specific version, installing it into the destination folder.
+        /// If the destinaiton already exists, and is at the correct verison, this process becomes a no-op
+        /// and false is returned to indicate the system was already up-to-date.
+        /// </summary>
+        /// <param name="system"></param>
+        /// <param name="version"></param>
+        /// <param name="destinationFolder"></param>
+        /// <param name="overwrite"></param>
+        /// <returns></returns>
+        IObservable<string> Download(string system, string version, string destinationFolder, IRxnAppCfg cfg = null, bool overwrite = true);
         IObservable<Unit> Upload(string system, string version, string sourceFolder);
     }
 }

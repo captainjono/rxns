@@ -38,9 +38,9 @@ namespace Rxns.Hosting
 */
     public static class RxnCfgExt
     {
-        public static RxnAppCfg Save(this RxnAppCfg cfg, string location = null)
+        public static T Save<T>(this T cfg, string location = null) where T : IRxnAppCfg
         {
-            File.WriteAllText(Path.Combine(location ?? "", RxnAppCfg.CfgName), cfg.ToJson());
+            File.WriteAllText(location != null ? Path.Combine(location, RxnAppCfg.CfgName) : RxnAppCfg.CfgName, cfg.ToJson());
 
             return cfg;
         }
@@ -54,10 +54,12 @@ namespace Rxns.Hosting
 
         public static string CfgName { get; } = "rxn.cfg";
         public string SystemName { get; set; }
+        public bool KeepUpdated { get; set; } = true;
+        public string AppStatusUrl { get; set; }
 
-        public static RxnAppCfg Detect(string[] args)
+        public static RxnAppCfg Detect(string[] args, string cfgName = null)
         {
-            var cfg = LoadCfg(CfgName);
+            var cfg = LoadCfg(cfgName?? CfgName);
 
             cfg.Args = args;
 
@@ -66,17 +68,14 @@ namespace Rxns.Hosting
 
         
 
-        private static RxnAppCfg LoadCfg(string cfgFile)
+        public static RxnAppCfg LoadCfg(string cfgFile)
         {
             if (File.Exists(cfgFile))
             {
                 return File.ReadAllText(cfgFile).FromJson<RxnAppCfg>();
             }
 
-            return new RxnAppCfg()
-            {
-                Version = "1.0"
-            };
+            return new RxnAppCfg();
         }
     }
 
@@ -84,10 +83,12 @@ namespace Rxns.Hosting
     {
         string[] Args { get; }
 
-        string Version { get; }
+        string Version { get; set; }
 
         string AppPath { get; }
         string SystemName { get; set; }
+        bool KeepUpdated { get; }
+        string AppStatusUrl { get; }
     }
 
     public interface IRxnClusterHost : IRxnHost
@@ -257,6 +258,7 @@ namespace Rxns.Hosting
                     def.CreatesOncePerApp(_ => _processFactory);
                     //def.CreatesOncePerApp(_ => cfg);
                     def.CreatesOncePerApp(_ => app);
+                    def.CreatesOncePerApp(_ => cfg);
                     def.CreatesOncePerApp(_ => this);
                 });
 

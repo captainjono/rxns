@@ -84,7 +84,7 @@ namespace Rxns.Hosting.Updates
                 return Rxn.Empty<AppUpdateInfo[]>();
 
             return _fs.GetFiles("updates",
-                systemName.IsNullOrWhitespace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
+                systemName.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
                     ? "*.zip"
                     : $"{systemName}-*.zip").OrderByDescending(f => f.LastWriteTime).Take(top).Select(f =>
             {

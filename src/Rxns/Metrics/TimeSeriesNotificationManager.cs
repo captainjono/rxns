@@ -94,11 +94,11 @@ namespace Rxns.Metrics
 
         public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            publish(new SystemStatusMetaEvent()
+            publish(new AppStatusInfoProviderEvent()
             {
                 ReporterName = this.ReporterName,
                 Component = "TimeSeriesNotifications",
-                Meta = () => new
+                Info = () => new
                 {
                     Watchers = _watchers.Count
                 }

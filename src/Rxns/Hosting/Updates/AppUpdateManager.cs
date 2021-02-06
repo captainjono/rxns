@@ -93,25 +93,34 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<Stream> GetUpdate(string systemName, string version)
         {
-            if (version.Equals("Latest", StringComparison.OrdinalIgnoreCase))
+            return Rxn.DfrCreate<Stream>(() => Rxn.Create<Stream>(o =>
             {
-                return AllUpdates(systemName, 1).SelectMany(latest =>
+                if (version.Equals("Latest", StringComparison.OrdinalIgnoreCase))
                 {
-                    return _client.GetUpdate(systemName, latest.FirstOrDefault()?.Version).Select(update =>
+                    return AllUpdates(systemName, 1).SelectMany(latest =>
                     {
-                        update.Seek(0, SeekOrigin.Begin);
-                        return update;
-                    });
-                });
-            }
-            version = version.Replace(".zip", "");
-            OnInformation("Getting update '{0}' for '{1}", version, systemName);
+                        if (latest == null)
+                        {
+                            throw new Exception($"No updates for {systemName}");
+                        }
+                        
+                        return _client.GetUpdate(systemName, latest.FirstOrDefault()?.Version).Select(update =>
+                        {
+                            update.Seek(0, SeekOrigin.Begin);
+                            return update;
+                        });
+                    }).Subscribe(o);
+                }
+                version = version.Replace(".zip", "");
+                OnInformation("Getting update '{0}' for '{1}", version, systemName);
 
-            return _client.GetUpdate(systemName, version).Select(update => 
-            {
-                update.Seek(0, SeekOrigin.Begin);
-                return update;
-            });
+                return _client.GetUpdate(systemName, version).Select(update =>
+                {
+                    update.Seek(0, SeekOrigin.Begin);
+                    return update;
+                }).Subscribe(o);
+            }));
+            
         }
 
         public IObservable<AppUpdateInfo[]> AllUpdates(string systemName = null, int top = 3)
@@ -231,6 +240,11 @@ namespace Rxns.Hosting.Updates
 
         private IObservable<CommandResult> DownloadAndUpdate(string systemName, string version, bool overwriteExisting)
         {
+            if (_onStateChanged.Value() != AppUpdateStatus.Idle)
+            {
+                return CommandResult.Failure("Update already in progress").ToObservable();
+            }
+            
             return Rxn.DfrCreate<CommandResult>(() =>
             {
                 if (String.IsNullOrWhiteSpace(version)) throw new ArgumentNullException("version");

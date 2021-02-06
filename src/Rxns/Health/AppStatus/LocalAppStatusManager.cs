@@ -120,7 +120,7 @@ namespace Rxns.Health.AppStatus
                         return new RxnQuestion[0];
                     }
 
-                    return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion.Version, status.GetRoute())};
+                    return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion.Version, false, status.GetRoute())};
                 });
         }
 

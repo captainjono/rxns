@@ -10,11 +10,11 @@ using Rxns.Interfaces;
 
 namespace Rxns.Health
 {
-    public class SystemStatusPublisher : ReportsStatus, IRxnProcessor<SystemStatusEvent>, IRxnProcessor<SystemStatusMetaEvent>
+    public class SystemStatusPublisher : ReportsStatus, IRxnProcessor<SystemStatusEvent>, IRxnProcessor<AppStatusInfoProviderEvent>
     {
         private readonly IAppStatusServiceClient _appStatus;
         private readonly IAppUpdateManager _updates;
-        private readonly Dictionary<string, SystemStatusMetaEvent> _meta = new Dictionary<string, SystemStatusMetaEvent>();
+        private readonly Dictionary<string, AppStatusInfoProviderEvent> _meta = new Dictionary<string, AppStatusInfoProviderEvent>();
 
         public SystemStatusPublisher(IAppStatusServiceClient appStatus, IAppUpdateManager updates)
         {
@@ -35,7 +35,7 @@ namespace Rxns.Health
 
                 OnVerbose("Publishing status to support service");
 
-                var meta = _meta.Values.Where(m => m.Meta != null).Select(m => m.Meta());
+                var meta = _meta.Values.Where(m => m.Info != null).Select(m => m.Info());
                 var finalMeta = meta.Any() ? meta.ToArray() : new object[] { };
 
                 return _appStatus.PublishSystemStatus(status, finalMeta); //returns commands as responses
@@ -43,13 +43,13 @@ namespace Rxns.Health
 
         }
 
-        public IObservable<IRxn> Process(SystemStatusMetaEvent meta)
+        public IObservable<IRxn> Process(AppStatusInfoProviderEvent infoProvider)
         {
             return Rxn.Create<IRxn>(() =>
             {
-                OnVerbose("Received meta from {0}", meta.ReporterName);
+                OnVerbose("Received meta from {0}", infoProvider.ReporterName);
 
-                _meta.AddOrReplace(meta.Component, meta);
+                _meta.AddOrReplace(infoProvider.Component, infoProvider);
             });
         }
     }

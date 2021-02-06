@@ -25,5 +25,7 @@ namespace Rxns.Hosting
         /// <param name="scheduler">The scheduler used to run the command, if any. The default is the Scheduler.CurrentThread</param>
         /// <returns></returns>
         IObservable<string> Execute(string shellCommand, IScheduler scheduler = null);
+
+        void AllowToBeExecuted(string appName);
     }
 }

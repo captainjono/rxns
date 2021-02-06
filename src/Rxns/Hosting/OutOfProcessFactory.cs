@@ -23,6 +23,31 @@ namespace Rxns.Hosting
     {
         public static RxnManager<IRxn> RxnManager { get; set; }
 
+        
+        
+        public static NamedPipesServerBackingChannel CreateNamedPipeServer()
+        {
+            PipeServer = new NamedPipesServerBackingChannel(4);
+            
+            RxnManager = new RxnManager<IRxn>(PipeServer);
+            RxnManager.ReportToDebug();
+            RxnManager.Activate().Until();
+
+            return PipeServer;
+        }
+
+        public static NamedPipesServerBackingChannel PipeServer { get; set; }
+
+        public static NamedPipesClientBackingChannel CreateNamedPipeClient(string name)
+        {
+            var server = new NamedPipesClientBackingChannel(NamedPipesServerBackingChannel.PipeName, name);
+            RxnManager = new RxnManager<IRxn>(server);
+            RxnManager.ReportToDebug();
+            RxnManager.Activate().Until();
+
+            return server;
+        }
+        
         public void Setup(IRxnHostableApp app, string reactorName, RxnMode mode)
         {
             switch (mode)
@@ -107,7 +132,7 @@ namespace Rxns.Hosting
                         //var reactorName = args.Reverse().FirstOrDefault();
                         var routes = RxnCreator.DiscoverRoutes(reactorName, app.Resolver);
                         PipeServer.ListenForNewClient(reactorName, routes);
-                        return new ExternalProcessRxnAppContext(hostManager, app, args, RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, args, RxnManager).ToObservable().Subscribe(o);
                     case RxnMode.InProcess:
                         return hostManager.GetHostForApp(reactorName).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
                     default:
@@ -132,14 +157,14 @@ namespace Rxns.Hosting
                         // the consolehost does the building so something similiar to a host
                         // syntax here, but we just want a <reactorName, type[] routes> RxnCreate.LookupReactorRoutes(RxnApp)?
                         PipeServer.ListenForNewClient("main", new Type[] { typeof(IRxn) });
-                        return new ExternalProcessRxnAppContext(hostManager, app, "reactor main".Split(), RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, "reactor main".Split(), RxnManager).ToObservable().Subscribe(o);
                     //should also then startup the supervisor host!
                     case RxnMode.OutOfProcess:
                         var reactorName = args.Reverse().FirstOrDefault();
                         var routes = app.Resolver.Resolve<IManageReactors>().GetOrCreate(reactorName).Reactor.Molecules.SelectMany(m => RxnCreator.DiscoverRoutes(m)).ToArray();
                         PipeServer.ListenForNewClient(reactorName, routes);
 
-                        return new ExternalProcessRxnAppContext(hostManager, app, args, RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, args, RxnManager).ToObservable().Subscribe(o);
                     case RxnMode.InProcess:
                         return hostManager.GetHostForApp(null).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
                     case RxnMode.Main:
@@ -151,27 +176,5 @@ namespace Rxns.Hosting
             });
         }
 
-        public static NamedPipesServerBackingChannel CreateNamedPipeServer()
-        {
-            PipeServer = new NamedPipesServerBackingChannel(4);
-
-            RxnManager = new RxnManager<IRxn>(PipeServer);
-            RxnManager.ReportToDebug();
-            RxnManager.Activate().Until();
-
-            return PipeServer;
-        }
-
-        public static NamedPipesServerBackingChannel PipeServer { get; set; }
-
-        public static NamedPipesClientBackingChannel CreateNamedPipeClient(string name)
-        {
-            var server = new NamedPipesClientBackingChannel(NamedPipesServerBackingChannel.PipeName, name);
-            RxnManager = new RxnManager<IRxn>(server);
-            RxnManager.ReportToDebug();
-            RxnManager.Activate().Until();
-
-            return server;
-        }
     }
 }

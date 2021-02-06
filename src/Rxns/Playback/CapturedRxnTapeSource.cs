@@ -81,7 +81,7 @@ namespace Rxns.Playback
                                 nextEvent.Clear();
                             }
 
-                        if (contents.Position == contents.Length || charsRead == 0) break;
+                        if ((contents.CanSeek && contents.Position == contents.Length) || charsRead == 0) break;
                     }
 
                     o.OnCompleted();

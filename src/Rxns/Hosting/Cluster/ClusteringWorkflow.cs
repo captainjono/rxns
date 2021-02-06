@@ -47,7 +47,7 @@ namespace Rxns.Hosting.Cluster
             return _factory.Create(app, _hostManager, cfg.Args.AnyItems() ? cfg.Args : null, mode)
                 .SelectMany(rxnApp =>
                 {
-                    "App started".LogDebug();
+                    "App starting".LogDebug();
                     Apps.Add("supervisor", rxnApp);
 
                     _scalingManager.Manage(rxnApp);
@@ -66,7 +66,6 @@ namespace Rxns.Hosting.Cluster
                 return _rxnManager.Publish(new SendReactorOutOfProcess(name, routes)).Select(_ =>
                 {
                     var rxnApp = new RxnManagerClusterClient(_rxnManager, new[] {"reactor", name});
-                    _scalingManager.Manage(rxnApp);
 
                     Apps.Add(name, rxnApp);
 
@@ -83,16 +82,17 @@ namespace Rxns.Hosting.Cluster
             return _factory.Create(app, _hostManager, name, RxnMode.OutOfProcess)
                 .SelectMany(rxnApp =>
                 {
-                    "App started".LogDebug();
+                    $"{name} starting".LogDebug();
 
                     Apps.Add(name, rxnApp);
+
+                    _scalingManager.Manage(rxnApp);
 
                     return rxnApp.Start();
                 })
                 .Select(isolatedReactor =>
                 {
                     "Reactor spawned".LogDebug();
-                    _scalingManager.Manage(isolatedReactor);
 
                     return isolatedReactor;
                 });

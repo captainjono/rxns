@@ -168,6 +168,25 @@ namespace Rxns
             })
                 .Finally(() => ReportStatus.Log.OnVerbose($"Got answer to question {question.Id}"));
         }
+        
+        public static IObservable<T> Ask<T>(this IObservable<IRxn> rxnManager, IUniqueRxn question, Func<IRxn, IObservable<Unit>> publish) where T : IRxnResult, IRxn
+        {
+            return Rxn.DfrCreate<T>(o =>
+                {
+                    var resources = new CompositeDisposable(2);
+
+                    rxnManager.OfType<T>()
+                        .Where(c => c.InResponseTo == question.Id)
+                        .FirstOrDefaultAsync()
+                        .Subscribe(o)
+                        .DisposedBy(resources);
+
+                    publish(question).Until(o.OnError).DisposedBy(resources);
+
+                    return resources;
+                })
+                .Finally(() => ReportStatus.Log.OnVerbose($"Got answer to question {question.Id}"));
+        }
     }
 
 }

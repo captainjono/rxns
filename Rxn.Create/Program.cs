@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading;
@@ -15,158 +14,48 @@ using Rxns.DDD;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Health;
-using Rxns.Health.AppStatus;
 using Rxns.Hosting;
 using Rxns.Hosting.Cluster;
-using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.Metrics;
-using Rxns.Reliability;
 
 namespace RxnCreate
 {
     class Program
     {
-        public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spaceReactor =>
-        {
-            
-            appStatusUrl ??= "http://localhost:888";
-
-            spaceReactor
-                .Includes<AppStatusClientModule>()
-                .Includes<RxnsModule>()
-                .CreatesOncePerApp<NoOpSystemResourceService>()
-                .CreatesOncePerApp(_ => new ReliableAppThatHeartbeatsEvery(TimeSpan.FromSeconds(10)))
-                .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
-                .CreatesOncePerApp(() => new AggViewCfg()
-                {
-                    ReportDir = "reports"
-                })
-                .CreatesOncePerApp(() => new AppServiceRegistry()
-                {
-                    AppStatusUrl = appStatusUrl
-                })
-                .CreatesOncePerApp<UseDeserialiseCodec>();
-
-        };
-        
-        public static IObservable<Unit> SpawnFromAppUpdate(string appName, string version, string binary, string appLocation)
-        {
-            if (appLocation.StartsWith("."))
-                appLocation = Environment.CurrentDirectory;
-
-            "Spawning".LogDebug();
-            $"App: {appName}".LogDebug();
-            $"Version: {version}".LogDebug();
-            $"Location: {appLocation}".LogDebug();
-            
-            var client = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(new DotNetFileSystemService()), new DotNetFileSystemService());
-            client.ReportToDebug();
-
-            return client.Download(appName, version, appLocation, true).Do(_ =>
-            {
-                //spawn new app
-                Process.Start(new ProcessStartInfo(Path.Combine(appLocation, binary)));
-            });
-        }
-
-        public static IObservable<Unit> FromAppUpdate(string appName, string version, string binary, string appLocation, bool isLocal, string appStatusUrl = "http://localhost:888")
-        {
-            if (appLocation.StartsWith("."))
-                appLocation = Environment.CurrentDirectory;
-
-            "Spawning".LogDebug();
-            $"App: {appName}".LogDebug();
-            $"Version: {version}".LogDebug();
-            $"Location: {appLocation}".LogDebug();
-
-            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl);
-
-            return client.Download(appName, version, appLocation, true).Do(_ =>
-            {
-                //spawn new app
-                new RxnAppCfg()
-                {
-                    SystemName = appName,
-                    Version = version,
-                    AppPath = Path.Combine(appLocation, binary)
-                }.Save();
-
-                var restart = Process.GetCurrentProcess().StartInfo;
-                Process.Start(restart);
-            });
-        }
-
-        public static IObservable<Unit> CreateAppUpdate(string appName, string version, string appLocation, bool isLocal, string appStatusUrl = "http://localhost:888")
-        {
-            if (appLocation.StartsWith("."))
-                appLocation = Environment.CurrentDirectory;
-
-            "Pushing update".LogDebug();
-            $"App: {appName}".LogDebug();
-            $"Version: {version}".LogDebug();
-            $"Location: {appLocation}".LogDebug();
-
-            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl);
-
-            if (version.StartsWith("Latest-", StringComparison.OrdinalIgnoreCase))
-            {
-                version = version.Split('-')[1];
-                version = $"{version}.{DateTime.Now.ToString("s").Replace(":", "")}";
-            }
-            
-            return client.Upload(appName, version, appLocation);
-        }
-
-        private static IUpdateServiceClient AutoSelectUpdateServerClient(bool isLocal, string appStatusUrl)
-        {
-            var fs = new DotNetFileSystemService();
-            
-            if (!isLocal)
-            {
-                appStatusUrl ??= "http://localhost:888";
-                $"Using AppStatus URL: {appStatusUrl}".LogDebug();
-
-                var c = new AppUpdateServiceClient(new HttpUpdateServiceClient(new AppServiceRegistry()
-                {
-                    AppStatusUrl = appStatusUrl
-                }, new AnonymousHttpConnection(new HttpClient()
-                {
-                    Timeout = TimeSpan.FromHours(24)
-                }, new ReliabilityManager(new RetryMaxTimesReliabilityCfg(3)))), fs);
-                c.ReportToDebug();
-                return c;
-            }
-            else
-            {
-                "Saving update locally".LogDebug();
-
-                var c = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(fs), fs);
-                c.ReportToDebug();
-                return c;
-            }
-        }
-
-  
 
         static void Main(string[] args)
         {
-
-            //ReportStatus.Log.ReportToConsole();
-            //ReportStatus.Log.ReportToDebug();
+            ReportStatus.Log.ReportToDebug();
             
+            //args = "NewAppUpdate DotNetTestWorker Latest-1 /Applications/JanisonReplay.app false false http://192.168.1.2:888/".Split(' ');
+
+            //args = "SpareReactor http://192.168.1.2:888".Split(' ');
             //test with
             //PublishAppUpdate "sparereactor" "1.0" ".\"
             if (args.FirstOrDefault() == "NewAppUpdate")
             {
                 var name = args.Skip(1).FirstOrDefault();
                 var version = args.Skip(2).FirstOrDefault();
-                var appLocation = args.Skip(3).FirstOrDefault();//?.Replace("\\\\", "\\");
+                var appLocation = args.Skip(3).FirstOrDefault().IsNullOrWhiteSpace(".");//?.Replace("\\\\", "\\");
                 var isLocal = args.Skip(4).FirstOrDefault();
-                var appStatusUrl = args.Skip(5).FirstOrDefault();
+                var generateRxnCfg = bool.Parse(args.Skip(5).FirstOrDefault() ?? false.ToString());
+                var appStatusUrl = args.Skip(6).FirstOrDefault();
 
-                CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhitespace(true.ToString())), appStatusUrl).Catch<Unit, Exception>(
+                if (appLocation == ".")
+                    appLocation = Directory.GetCurrentDirectory();
+
+                appLocation.LogDebug("APPLOC");
+                if(generateRxnCfg)
+                    new RxnAppCfg()
+                    {
+                        SystemName = name,
+                        Version = version,
+                        AppStatusUrl = appStatusUrl,
+                        KeepUpdated = true,
+                    }.Save(appLocation);
+
+                RxnApps.CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhiteSpace(true.ToString())), appStatusUrl).Catch<Unit, Exception>(
                     e =>
                     {
                         ReportStatus.Log.OnError("Push failed", e);
@@ -174,8 +63,6 @@ namespace RxnCreate
                     }).WaitR();
                 
                 "Successfully created update".LogDebug();
-
-
                 return;
             }
 
@@ -189,7 +76,7 @@ namespace RxnCreate
                 var isLocal = args.Skip(5).FirstOrDefault();
                 var appStatusUrl = args.Skip(6).FirstOrDefault();
                 
-                FromAppUpdate(systemName, version, binary, appLocation, bool.Parse(isLocal.IsNullOrWhitespace(true.ToString())), appStatusUrl).WaitR();
+                RxnApps.FromAppUpdate(systemName, version, binary, appLocation, bool.Parse(isLocal.IsNullOrWhiteSpace(true.ToString())), appStatusUrl).WaitR();
 
                 $"Successfully spawned {systemName} from update".LogDebug();
 
@@ -205,20 +92,20 @@ namespace RxnCreate
                 {
                     ctx = _;
                 })
-                .Until(ReportStatus.Log.OnError);
+                .Until();
             }
             else
             {
-
                 var cfg = RxnAppCfg.Detect(args);
                 //cfg.AppPath = @"C:\Windows\System32\notepad.exe";
                 //RxnAppCfg.Save(cfg);
                 
                 if (args.FirstOrDefault() == "ReactorFor" || !cfg.AppPath.IsNullOrWhitespace())
                 {
-                    var pathToExe = args.Skip(1).FirstOrDefault();
-                    RunSupervisorReactor(pathToExe ?? cfg.AppPath, cfg.Version,  args: args).Do(_ => { ctx = _; })
-                        .WaitR();
+                    var pathToApp = args.Skip(1).FirstOrDefault();
+                    var url =  args.Skip(2).FirstOrDefault();
+
+                    RxnProcessSupervisor.RunSupervisorReactor(pathToApp ?? cfg.AppPath, cfg.Version, url,  args).Do(_ => { ctx = _; }).WaitR();
 
                     return;
                 }
@@ -228,18 +115,18 @@ namespace RxnCreate
 
                 if (args.FirstOrDefault() == "Demo" || true)
                 {
-                    RunSpareReactor().Do(_ => { ctx = _; })
-                        .Until(ReportStatus.Log.OnError);
-                }
-                if (args.FirstOrDefault() == "TestAgent")
-                {
                     RunDemoAppReactor(args: args).Do(_ => { ctx = _; })
-                        .Until(ReportStatus.Log.OnError);
+                        .Until();
+                }
+                else if (args.FirstOrDefault() == "TestAgent"|| true)
+                {
+                    UnitTestAgent.RunTestAgentReactor(args: args).Do(_ => { ctx = _; })
+                        .Until();
                 }
                 else
                 {
                     RunSpareReactor().Do(_ => { ctx = _; })
-                        .Until(ReportStatus.Log.OnError);
+                        .Until();
                 }
             }
 
@@ -253,43 +140,47 @@ namespace RxnCreate
             ConsoleHostedApp.StartREPL(new RxnManagerCommandService(ctx.RxnManager, ctx.Resolver.Resolve<ICommandFactory>(), ctx.Resolver.Resolve<IServiceCommandFactory>()));
         }
         
-        public static IObservable<IDisposable> SupervisedProcess(string pathToProcess)
+        public static IObservable<IRxnAppContext> RunSpareReactor(string url = "http://localhost:888/", Func<Action<IRxnLifecycle>, Action<IRxnLifecycle>> mod = null)
         {
-            return Rxn.Create(pathToProcess, null, i => ReportStatus.Log.OnInformation(pathToProcess, i), e => ReportStatus.Log.OnError(pathToProcess, e));
-        }
-
-        private static IObservable<IRxnAppContext> RunSupervisorReactor(string pathToExe, string version, string url = "http://localhost:888/", params string[] args)
-        {
-            return Rxn.Create<IRxnAppContext>(o =>
+            return Rxns.Rxn.Create<IRxnAppContext>(o =>
             {
-                $"Running supervisor for {pathToExe}".LogDebug();
-
-                if (args.Contains("reactor"))
-                {
-                    OutOfProcessFactory.CreateNamedPipeClient(args.SkipWhile(a => a != "reactor").Skip(1).FirstOrDefault() ?? "spare");
-                }
-                else
-                {
-                    OutOfProcessFactory.CreateNamedPipeServer();
-                }
-
                 //setup static object.Serialise() & string.Deserialise() methods
                 RxnExtensions.DeserialiseImpl = (t, json) => JsonExtensions.FromJson(json, t);
                 RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
 
-                var cfg = RxnAppCfg.Detect(args);
-                
-                return SpareReator(url)
-                    .ToRxns(SupervisedProcess(pathToExe), args)
-                    .Named(new ClusteredAppInfo(pathToExe.Split(new [] {'/', '\\'}).LastOrDefault(), version, args, false))
-                    .OnHost(new ConsoleHostedApp(), cfg)
+                mod = mod ?? (_ => _);
+                //think i need to read the rxn.cfg here to get the name of the app and populate it here. a sparereactor will then become
+                //a supervisor for the app...
+                //i will call that mode Supervisor?
+
+                return mod(RxnApp.SpareReator(url))
+                    .ToRxns()
+                    .Named(new AppVersionInfo("SpareReactor", "1.0.0", true))
+                    .OnHost(new ConsoleHostedApp(), new RxnAppCfg())
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();
                         app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
+
+                        $"Streaming logs".LogDebug();
+                        app.RxnManager.Publish(new StreamLogs()).WaitR();
                     })
                     .Subscribe(o);
             });
+        }
+        
+        public class TestCfg : StartUnitTest
+        {
+            public static TestCfg Detect()
+            {
+                var cfg = new TestCfg();
+                if (File.Exists("unittest.cfg"))
+                {
+                    cfg = File.ReadAllText("unittest.cfg").FromJson<TestCfg>();
+                }
+
+                return cfg;
+            }
         }
         
         private static IObservable<IRxnAppContext> RunDemoAppReactor(string url = "http://localhost:888/", params string[] args)
@@ -311,7 +202,7 @@ namespace RxnCreate
 
                 var cfg = RxnAppCfg.Detect(args);
 
-                return OutOfProcessDemo.DemoApp(SpareReator(url))
+                return OutOfProcessDemo.DemoApp(RxnApp.SpareReator(url))
                     .ToRxns()
                     .Named(new ClusteredAppInfo("DemoApp", "1.0.0", args, false))
                     .OnHost(new ClusteredAppHost(
@@ -335,35 +226,6 @@ namespace RxnCreate
             });
         }
 
-
-        private static IObservable<IRxnAppContext> RunSpareReactor(string url = "http://localhost:888/", Func<Action<IRxnLifecycle>, Action<IRxnLifecycle>> mod = null)
-        {
-            return Rxns.Rxn.Create<IRxnAppContext>(o =>
-            {
-                //setup static object.Serialise() & string.Deserialise() methods
-                RxnExtensions.DeserialiseImpl = (t, json) => JsonExtensions.FromJson(json, t);
-                RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
-
-                mod = mod ?? (_ => _);
-                //think i need to read the rxn.cfg here to get the name of the app and populate it here. a sparereactor will then become
-                //a supervisor for the app...
-                //i will call that mode Supervisor?
-
-                return mod(SpareReator(url))
-                    .ToRxns()
-                    .Named(new AppVersionInfo("SpareReactor", "1.0.0", true))
-                    .OnHost(new ConsoleHostedApp(), new RxnAppCfg())
-                    .Do(app =>
-                    {
-                        $"Advertising to {url}".LogDebug();
-                        app.RxnManager.Publish(new PerformAPing()).Until(ReportStatus.Log.OnError);
-
-                        $"Streaming logs".LogDebug();
-                        app.RxnManager.Ask<CommandResult>(new StreamLogs()).WaitR();
-                    })
-                    .Subscribe(o);
-            });
-        }
     }
 
 

@@ -75,8 +75,8 @@ namespace Rxns.Hosting.Cluster
                 $"Updating {@event.Route}".LogDebug();
                 
                 return _reactor.IsNullOrWhitespace()
-                    ? new UpdateSystemCommand(_systemName, _version, @event.Route)
-                    : new UpdateSystemCommand(_systemName, _reactor, _version, @event.Route);
+                    ? new UpdateSystemCommand(_systemName, _version, false, @event.Route)
+                    : new UpdateSystemCommand(_systemName, _reactor, _version, false, @event.Route);
             });
         }
     }
@@ -101,7 +101,7 @@ namespace Rxns.Hosting.Cluster
             "Setting up remote logging".LogDebug();
 
             _rxnManager.CreateSubscription<RLM>()
-                .Where(msg => msg.S == name)
+                .Where(msg => msg.S.BasicallyEquals(name))
                 .Do(log =>
                 {
                     ReportStatus.Log.OnMessage(LogLevel.None, log.ToString(), null, name);
