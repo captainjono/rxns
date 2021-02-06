@@ -38,9 +38,9 @@ namespace Rxns.Hosting
 */
     public static class RxnCfgExt
     {
-        public static RxnAppCfg Save(this RxnAppCfg cfg, string location = null)
+        public static T Save<T>(this T cfg, string location = null) where T : IRxnAppCfg
         {
-            File.WriteAllText(Path.Combine(location ?? "", RxnAppCfg.CfgName), cfg.ToJson());
+            File.WriteAllText(location != null ? Path.Combine(location, RxnAppCfg.CfgName) : RxnAppCfg.CfgName, cfg.ToJson());
 
             return cfg;
         }
@@ -50,14 +50,16 @@ namespace Rxns.Hosting
     {
         public string[] Args { get; set; } = new string[0];
         public string Version { get; set; }
-        public string PathToExe { get; set; }
+        public string PathToSystemBinary { get; set; }
 
         public static string CfgName { get; } = "rxn.cfg";
         public string SystemName { get; set; }
+        public bool KeepUpdated { get; set; } = true;
+        public string AppStatusUrl { get; set; }
 
-        public static RxnAppCfg Detect(string[] args)
+        public static RxnAppCfg Detect(string[] args, string cfgName = null)
         {
-            var cfg = LoadCfg(CfgName);
+            var cfg = LoadCfg(cfgName?? CfgName);
 
             cfg.Args = args;
 
@@ -66,7 +68,7 @@ namespace Rxns.Hosting
 
         
 
-        private static RxnAppCfg LoadCfg(string cfgFile)
+        public static RxnAppCfg LoadCfg(string cfgFile)
         {
             if (File.Exists(cfgFile))
             {
@@ -84,10 +86,12 @@ namespace Rxns.Hosting
     {
         string[] Args { get; }
 
-        string Version { get; }
+        string Version { get; set; }
 
-        string PathToExe { get; }
+        string PathToSystemBinary { get; }
         string SystemName { get; set; }
+        bool KeepUpdated { get; }
+        string AppStatusUrl { get; }
     }
 
     public interface IRxnClusterHost : IRxnHost

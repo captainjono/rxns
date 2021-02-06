@@ -7,6 +7,7 @@ using System.Text;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 using Rxns.Microservices;
 
 namespace Rxns.DDD.CQRS
@@ -65,6 +66,8 @@ namespace Rxns.DDD.CQRS
                 OnInformation($"Log streaming started for {forHowLong}");
                 _stopStream = Rxn.MakeReliable(() => _app.Information.Select(i => i.ToRxn(_appInfo.Name))
                     .Merge(_app.Errors.Select(e => e.ToRxn(_appInfo.Name)))
+                    .Merge(Logger.OnDebug.Select(i => new RLM() { L = i.ToString(), S = _appInfo.Name }))
+                    //.Merge(ReportStatus.Log.Errors.Select(e => e.ToRxn(_appInfo.Name)))
                     .Buffer(TimeSpan.FromSeconds(5))
                     .Where(e => e.AnyItems())
                     .SelectMany(Publish),

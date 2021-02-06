@@ -12,6 +12,11 @@ namespace System
         {
             return String.IsNullOrWhiteSpace(str);
         }
+        
+        public static string IsNullOrWhiteSpace(this string str, string returnThis = null)
+        {
+            return string.IsNullOrWhiteSpace(str) ? returnThis : str;
+        }
 
         public static IEnumerable<T> EmptyIfNull<T>(this IEnumerable<T> context)
         {

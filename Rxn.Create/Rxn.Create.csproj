@@ -18,8 +18,14 @@
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="unittest.cfg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="echo &quot;Uploading rxn&quot;&#xD;&#xA;echo &quot;$(TargetDir)Rxn.Create&quot; NewAppUpdate &quot;SpareReactor&quot; &quot;Latest-1.0&quot; &quot;$(TargetDir)\&quot; &quot;false&quot;" />
+    <Exec Command="dotnet $(TargetPath) NewAppUpdate DotNetTestWorker Latest-1 $(TargetDir)/ false true http://192.168.1.2:888/" />
   </Target>
 
 </Project>

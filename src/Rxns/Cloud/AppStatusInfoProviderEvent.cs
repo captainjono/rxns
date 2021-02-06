@@ -7,10 +7,10 @@ using Rxns.Interfaces;
 
 namespace Rxns.Cloud
 {
-    public class SystemStatusMetaEvent : IRxn
+    public class AppStatusInfoProviderEvent : IRxn
     {
         public string Component = Guid.NewGuid().ToString();
         public string ReporterName;
-        public Func<object> Meta;
+        public Func<object> Info;
     }
 }

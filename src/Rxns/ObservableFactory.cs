@@ -8,6 +8,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Reactive.Threading.Tasks;
 using System.Reflection;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
@@ -168,21 +169,20 @@ namespace Rxns
 
                 p.Start();
 
-                p.StandardOutput.ReadToEndAsync().ToObservable().Do(msg =>
+                Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardOutput.ReadLineAsync())).Do(msg =>
                 {
-                    onInfo(msg.Result);
-                });
+                    onInfo(msg);
+                }).DoWhile(() => !p.HasExited).Until(o.OnError);
 
-                p.StandardError.ReadToEndAsync().ToObservable().Do(msg =>
+                Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardError.ReadLineAsync())).Do(msg =>
                 {
-                    onError(nameOfProcess);
-                });
+                    onError(msg);
+                }).DoWhile(() => !p.HasExited).Until(o.OnError);
 
                 p.Exited += (__, _) =>
                 {
                     o.OnError(new Exception($"{pathToProcess} exited"));
                 };
-
 
                 p.KillOnExit();
 

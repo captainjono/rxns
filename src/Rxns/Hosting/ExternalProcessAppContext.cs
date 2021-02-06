@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -16,7 +17,6 @@ namespace Rxns.Hosting
 
     public class ExternalProcessRxnAppContext : IRxnAppContext
     {
-        private readonly IRxnHostManager _hostManager;
         public IRxnHostableApp App { get; }
         public string[] args { get; set; }
         readonly List<IDisposable> _resources = new List<IDisposable>();
@@ -34,9 +34,8 @@ namespace Rxns.Hosting
 
         private ISubject<ProcessStatus> _status = new BehaviorSubject<ProcessStatus>(ProcessStatus.Terminated);
 
-        public ExternalProcessRxnAppContext(IRxnHostManager hostManager, IRxnHostableApp app, string[] args, IRxnManager<IRxn> rxnManager)
+        public ExternalProcessRxnAppContext(IRxnHostableApp app, string[] args, IRxnManager<IRxn> rxnManager)
         {
-            _hostManager = hostManager;
             App = app;
             this.args = args;
 
@@ -167,7 +166,6 @@ namespace Rxns.Hosting
             return _container;
         }
 
-
         private string GetDirectoryForVersion(string root, string version)
         {
             return Path.Combine(root, version ?? "");
@@ -184,11 +182,11 @@ namespace Rxns.Hosting
         {
             //at the moment im making an assumption that all dirs 
             //under the root dir are managed by apphost
-            //var dirs = _fsService.GetDirectories(_config.AppRootPath).ToArray();
-            //var toKeep = dirs.OrderByDescending(dir => dir).Take(_config.AppBackupHistory + 1/*the current app*/); //reverse alphabetical order gives us a proper version heirachy
+            var dirs = Directory.GetDirectories(App.AppPath).ToArray();
+            var toKeep = dirs.OrderByDescending(dir => dir).Take(3 + 1/*the current app*/); //reverse alphabetical order gives us a proper version heirachy
 
-            //foreach (var oldBackup in dirs.Except(toKeep))
-            //    _fsService.DeleteDirectory(oldBackup);
+            foreach (var oldBackup in dirs.Except(toKeep))
+                Directory.Delete(oldBackup);
         }
 
         private void Install(IRxnHostableApp app)
@@ -280,50 +278,6 @@ namespace Rxns.Hosting
                 _container = null;
             }
         }
-
-        private void AutoStartApp(IRxnHostableApp app)
-        {
-
-            LogAsHost("App has crashed and is being recovered");
-            _container = null; //because the app container is destroyed anyway!
-            Start(App, _lastAppVersion);
-        }
-
-
-        //public Type[] ScanForImplementingAssemblies(string baseDir)
-        //{
-        //    var currentAssembly = Assembly.GetExecutingAssembly().Location;
-        //    var assemblies = new DirectoryInfo(@baseDir).EnumerateFileSystemInfos("*.dll").Where(a => a.FullName != currentAssembly).Select(
-        //        a =>
-        //        {
-        //            try
-        //            {
-        //                return Assembly.ReflectionOnlyLoadFrom(a.FullName);
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                Console.WriteLine("{0}", e);
-        //            }
-
-        //            return null;
-        //        }).Where(x => x != null).ToArray();
-
-        //    var updatables = assemblies.SelectMany(a =>
-        //    {
-        //        try
-        //        {
-        //            return a.GetTypes().Where(t => t.GetInterface("IUpdateble") != null);
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            Console.WriteLine(e);
-        //            return new List<Type>();
-        //        }
-        //    }).Where(a => a != null).ToArray();
-
-        //    return updatables;
-        //}
-
 
         public void OnDispose(IDisposable obj)
         {

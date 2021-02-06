@@ -124,7 +124,8 @@ namespace Rxns.Health
                     SystemName = _appInfo.Name,
                     Version = _appInfo.Version,
                     Tenant = _userCfg.Tenant,
-                    Status = CurrentStatus
+                    Status = CurrentStatus,
+                    KeepUpToDate = _appInfo.KeepUpdated
                 });
 
                 OnVerbose("Published");

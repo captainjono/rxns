@@ -34,9 +34,9 @@ namespace Rxns.Hosting
 
         public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            publish(new SystemStatusMetaEvent()
+            publish(new AppStatusInfoProviderEvent()
             {
-                Meta = ClusterStatus
+                Info = ClusterStatus
             });
         }
     }

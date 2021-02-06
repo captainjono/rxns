@@ -11,6 +11,11 @@ using Rxns.Logging;
 
 namespace Rxns.Cloud
 {
+    /// <summary>
+    /// This queue does work for each shard on a different thread in an effort to create a higher degree of in-app tenanted seperation
+    /// and reduce comptetion for resources that a hungry tenant may demand.
+    /// </summary>
+    /// <typeparam name="TQueueItem"></typeparam>
     public abstract class ShardingQueueProcessingService<TQueueItem> : ReportStatusService, IRxnPublisher<IRxn>
     {
         public string QueueName { get; set; }
@@ -47,9 +52,9 @@ namespace Rxns.Cloud
         public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
             _publish = publish;
-            publish(new SystemStatusMetaEvent()
+            publish(new AppStatusInfoProviderEvent()
             {
-                Meta = () => new
+                Info = () => new
                 {
                     QueueName,
                     QueueCurrent,
@@ -68,23 +73,23 @@ namespace Rxns.Cloud
                     _queueResources.Clear();
                 }
             })
-                            .Select(tenants =>
-                            {
-                                return tenants.Select(t =>
-                                {
-                                    var tt = t;
-                                    return new Func<TQueueItem, bool>(a => shardSelector(tt, a));
-                                })
-                                .ToArray();
-                            })
-                            .Do(tenants =>
-                            {
-                                _queueWorkerScheduler = TaskPoolSchedulerWithLimiter.ToScheduler(tenants.Length > 0 ? tenants.Length : 8);
+            .Select(tenants =>
+            {
+                return tenants.Select(t =>
+                {
+                    var tt = t;
+                    return new Func<TQueueItem, bool>(a => shardSelector(tt, a));
+                })
+                .ToArray();
+            })
+            .Do(tenants =>
+            {
+                _queueWorkerScheduler = TaskPoolSchedulerWithLimiter.ToScheduler(tenants.Length > 0 ? tenants.Length : 8);
 
-                                lock (itemInList)
-                                    StartQueue(tenants);
-                            })
-                            .Until(OnError);
+                lock (itemInList)
+                    StartQueue(tenants);
+            })
+            .Until(OnError);
         }
 
         /// <summary>
@@ -102,10 +107,8 @@ namespace Rxns.Cloud
 
             OnInformation("Queue configured as {0}", _isSynchronous ? "sync" : "async");
 
-            foreach (var selector in workerShardSelector)
+            foreach (var where in workerShardSelector)
             {
-                var where = selector;
-
                 try
                 {
                     var consumer = _shardQueue.Where(where);

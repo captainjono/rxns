@@ -120,9 +120,9 @@ namespace Rxns.Health
             //                          .Subscribe()
             //                          .DisposedBy(this);
 
-            _publishEvent(new SystemStatusMetaEvent()
+            _publishEvent(new AppStatusInfoProviderEvent()
             {
-                Meta = () =>
+                Info = () =>
                         new
                         {
                             CpuAverage = _cpuAverage,

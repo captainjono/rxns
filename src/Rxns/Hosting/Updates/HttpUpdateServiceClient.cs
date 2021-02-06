@@ -45,4 +45,11 @@ namespace Rxns.Hosting.Updates
                 }).Select(r => r.Deserialise<AppUpdateInfo[]>());
         }
     }
+    
+    
+    public class AppUpdateInfo
+    {
+        public string Version { get; set; }
+        public string SystemName { get; set; }
+    }
 }

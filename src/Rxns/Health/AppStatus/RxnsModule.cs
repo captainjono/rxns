@@ -3,6 +3,7 @@ using System.Linq;
 using Rxns.Autofac;
 using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 using Rxns.Reliability;
 using Rxns.Scheduling;
 
@@ -15,6 +16,7 @@ namespace Rxns.Health.AppStatus
             return lifecycle
                 .EmitsAnyIn<IRxn>()
                 .CreatesOncePerApp<NeverAnyEventHistoryProvider>(true)
+                .CreatesOncePerApp<CrossPlatformOperatingSystemServices>()
                 .CreatesOncePerRequestAs<IReactor<IRxn>, IReportStatus>((c, p) => new Reactor<IRxn>(p.FirstOrDefault().ToString()))
                 //dont register reactor as IReactTo<> otherwise we will get recusive lookups
                 .CreatesOncePerApp<Func<string, IReactor<IRxn>>>(c =>

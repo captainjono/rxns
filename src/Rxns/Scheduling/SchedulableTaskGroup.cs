@@ -105,9 +105,9 @@ namespace Rxns.Scheduling
             {
                 if (_groupStartTime == null && _eventManager != null && IsReporting)
                 {
-                    _eventManager.Publish(new SystemStatusMetaEvent()
+                    _eventManager.Publish(new AppStatusInfoProviderEvent()
                     {
-                        Meta = () => new
+                        Info = () => new
                         {
                             TaskGroup = $"{Name} ({Tasks.Count} - {(_groupStartTime.HasValue ? (_groupEndTime - _groupStartTime).Value.ToString("g") : "0").Replace("0.0", "")})",
                         },

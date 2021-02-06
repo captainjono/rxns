@@ -11,34 +11,26 @@ namespace Rxns.Logging
 {
     public static class Logger
     {
-        public static Action<string> OnInformation = e => Debug.WriteLine(e);
-        
-        public static Action<string> OnDebug = e => Debug.WriteLine(e);
-        public static Action<string, Exception> OnError = (e, ex) => Debug.WriteLine(e);
+        public static Subject<string> OnDebug = new Subject<string>();
 
         static Logger()
         {
-            WriteToDebug();
+            OnDebug.Do(msg =>
+            {
+                if (Debugger.IsAttached)
+                {
+                    Debug.WriteLine(msg);
+                }
+                else
+                {
+                    Console.WriteLine(msg);
+                }
+            }).Until();
         }
-
         public static string LogDebug(this string toLog)
         {
-            OnDebug($"[{Thread.CurrentThread.ManagedThreadId}][DBG] {toLog}");
+            OnDebug.OnNext($"[{Thread.CurrentThread.ManagedThreadId}][DBG] {toLog}");
             return toLog;
-        }
-        
-        private static object _writeLock = new object();
-
-        public static void WriteToDebug()
-        {
-#if DEBUG
-            OnInformation = info => OneThreadAtATime(() => Debug.WriteLine(info), _writeLock);
-            OnError = (e, ex) => OneThreadAtATime(() => Debug.WriteLine(e), _writeLock);
-
-#else
-            OnInformation = info => OneThreadAtATime(() => Debug.WriteLine(info), _writeLock);
-            OnError = (e, ex) => OneThreadAtATime(() => Debug.WriteLine(e), _writeLock);
-#endif
         }
 
         public static void OneThreadAtATime(Action toRun, object locker)
@@ -52,13 +44,6 @@ namespace Rxns.Logging
         public static string LogDebug(this string s, object id)
         {
             $"[{id}] {s}".LogDebug();
-
-            return s;
-        }
-
-        public static string LogRaw(this string s, string id = null)
-        {
-            OnInformation($"{id ?? ""}{s}");
 
             return s;
         }

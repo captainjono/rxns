@@ -70,23 +70,26 @@ namespace Rxns.Logging
             {
                 if (_channels.AnyItems())
                 {
-                    _container.Information.Subscribe(this, msg =>
+                    foreach (IReportStatus reporter in new IReportStatus[] {_container, ReportStatus.Log})
                     {
-                        _messageBuffer.Enqueue(msg);
-                    }).DisposedBy(this);
-
-                    _container.Errors.Subscribe(this, msg =>
-                    {
-                        _messageBuffer.Enqueue(new LogMessage<string>()
+                        reporter.Information.Subscribe(this, msg =>
                         {
-                            Level = msg.Level,
-                            Message = msg.Message.ToString(),
-                            Reporter = msg.Reporter,
-                            Timestamp = msg.Timestamp
-                        });
-                    }).DisposedBy(this);
+                            _messageBuffer.Enqueue(msg);
+                        }).DisposedBy(this);
 
-                    var errorStream = _container.Errors.ObserveOn(_logScheduler);
+                        reporter.Errors.Subscribe(this, msg =>
+                        {
+                            _messageBuffer.Enqueue(new LogMessage<string>()
+                            {
+                                Level = msg.Level,
+                                Message = msg.Message.ToString(),
+                                Reporter = msg.Reporter,
+                                Timestamp = msg.Timestamp
+                            });
+                        }).DisposedBy(this);
+                    }
+
+                    var errorStream = _container.Errors.Concat(ReportStatus.Log.Errors).ObserveOn(_logScheduler);
 
                     if (_errorsPerSecThreadHold > 0) //so we dont accidently break existing clients who dont need error flood detection
                         errorStream = errorStream

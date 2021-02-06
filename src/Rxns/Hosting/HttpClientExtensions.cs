@@ -41,10 +41,6 @@ namespace Rxns.Hosting
         {
             return url.Replace(" ", "");
         }
-        public static string IsNullOrWhitespace(this string str, string returnThis)
-        {
-            return str.IsNullOrWhitespace() ? returnThis : str;
-        }
 
         public static Task<HttpResponseMessage> PostAsJsonAsync(this HttpClient client, string route, object content, bool useIsoDates = true)
         {
