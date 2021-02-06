@@ -23,13 +23,13 @@ namespace RxnCreate
 
         private static IDisposable RestartIfDoesntRespawnAutomatically(string programName, TimeSpan waitBeforeRespawning, Func<Process> respawn)
         {
-            return waitBeforeRespawning.In().Do(_ =>
+            return waitBeforeRespawning.Then().Do(_ =>
             {
                 var p = Process.GetProcessesByName(programName).FirstOrDefault();
                 
                 if(p?.HasExited ?? true)
                     respawn();
-            }).Until(ReportStatus.Log.OnError);
+            }).Until();
         }
         
         /// <summary>

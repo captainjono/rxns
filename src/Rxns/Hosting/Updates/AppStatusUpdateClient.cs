@@ -57,7 +57,7 @@ namespace Rxns.Hosting.Updates
             {
                 if (version.IsNullOrWhiteSpace("Latest").Equals("Latest", StringComparison.OrdinalIgnoreCase))
                 {
-                    return _updateService.ListUpdates(system).FirstOrDefaultAsync().Select(a => a.FirstOrDefault()).Select(latest =>
+                    return _updateService.ListUpdates(system).Select(a => a.FirstOrDefault()).Select(latest =>
                     {
                         if (latest.Version.IsNullOrWhitespace())
                         {

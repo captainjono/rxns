@@ -11,14 +11,6 @@ namespace Rxns.Hosting.Updates
         public int NumberOfRollingAppUpdates { get; set; }
     }
 
-
-    public class AppUpdateInfo
-    {
-        public string Version { get; set; }
-        public string SystemName { get; set; }
-    }
-
-
     /// <summary>
     /// Represents the storage mechanism for system updates
     /// </summary>

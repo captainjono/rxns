@@ -36,7 +36,7 @@ namespace Rxns.Logging
                 return;
             }
             
-            _watcher = Rxn.In(TimeSpan.FromSeconds(10)).Do(_ => MonitorForCrashesOnMacos(_appInfo.Name, container.Resolve<ReporterErrorLogger>())).Until();
+            _watcher = TimeSpan.FromSeconds(10).Then().Do(_ => MonitorForCrashesOnMacos(_appInfo.Name, container.Resolve<ReporterErrorLogger>())).Until();
         }
 
         private static void MonitorForCrashesOnMacos(string programName, ReporterErrorLogger logger)
