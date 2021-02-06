@@ -50,7 +50,7 @@ namespace Rxns.Hosting
     {
         public string[] Args { get; set; } = new string[0];
         public string Version { get; set; }
-        public string PathToExe { get; set; }
+        public string AppPath { get; set; }
 
         public static string CfgName { get; } = "rxn.cfg";
         public string SystemName { get; set; }
@@ -86,7 +86,7 @@ namespace Rxns.Hosting
 
         string Version { get; }
 
-        string PathToExe { get; }
+        string AppPath { get; }
         string SystemName { get; set; }
     }
 
@@ -189,7 +189,7 @@ namespace Rxns.Hosting
     }
 
 
-    public class ClusteredAppHost : ReportsStatus, IRxnClusterHost
+    public class ClusteredAppHost : ReportsStatus, IRxnClusterHost, IServiceCommandHandler<GetOrCreateAppVersionTargetPath>, IServiceCommandHandler<MigrateAppToVersion>
     {
         private readonly IRxnAppProcessFactory _processFactory;
         private readonly IRxnManager<IRxn> _hostEventLoop;
@@ -201,7 +201,8 @@ namespace Rxns.Hosting
 
         public IList<IRxnAppContext> Apps => _cluster.Apps.Values.ToList();
 
-
+        public string Name { get; set; } = "ClustedAppHost";
+        
         public ClusteredAppHost(IRxnAppProcessFactory processFactory, IRxnManager<IRxn> hostEventLoop, RoutableBackingChannel<IRxn> router, IRxnHostManager hostManager, IRxnAppCfg cfg)
         {
             _processFactory = processFactory;
@@ -248,8 +249,6 @@ namespace Rxns.Hosting
 
         public IObservable<IRxnAppContext> Run(IRxnHostableApp app, IRxnAppCfg cfg)
         {
-            var shouldBeRunFrom = app.GetDirectoryForVersion(app.AppInfo.Version);
-
             return Rxn.Create<IRxnAppContext>(o =>
             {
                 app.Definition.UpdateWith(def =>
@@ -272,18 +271,61 @@ namespace Rxns.Hosting
         {
             return _cluster.SpawnReactor(rxn, name, routes);
         }
-
-        public string Name { get; set; } = "ClustedAppHost";
-
+        
         public void Restart(string version = null)
         {
-
+            "Restart on clusterhost not implemented yet".LogDebug();
         }
 
 
         public IObservable<Unit> Install(string installerZip, string version)
         {
+            "Install on clusterhost not implemented yet".LogDebug();
+
             return new Unit().ToObservable();
+        }
+
+        public IObservable<CommandResult> Handle(GetOrCreateAppVersionTargetPath command)
+        {
+            return Rxn.Create(() =>
+            {
+                var targetPath = Path.Combine(Directory.GetCurrentDirectory(), $"{command.SystemName}%%{command.Version}");
+
+                if (!Directory.Exists(targetPath))
+                    Directory.CreateDirectory(targetPath);
+
+                return CommandResult.Success().AsResultOf(command);
+            });
+        }
+
+        public IObservable<CommandResult> Handle(MigrateAppToVersion command)
+        {
+            return Rxn.Create<CommandResult>(o =>
+            {
+                var currentCfg = RxnAppCfg.Detect(new string[0]); //bypass commandline
+
+
+                if (currentCfg.SystemName.BasicallyEquals(command.SystemName) && currentCfg.Version.BasicallyEquals(command.Version))
+                {
+                    "Bypassing since app is already at this version".LogDebug();
+                    return CommandResult.Success().AsResultOf(command).ToObservable().Subscribe(o);
+                }
+
+                var appBinary = new FileInfo(currentCfg.AppPath).Name;
+
+                return Handle(new GetOrCreateAppVersionTargetPath(command.SystemName, command.Version)).Select(targetDir =>
+                {
+                    currentCfg.AppPath = Path.Combine(targetDir.Message, appBinary);
+                    currentCfg.Version = command.Version;
+
+                    currentCfg
+                        .Save(targetDir.Message) //update apps cfg
+                        .Save(); //update the default cfg for the supervisor so it launches that new version
+
+                    return CommandResult.Success().AsResultOf(command);
+                })
+                .Subscribe(o);
+            });
         }
     }
 

@@ -1,7 +1,7 @@
 <div class="col-md-12" ng-controller="ListCtrl">
         <h2>Latest App Updates</h2>
         <table>
-            <tr ng-repeat="u in appUpdates[0]">                
+            <tr ng-repeat="u in appUpdates">                
                 <td> <a link="{{u.systemName}}" ng-attr-url="updates/{{u.systemName}}/{{u.version}}/get" file-download></a></td><td><a link="{{u.version}}" ng-attr-url="updates/{{u.systemName}}/{{u.version}}/get" file-download><</td></li>
             </tr>
         </table>

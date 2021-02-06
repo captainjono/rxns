@@ -146,7 +146,7 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<CommandResult> Handle(UpdateSystemCommand cmd)
         {
-            return DownloadAndUpdate(cmd.SystemName, cmd.Version);
+            return DownloadAndUpdate(cmd.SystemName, cmd.Version, cmd.OverwriteExisting);
         }
 
         public void UploadLog(int logNumber = 0, bool truncate = false)
@@ -210,73 +210,72 @@ namespace Rxns.Hosting.Updates
         }
 
 
-        private IObservable<CommandResult> DeleteUpdate(string version)
+        //private IObservable<CommandResult> DeleteUpdate(string version)
+        //{
+        //    return Rxn.Create<CommandResult>(o =>
+        //    {
+        //        //make sure the version makes sense
+        //        if (version.IsNullOrWhitespace()) throw new ArgumentNullException("version");
+
+        //        if (_systemInfo.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase))
+        //            throw new ArgumentException("Cannot delete current version of app");
+
+        //        return GetDirectoryForVersion(version).Do(destination => _fileSystem.DeleteDirectory(destination)).Select(_ => CommandResult.Success()).Subscribe(o);
+        //    });
+        //}
+
+        public IObservable<string> GetDirectoryForVersion(string systemName, string version)
         {
-            return Rxn.Create<CommandResult>(() =>
-            {
-                //make sure the version makes sense
-                if (version.IsNullOrWhitespace()) throw new ArgumentNullException("version");
-
-                if (_systemInfo.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase))
-                    throw new ArgumentException("Cannot delete current version of app");
-
-                var destination = _bootstrap.GetDirectoryForVersion(version);
-                _fileSystem.DeleteDirectory(destination);
-            });
+            return _cmdHub.Run(new GetOrCreateAppVersionTargetPath(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>().Select(r => r.Message);
         }
 
-        private IObservable<CommandResult> DownloadAndUpdate(string systemName, string version)
+        private IObservable<CommandResult> DownloadAndUpdate(string systemName, string version, bool overwriteExisting)
         {
-            return Rxn.Create<CommandResult>(o =>
+            return Rxn.DfrCreate<CommandResult>(() =>
             {
                 if (String.IsNullOrWhiteSpace(version)) throw new ArgumentNullException("version");
                 if (_systemInfo.Name.Equals(systemName, StringComparison.InvariantCultureIgnoreCase) && _systemInfo.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase))
                     throw new ArgumentException("cannot update to same version");
+                
+                SetState(AppUpdateStatus.Update);
 
-                try
+                return GetDirectoryForVersion(systemName, version).SelectMany(destination =>
                 {
-                    SetState(AppUpdateStatus.Update);
-
-                    var destination = _bootstrap.GetDirectoryForVersion(version);
                     OnVerbose("Using '{0}' for update", destination);
 
                     //see if the update is already installed
-                    if (_fileSystem.ExistsDirectory(destination))
+                    if (_fileSystem.ExistsDirectory(destination) && !overwriteExisting)
                     {
                         OnWarning("Update already exists");
                         if (_fileSystem.GetFiles(destination, "*.dll").Any())
                         {
                             SetState(AppUpdateStatus.Idle);
-                            o.OnNext(CommandResult.Success());
-                            o.OnCompleted();
-                            _bootstrap.MigrateTo(systemName, version);
-                            return Disposable.Empty;
+
+                                                        return _cmdHub.Run(new MigrateAppToVersion(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>();
+
                         }
+
+                        _fileSystem.DeleteDirectory(destination);
                     }
 
                     return _updateService.Download(systemName, version, destination)
-                                                .Finally(() => o.OnCompleted())
-                                                .Subscribe(this, _ =>
-                                                {
-                                                    OnInformation("Restarting system to version '{0}'", version);
-                                                    o.OnNext(CommandResult.Success());
-                                                    o.OnCompleted();
-                                                    _bootstrap.MigrateTo(systemName, version).WaitR();
-                                                },
-                                                onError: (e, error) =>
-                                                {
-                                                    o.OnError(error);
-                                                },
-                                                onDisposing: _ =>
-                                                {
-                                                    SetState(AppUpdateStatus.Idle);
-                                                });
-                }
-                catch (Exception)
-                {
-                    SetState(AppUpdateStatus.Idle);
-                    throw;
-                }
+                        .SelectMany(_ =>
+                        {
+                            OnInformation("Restarting system to version '{0}'", version);
+
+                            return _cmdHub.Run(new MigrateAppToVersion(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>();
+                        })
+                        .Catch<CommandResult, Exception>(e =>
+                        {
+                            SetState(AppUpdateStatus.Idle);
+
+                            return CommandResult.Failure(e.Message).ToObservable();
+                        });
+                });
+            })
+            .FinallyR(() =>
+            {
+                SetState(AppUpdateStatus.Idle);
             });
         }
 

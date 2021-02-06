@@ -90,7 +90,7 @@ namespace RxnCreate
                 {
                     SystemName = appName,
                     Version = version,
-                    PathToExe = Path.Combine(appLocation, binary)
+                    AppPath = Path.Combine(appLocation, binary)
                 }.Save();
 
                 var restart = Process.GetCurrentProcess().StartInfo;
@@ -211,13 +211,13 @@ namespace RxnCreate
             {
 
                 var cfg = RxnAppCfg.Detect(args);
-                //cfg.PathToExe = @"C:\Windows\System32\notepad.exe";
+                //cfg.AppPath = @"C:\Windows\System32\notepad.exe";
                 //RxnAppCfg.Save(cfg);
                 
-                if (args.FirstOrDefault() == "ReactorFor" || !cfg.PathToExe.IsNullOrWhitespace())
+                if (args.FirstOrDefault() == "ReactorFor" || !cfg.AppPath.IsNullOrWhitespace())
                 {
                     var pathToExe = args.Skip(1).FirstOrDefault();
-                    RunSupervisorReactor(pathToExe ?? cfg.PathToExe, cfg.Version,  args: args).Do(_ => { ctx = _; })
+                    RunSupervisorReactor(pathToExe ?? cfg.AppPath, cfg.Version,  args: args).Do(_ => { ctx = _; })
                         .WaitR();
 
                     return;

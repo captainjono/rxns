@@ -12,6 +12,27 @@ using Rxns.Microservices;
 
 namespace Rxns
 {
+    public class GetOrCreateAppVersionTargetPath : ServiceCommand
+    {
+        public string SystemName { get; set; }
+        public string Version { get; set; }
+
+        public GetOrCreateAppVersionTargetPath(string systemName, string version)
+        {
+            SystemName = systemName;
+            Version = version;
+        }
+    }
+
+    public class MigrateAppToVersion : GetOrCreateAppVersionTargetPath
+    {
+
+        public MigrateAppToVersion(string systemName, string version) : base(systemName, version)
+        {
+
+        }
+    }
+
     public class RxnHostableApp : IRxnHostableApp
     {
         private readonly IRxnApp _app;
@@ -22,28 +43,6 @@ namespace Rxns
 
         public string AppPath { get; set; }
         public string AppBinary { get; } = "Rxn.Create.exe";
-        public IObservable<Unit> MigrateTo(string gsystemName, string version)
-        {
-            "Migrate to new verison not implemented".LogDebug();
-            
-            if (gsystemName == AppInfo.Name && version == AppInfo.Version)
-            {
-                "Bypassing since app is already at this version".LogDebug();
-                return new Unit().ToObservable();
-            }
-
-            AppPath = Path.Combine(Environment.CurrentDirectory, version, AppBinary);
-            new RxnAppCfg(){ Version = version }.Save();
-
-            _context.Resolver.Resolve<IRxnHost>().Restart(version);
-
-            return new Unit().ToObservable();
-        }
-        
-        public string GetDirectoryForVersion(string version)
-        {
-            return Path.Combine(Environment.CurrentDirectory, version);
-        }
 
         public IRxnDef Definition => _app.Definition;
         public IAppSetup Installer => _app.Installer;

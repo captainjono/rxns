@@ -56,9 +56,9 @@ angular.module('portal').run(['$templateCache', function($templateCache) {
     "\n" +
     "        <h2>Latest App Updates</h2>\r" +
     "\n" +
-    "        <table >\r" +
+    "        <table>\r" +
     "\n" +
-    "            <tr ng-repeat=\"u in appUpdates[0]\">                \r" +
+    "            <tr ng-repeat=\"u in appUpdates\">                \r" +
     "\n" +
     "                <td> <a link=\"{{u.systemName}}\" ng-attr-url=\"updates/{{u.systemName}}/{{u.version}}/get\" file-download></a></td><td><a link=\"{{u.version}}\" ng-attr-url=\"updates/{{u.systemName}}/{{u.version}}/get\" file-download><</td></li>\r" +
     "\n" +

@@ -1,6 +1,9 @@
 # Scaling
 
 Reactions might come across as a high-level framework, but once of its philisophical design goals was to make scaling *easier* for the average App to take advantage of multi-processor, multi-host, cloud native technology.
+
+That said, the batteries
+
 <!-- TOC -->
 
 1. [Scaling](#scaling)

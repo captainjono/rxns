@@ -52,54 +52,29 @@ namespace Rxns.Hosting
             
         }
 
-        public void StartOutOfProcess() //need to inject the 
-        {
-            var rxnToRunExternally = App.GetType();
-            Bootstrap();
-            Start(App);
-        }
-
-        private void Bootstrap()
-        {
-            ////connect the event pipes to the proxy class
-            //_eventPipe.ResetWrapper += ResetApp;
-            //_eventPipe.LogWrapper += LogAsApp;
-            //_eventPipe.BaseDir = _config.AppRootPath;
-            ////if we have a previously installed version, use it
-            //_lastAppVersion = _config.AppVersion;
-        }
-
         public IObservable<IRxnAppContext> Start()
         {
-            if (_status.Value() == ProcessStatus.Active)
+            return Rxn.Create(() =>
             {
-                "already started".LogDebug();
+                if (_status.Value() == ProcessStatus.Active)
+                {
+                    "already started".LogDebug();
+                }
+                else
+                {
+                    var rxnCfg = RxnAppCfg.Detect(args);
+
+                    Start(App, rxnCfg.Version);
+                }
+
                 return _appStarted;
-            }
-
-            _container = new OutOfProcessRxnAppContext(App, RxnManager, args);
-
-            ;
-            return _appStarted =  _container.Start().Do(_ => _.OnDispose(_container.Status.Subscribe(_status)));
+            });
         }
 
         public void Terminate()
         {
             Stop();
         }
-
-
-        //public IRxnAppContext SpawnReactor(IRxnHostableApp app, string name)
-        //{
-        //    var isolatedReactor = _factory.Create(app, _hostManager, , name);
-
-        //    LetClusterManage(isolatedReactor);
-
-        //    RxnManager.Activate().Subscribe();
-        //    isolatedReactor.Start();
-
-        //    return isolatedReactor;
-        //}
 
         /// <summary>
         /// Starts the hosted app up
@@ -249,17 +224,7 @@ namespace Rxns.Hosting
 
         private void LogAsHost(string message, params object[] formatParams)
         {
-            message.FormatWith(formatParams).LogDebug();
-            //if (LogHost != null)
-            //    LogHost("[AppHost] " + String.Format(message, formatParams));
-        }
-
-        private void LogAsApp(string message)
-        {
-            message.LogDebug();
-
-            //if (LogApp != null)
-            //    LogApp(message);
+            message.FormatWith(formatParams).LogDebug(this);
         }
 
         public void Dispose()
@@ -281,54 +246,45 @@ namespace Rxns.Hosting
             }
         }
 
-        private void AutoStartApp(IRxnHostableApp app)
-        {
-
-            LogAsHost("App has crashed and is being recovered");
-            _container = null; //because the app container is destroyed anyway!
-            Start(App, _lastAppVersion);
-        }
-
-
-        //public Type[] ScanForImplementingAssemblies(string baseDir)
-        //{
-        //    var currentAssembly = Assembly.GetExecutingAssembly().Location;
-        //    var assemblies = new DirectoryInfo(@baseDir).EnumerateFileSystemInfos("*.dll").Where(a => a.FullName != currentAssembly).Select(
-        //        a =>
-        //        {
-        //            try
-        //            {
-        //                return Assembly.ReflectionOnlyLoadFrom(a.FullName);
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                Console.WriteLine("{0}", e);
-        //            }
-
-        //            return null;
-        //        }).Where(x => x != null).ToArray();
-
-        //    var updatables = assemblies.SelectMany(a =>
-        //    {
-        //        try
-        //        {
-        //            return a.GetTypes().Where(t => t.GetInterface("IUpdateble") != null);
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            Console.WriteLine(e);
-        //            return new List<Type>();
-        //        }
-        //    }).Where(a => a != null).ToArray();
-
-        //    return updatables;
-        //}
-
-
         public void OnDispose(IDisposable obj)
         {
             _resources.Add(obj);
         }
-
     }
 }
+
+
+
+//public Type[] ScanForImplementingAssemblies(string baseDir)
+//{
+//    var currentAssembly = Assembly.GetExecutingAssembly().Location;
+//    var assemblies = new DirectoryInfo(@baseDir).EnumerateFileSystemInfos("*.dll").Where(a => a.FullName != currentAssembly).Select(
+//        a =>
+//        {
+//            try
+//            {
+//                return Assembly.ReflectionOnlyLoadFrom(a.FullName);
+//            }
+//            catch (Exception e)
+//            {
+//                Console.WriteLine("{0}", e);
+//            }
+
+//            return null;
+//        }).Where(x => x != null).ToArray();
+
+//    var updatables = assemblies.SelectMany(a =>
+//    {
+//        try
+//        {
+//            return a.GetTypes().Where(t => t.GetInterface("IUpdateble") != null);
+//        }
+//        catch (Exception e)
+//        {
+//            Console.WriteLine(e);
+//            return new List<Type>();
+//        }
+//    }).Where(a => a != null).ToArray();
+
+//    return updatables;
+//}

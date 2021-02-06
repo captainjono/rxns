@@ -137,7 +137,7 @@ namespace RxnsDemo.Micro.App
                 //.CreatesOncePerApp<Basic30UserSurveySimulation>()
                 //serilaisation of models
                 .CreatesOncePerApp<UseDeserialiseCodec>()
-                .CreatesOncePerApp(_ => new AutoScaleoutReactorPlan(new ScaleoutToEverySpareReactor(), "ReplayMacOS", version: "Latest"))
+                //.CreatesOncePerApp(_ => new AutoScaleoutReactorPlan(new ScaleoutToEverySpareReactor(), "ReplayMacOS", version: "Latest"))
                 ;
 
             //setup static object.Serialise() & string.Deserialise() methods
