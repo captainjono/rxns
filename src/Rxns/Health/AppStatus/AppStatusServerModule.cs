@@ -56,7 +56,9 @@ namespace Rxns.Health.AppStatus
                 .CreatesOncePerApp<GetOrCreateAppStatusStoreStartupTask>()
                 .CreatesOncePerApp<FileSystemAppUpdateRepo>()
                 .CreatesOncePerApp<LocalAppStatusManager>()
-                .CreatesOncePerApp<LocalAppErrorManager>();
+                .CreatesOncePerApp<LocalAppErrorManager>()
+                .CreatesOncePerApp<CurrentDirectoryAppUpdateStore>()
+                ;
         }
     }
 }

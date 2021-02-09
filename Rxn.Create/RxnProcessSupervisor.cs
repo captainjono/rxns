@@ -68,6 +68,7 @@ namespace RxnCreate
                     .ToRxns(ProcessSupervisor.Supervise(systemAppPath), args)
                     .Named(new ClusteredAppInfo(GetProgramName(systemAppPath), version, args, false))
                     .OnHost(new ConsoleHostedApp(), cfg)
+                    .SelectMany(h => h.Run())
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();

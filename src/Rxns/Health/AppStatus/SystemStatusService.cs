@@ -117,7 +117,7 @@ namespace Rxns.Health
         {
             try
             {
-                OnVerbose("Publishing event: {0}", _appInfo.Name);
+                OnVerbose("Publishing event: {0}@{1}", _appInfo.Name, _appInfo.Version);
 
                 _publish(new SystemStatusEvent()
                 {

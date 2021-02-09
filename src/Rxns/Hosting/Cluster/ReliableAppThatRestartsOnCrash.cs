@@ -119,7 +119,7 @@ namespace Rxns.Hosting.Cluster
                     
                     return _rxnManager.Publish(new ReactorCrashed() { Name = name })
                         .Catch<Unit, Exception>(___ => new Unit().ToObservable())
-                        .SelectMany(___ => Rxn.On(CurrentThreadScheduler.Instance, () => app.Start()).SelectMany(s => s));
+                        .SelectMany(___ => Rxn.On(CurrentThreadScheduler.Instance, () => app.Start(true)).SelectMany(s => s));
                 })
                 .Do(_ => $"{name} recovered from a crash".LogDebug())
                 .Until(ReportStatus.Log.OnError)

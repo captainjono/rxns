@@ -42,8 +42,9 @@ namespace Rxns.Autofac
             return new AutofacComponentContextResolver(_resolver.Resolve<ILifetimeScope>());
         }
 
-        public void Dispose()
+        public object ResolveOptional(Type typeName)
         {
+            return _resolver.ResolveOptional(typeName);
         }
     }
 }

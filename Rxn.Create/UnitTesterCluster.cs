@@ -99,31 +99,31 @@ namespace RxnCreate
             
             var file = File.Create($"logs/testLog_{DateTime.Now.ToString("s").Replace(":", "").LogDebug("LOG")}");
             var testLog = new StreamWriter(file, leaveOpen: true);
-            var updateTestIfRequiredBeforeRun = new Unit().ToObservable();
+            var keepTestUpdatedIfRequested = work.UseAppUpdate.ToObservable(); //if not using updates, the dest folder is out root
             
             if (!work.UseAppUpdate.IsNullOrWhitespace())
             {
-                updateTestIfRequiredBeforeRun = _updateService.Download(work.UseAppUpdate, work.UseAppVersion, work.UseAppUpdate, new RxnAppCfg()
+                //todo: update need
+                keepTestUpdatedIfRequested = _updateService.KeepUpdated(work.UseAppUpdate, work.UseAppVersion, work.UseAppUpdate, new RxnAppCfg()
                 {
                     AppStatusUrl = work.AppStatusUrl,
                     SystemName = work.UseAppUpdate,
                     KeepUpdated = true
-                }, true).Select(_ => new Unit());
+                }, true);
             }
 
-            var startTheTest = Rxn.Create(
-                "dotnet", $"test{FilterIfSingleTestOnly(work)} {work.Dll}",
-                i => testLog.WriteLine(i.LogDebug(work.RunThisTest ?? work.Dll)),
-                e => testLog.WriteLine(e.LogDebug(work.RunThisTest ?? work.Dll))
-                );
-
-            return updateTestIfRequiredBeforeRun
-                .SelectMany(_ =>
+            return keepTestUpdatedIfRequested
+                .Select(testPath =>
                 {
                     $"Running {(work.RunAllTest ? "All" : work.RunThisTest)}".LogDebug();
 
-                    return startTheTest;
+                    //todo: make testrunner injectable/swapable
+                    return Rxn.Create("dotnet", $"test{FilterIfSingleTestOnly(work)} {Path.Combine(testPath, work.Dll)}",
+                        i => testLog.WriteLine(i.LogDebug(work.RunThisTest ?? work.Dll)),
+                        e => testLog.WriteLine(e.LogDebug(work.RunThisTest ?? work.Dll))
+                    );
                 })
+                .Switch()
                 .LastOrDefaultAsync()
                 .Select(_ =>
                 {
@@ -228,6 +228,7 @@ namespace RxnCreate
                     .ToRxns()
                     .Named(new ClusteredAppInfo("DotNetTestWorker", "1.0.0", args, false))
                     .OnHost(new ConsoleHostedApp(), cfg)
+                    .SelectMany(h => h.Run())
                     .Do(app =>
                     {
                         $"Heartbeating to {url}".LogDebug();

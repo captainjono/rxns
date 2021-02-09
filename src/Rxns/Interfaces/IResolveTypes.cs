@@ -10,5 +10,6 @@ namespace Rxns.Interfaces
         object Resolve(Type type);
         object Resolve(string typeName);
         IResolveTypes BegingScope();
+        object ResolveOptional(Type serviceType);
     }
 }

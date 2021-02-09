@@ -1,17 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Rxns.Commanding;
 using Rxns.DDD;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
+using Rxns.Health.AppStatus;
 using Rxns.Hosting.Cluster;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Microservices;
 using Rxns.NewtonsoftJson;
 
 namespace Rxns.Hosting
@@ -111,7 +116,7 @@ namespace Rxns.Hosting
         }
 
         public string[] args => _args;
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool shouldStartRxns = true, IAppContainer container = null)
         {
             _status.OnNext(ProcessStatus.Active);
             
@@ -146,9 +151,9 @@ namespace Rxns.Hosting
             return new Unit().ToObservable();
         }
 
-        public IObservable<IRxnAppContext> Run(IRxnHostableApp app, IRxnAppCfg cfg)
+        public IObservable<IRxnHostReadyToRun> Stage(IRxnHostableApp app, IRxnAppCfg cfg)
         {
-            return this.ToObservable();
+            throw new NotImplementedException();
         }
 
         public string Name { get; set; } = "RemoteClusterClient";
@@ -190,21 +195,23 @@ namespace Rxns.Hosting
     }
 
 
-    public class ClusteredAppHost : ReportsStatus, IRxnClusterHost, IServiceCommandHandler<GetOrCreateAppVersionTargetPath>, IServiceCommandHandler<MigrateAppToVersion>
+    public class ClusteredAppHost : ReportsStatus, IRxnClusterHost, IRxnHostReadyToRun, IServiceCommandHandler<PrepareForAppUpdate>, IServiceCommandHandler<MigrateAppToVersion>, IServiceCommandHandler<GetAppDirectoryForAppUpdate>
     {
         private readonly IRxnAppProcessFactory _processFactory;
         private readonly IRxnManager<IRxn> _hostEventLoop;
         private readonly RoutableBackingChannel<IRxn> _router;
         private readonly IRxnHostManager _hostManager;
         private readonly IRxnAppCfg _cfg;
+        private readonly IStoreAppUpdates _appStore;
         private ClusteringWorkflow _cluster;
         private bool _isReactorProcess;
+        private IRxnHostableApp _app;
 
         public IList<IRxnAppContext> Apps => _cluster.Apps.Values.ToList();
 
         public string Name { get; set; } = "ClustedAppHost";
-        
-        public ClusteredAppHost(IRxnAppProcessFactory processFactory, IRxnManager<IRxn> hostEventLoop, RoutableBackingChannel<IRxn> router, IRxnHostManager hostManager, IRxnAppCfg cfg)
+
+        public ClusteredAppHost(IRxnAppProcessFactory processFactory, IRxnManager<IRxn> hostEventLoop, RoutableBackingChannel<IRxn> router, IRxnHostManager hostManager, IRxnAppCfg cfg, IStoreAppUpdates appStore)
         {
             _processFactory = processFactory;
             _hostEventLoop = hostEventLoop;
@@ -224,6 +231,7 @@ namespace Rxns.Hosting
                     .DisposedBy(this);
             
             _cfg = cfg;
+            _appStore = appStore;
         }
 
         public IRxnClusterHost ConfigureWith(IRxnAppScalingManager scalingManager)
@@ -248,10 +256,12 @@ namespace Rxns.Hosting
             }
         }
 
-        public IObservable<IRxnAppContext> Run(IRxnHostableApp app, IRxnAppCfg cfg)
+        public IObservable<IRxnHostReadyToRun> Stage(IRxnHostableApp app, IRxnAppCfg cfg)
         {
-            return Rxn.Create<IRxnAppContext>(o =>
+            return Rxn.Create<IRxnHostReadyToRun>(() =>
             {
+                _app = app;
+
                 app.Definition.UpdateWith(def =>
                 {
                     def.CreatesOncePerApp(_ => _hostManager);
@@ -260,15 +270,36 @@ namespace Rxns.Hosting
                     def.CreatesOncePerApp(_ => app);
                     def.CreatesOncePerApp(_ => cfg);
                     def.CreatesOncePerApp(_ => this);
+                    def.CreatesOncePerApp(_ => new SupervisorAppUpdateProvider(_.Resolve<ICommandService>()));
                 });
 
-                $"Starting app: {app.AppInfo.Name}:{app.AppInfo.Version}".LogDebug();
-                    
-                return _cluster.Run(app, cfg).Subscribe(o);
+                return this;
             });
         }
 
-        
+        public IObservable<IRxnAppContext> Run(IAppContainer container = null)
+        {
+            return Rxn.Create<IRxnAppContext>(o =>
+            {
+                $"Starting app: {_app.AppInfo.Name}:{_app.AppInfo.Version}".LogDebug();
+
+                //todo: use a rxncreator method to perform this hookup
+                //setup system updates in supervisor
+                _hostEventLoop.CreateSubscription<UpdateSystemCommand>()
+                    .SelectMany(updateCmd => ((IAppUpdateManager)_app.Resolver.ResolveOptional(typeof(IAppUpdateManager)))?.Handle(updateCmd) ?? Rxn.Empty<IRxn>())
+                    .SelectMany(_ => _hostEventLoop.Publish(_)).Until();
+
+                //for migrate cmd
+                _hostEventLoop.CreateSubscription<RxnQuestion>()
+                    .Where(e => e.Options.Contains("Migrate")) //todo: fix routes such that this is not required
+                    .SelectMany(updateCmd => _app.Resolver.Resolve<ServiceCommandExecutor>().Process(updateCmd))
+                    .SelectMany(_ => _hostEventLoop.Publish(_)).Until();
+
+                return _cluster.Run(_app, _cfg).Subscribe(o);
+            });
+        }
+
+
         public IObservable<IRxnAppContext> SpawnOutOfProcess(IRxnHostableApp rxn, string name, Type[] routes)
         {
             return _cluster.SpawnReactor(rxn, name, routes);
@@ -287,46 +318,33 @@ namespace Rxns.Hosting
             return new Unit().ToObservable();
         }
 
-        public IObservable<CommandResult> Handle(GetOrCreateAppVersionTargetPath command)
+        public IObservable<CommandResult> Handle(GetAppDirectoryForAppUpdate command)
         {
-            return Rxn.Create(() =>
-            {
-                var targetPath = Path.Combine(Directory.GetCurrentDirectory(), $"{command.SystemName}%%{command.Version}");
+            return _appStore.Run(command).Select(r => CommandResult.Success(r).AsResultOf(command));
+        }
 
-                if (!Directory.Exists(targetPath))
-                    Directory.CreateDirectory(targetPath);
-
-                return CommandResult.Success().AsResultOf(command);
-            });
+        public IObservable<CommandResult> Handle(PrepareForAppUpdate command)
+        {
+            return _appStore.Run(command).Select(r => CommandResult.Success(r).AsResultOf(command));
         }
 
         public IObservable<CommandResult> Handle(MigrateAppToVersion command)
         {
-            return Rxn.Create<CommandResult>(o =>
+            return Rxn.Create(() =>
             {
-                var currentCfg = RxnAppCfg.Detect(new string[0]); //bypass commandline
+                //stop all apps
+                Apps.ForEach(a => a.Dispose());
 
+                var currentCfg = RxnAppCfg.Detect(_cfg.Args);
 
-                if (currentCfg.SystemName.BasicallyEquals(command.SystemName) && currentCfg.Version.BasicallyEquals(command.Version))
-                {
-                    "Bypassing since app is already at this version".LogDebug();
-                    return CommandResult.Success().AsResultOf(command).ToObservable().Subscribe(o);
-                }
+                currentCfg.SystemName = command.SystemName;
+                currentCfg.Version = command.Version;
+                currentCfg.Save();
 
-                var appBinary = new FileInfo(currentCfg.AppPath).Name;
+                //restartApps
+                Apps.ForEach(a => a.Start(true /* this could be completely wrong? need to switch on rxn type? */).Until());
 
-                return Handle(new GetOrCreateAppVersionTargetPath(command.SystemName, command.Version)).Select(targetDir =>
-                {
-                    currentCfg.AppPath = Path.Combine(targetDir.Message, appBinary);
-                    currentCfg.Version = command.Version;
-
-                    currentCfg
-                        .Save(targetDir.Message) //update apps cfg
-                        .Save(); //update the default cfg for the supervisor so it launches that new version
-
-                    return CommandResult.Success().AsResultOf(command);
-                })
-                .Subscribe(o);
+                return CommandResult.Success();
             });
         }
     }

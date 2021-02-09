@@ -6,9 +6,6 @@
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="Properties\" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Autofac" Version="3.5.0" />
   </ItemGroup>
   <ItemGroup>

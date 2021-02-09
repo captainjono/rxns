@@ -53,6 +53,12 @@ namespace Rxns.Hosting
             "Scopes are not supported!".LogDebug();
             return new NewObjectCreator();
         }
+
+        public object ResolveOptional(Type serviceType)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Dispose()
         {
             "WARNING Resources will not be released!".LogDebug();

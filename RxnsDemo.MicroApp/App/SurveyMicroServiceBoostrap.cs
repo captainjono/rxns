@@ -1,19 +1,29 @@
 ﻿using System;
 using System.Reactive.Linq;
-using System.Web.Http;
+using System.Security.Policy;
 using Autofac;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Rxns;
 using Rxns.Collections;
 using Rxns.DDD.BoundedContext;
+using Rxns.Health;
 using Rxns.Hosting;
 using Rxns.Hosting.Cluster;
+using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Metrics;
 using Rxns.NewtonsoftJson;
 using Rxns.WebApi;
-using Rxns.WebApi.MsWebApiAdapters;
+using Rxns.WebApiNET5;
+using Rxns.WebApiNET5.NET5WebApiAdapters;
+using Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters;
+using Rxns.WebApiNET5.NET5WebApiAdapters.System.Web.Http;
 using Rxns.Windows;
 using RxnsDemo.Micro.App.AggRoots;
 using RxnsDemo.Micro.App.Api;
@@ -30,74 +40,93 @@ namespace RxnsDemo.Micro.App
         [STAThread]
         static void Main(string[] args)
         {
+            
+
             "Configuring App".LogDebug();
 
             //var functionApp = Rxn.Create(() => { "Anything can be in here".LogDebug(); }).ToRxnApp();
             //var functionRxnApp = functionApp.WithRxns(new ContainerBuilder().ToRxnDef());
 
-            var apiCfg = new WebApiCfg()
-            {
-                BindingUrl = "http://+:888/",
-                Html5IndexHtml = "index.html",
-                Html5Root = @"..\..\..\Rxns.AppSatus\Web\dist\" //the rxns appstatus portal
-            };
 
-            var rxnApp = HostSurveyDomainFeatureModule(apiCfg.BindingUrl).ToRxns().UseWindowsAddons();           
-            var appInfo = new AppVersionInfo("Survey Micro Service", "1.0", true);
-            var webApiHost = new WebApiHost(apiCfg, new OwinWebApi2Adapter(cfg => cfg.MakeJsonOnly())); //todo: support AspNet .Net5
-            //var consoleHost = new ConsoleHostedApp(); // for unit/testing
-            //var reliableHost = new RxnSupervisorHost(...); //will automatically reboot your app on failure. "always on"
+            AspNetCoreWebApiAdapter.StartWebServices<MicroServiceBoostrapperAspNetCore>(MicroServiceBoostrapperAspNetCore.Cfg, null);
 
-            "Launching App in WebApi host".LogDebug();
+            //var rxnApp = HostSurveyDomainFeatureModule(apiCfg.BindingUrl).ToRxns().UseWindowsAddons();           
+            //var appInfo = new AppVersionInfo("Survey Micro Service", "1.0", true);
+            //var webApiHost = new WebApiHost(apiCfg, new AspNetCoreWebApiAdapter());
+            ////var consoleHost = new ConsoleHostedApp(); // for unit/testing
+            ////var reliableHost = new RxnSupervisorHost(...); //will automatically reboot your app on failure. "always on"
 
-            rxnApp
-                .Named(appInfo)
-                .OnHost(webApiHost, new RxnAppCfg()) // the apps supervisor
-                .Do(rxnAppContext =>
-                {
+            //"Launching App in WebApi host".LogDebug();
 
-                    //send an error report to the appstatus portal
-                    //Rxn.In(TimeSpan.FromSeconds(1)).Do(_ =>
-                    //{
-                    //    ReportStatus.Log.OnError("Some error has happened");
-                    //}).Subscribe();
+            //rxnApp
+            //    .Named(appInfo)
+            //    .OnHost(webApiHost, new RxnAppCfg()) // the apps supervisor
+            //    .Do(rxnAppContext =>
+            //    {
 
-                    //called each time the app starts
+            //        //send an error report to the appstatus portal
+            //        //Rxn.In(TimeSpan.FromSeconds(1)).Do(_ =>
+            //        //{
+            //        //    ReportStatus.Log.OnError("Some error has happened");
+            //        //}).Subscribe();
 
-                    //can use this context to interact with the Micro.App
-                    // rxnAppContext.Installer - Installs the app
-                    // rxnAppContext.CmdService - CQRS integration service
-                    // rxnAppContext.RxnManager - Event-driven abstraction
+            //        //called each time the app starts
 
-                    ////authenticate with local token server
-                    //var authRequest = new HttpClient();
-                    //var user = "cool";
-                    //var pass = "dude";
-                    //var clientId = "myApp";
+            //        //can use this context to interact with the Micro.App
+            //        // rxnAppContext.Installer - Installs the app
+            //        // rxnAppContext.CmdService - CQRS integration service
+            //        // rxnAppContext.RxnManager - Event-driven abstraction
 
-                    //Rxn.In(TimeSpan.FromSeconds(2), true).Do(_ =>
-                    //{
-                    //    "Authenticating".LogDebug();
+            //        ////authenticate with local token server
+            //        //var authRequest = new HttpClient();
+            //        //var user = "cool";
+            //        //var pass = "dude";
+            //        //var clientId = "myApp";
 
-                    //    var result = authRequest.PostAsync(
-                    //        "http://localhost:888/token", 
-                    //        new StringContent($"grant_type=password&username={user}&password={pass}&client_id={clientId}")
-                    //        ).Result;
+            //        //Rxn.In(TimeSpan.FromSeconds(2), true).Do(_ =>
+            //        //{
+            //        //    "Authenticating".LogDebug();
 
-                    //    var token = result.Content.ReadAsAsync<UserAccessToken>().WaitR();
-                    //    $"Auth result {token.ToJson()}".LogDebug();
+            //        //    var result = authRequest.PostAsync(
+            //        //        "http://localhost:888/token", 
+            //        //        new StringContent($"grant_type=password&username={user}&password={pass}&client_id={clientId}")
+            //        //        ).Result;
 
-                    //}).Subscribe();
+            //        //    var token = result.Content.ReadAsAsync<UserAccessToken>().WaitR();
+            //        //    $"Auth result {token.ToJson()}".LogDebug();
+
+            //        //}).Subscribe();
 
 
-                })
-                .Until(ReportStatus.Log.OnError);
-                //later to end app
-                //.Dispose();
+            //    })
+            //    .Until();
+            //    //later to end app
+            //    //.Dispose();
                 
             Console.WriteLine("Press anykey to terminate");
             Console.ReadLine();
         }
+
+        
+    }
+
+    public class MicroServiceBoostrapperAspNetCore : ConfigureAndStartAspnetCore
+    {
+        public MicroServiceBoostrapperAspNetCore()
+        {
+        }
+
+        public override Func<string, Action<IRxnLifecycle>> App { get; } = url => HostSurveyDomainFeatureModule(url);
+        public override IRxnAppInfo AppInfo { get; } = new AppVersionInfo("Survey Micro Service", "1.0", true);
+
+        public override IWebApiCfg WebApiCfg => Cfg;
+
+        public static IWebApiCfg Cfg { get; set; } = new WebApiCfg()
+        {
+            BindingUrl = "http://*:888",
+            Html5IndexHtml = "index.html",
+            Html5Root = @"..\..\..\..\Rxns.AppSatus\Web\dist\" //the rxns appstatus portal
+        };
 
         //todo:
         //create supervir which uses the CPU stats to suggest increasing the process count (scale signals)
@@ -131,7 +160,10 @@ namespace RxnsDemo.Micro.App
                 {
                     AppStatusUrl = appStatusUrl
                 })
+                .CreatesOncePerApp<RxnDebugLogger>()
+                
                 .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
+                .CreatesOncePerApp<WindowsSystemInformationService>() //so we can scale based on cpu usage etc
                 //setup OS abstractions
                 //test sim to exercise api
                 //.CreatesOncePerApp<Basic30UserSurveySimulation>()
@@ -142,34 +174,34 @@ namespace RxnsDemo.Micro.App
 
             //setup static object.Serialise() & string.Deserialise() methods
             RxnExtensions.DeserialiseImpl = (t, json) => JsonExtensions.FromJson(json, t);
-                RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
+            RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
         };
     }
 
-    public static class WebApiExtensions
-    {
-        /// <summary>
-        /// </summary>
-        /// <param name="config"></param>
-        /// <returns></returns>
-        public static HttpConfiguration MakeJsonOnly(this HttpConfiguration config)
-        {
-            //remove XML WS 
-            config.Formatters.Remove(config.Formatters.XmlFormatter);
+    //public static class WebApiExtensions
+    //{
+    //    /// <summary>
+    //    /// </summary>
+    //    /// <param name="config"></param>
+    //    /// <returns></returns>
+    //    public static HttpConfiguration MakeJsonOnly(this HttpConfiguration config)
+    //    {
+    //        //remove XML WS 
+    //        config.Formatters.Remove(config.Formatters.XmlFormatter);
 
-            //add json
-            var json = config.Formatters.JsonFormatter;
-            json.SerializerSettings.Formatting = Formatting.Indented;
-            json.SerializerSettings.TypeNameHandling = TypeNameHandling.Auto;
-            json.SerializerSettings.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
-            json.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+    //        //add json
+    //        var json = config.Formatters.JsonFormatter;
+    //        json.SerializerSettings.Formatting = Formatting.Indented;
+    //        json.SerializerSettings.TypeNameHandling = TypeNameHandling.Auto;
+    //        json.SerializerSettings.DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind;
+    //        json.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
 
-            config.Formatters.Remove(config.Formatters.JsonFormatter);
-            config.Formatters.Add(json);
+    //        config.Formatters.Remove(config.Formatters.JsonFormatter);
+    //        config.Formatters.Add(json);
 
-            return config;
-        }
-    }
+    //        return config;
+    //    }
+    //}
 }
 
 

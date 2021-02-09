@@ -8,6 +8,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Autofac;
 using Autofac.Core;
@@ -33,52 +34,54 @@ namespace Autofac
             return ToRxnsSupporting(cb);
         }
 
-        public static IRxnApp ToRxnsSupporting(this ContainerBuilder cb, Action<IRxnLifecycle> configureWith = null)
-        {
-            "!!!!!fix issue with never ending rxns!!!!".LogDebug();
-            return ToRxnsSupporting(cb, new BehaviorSubject<IDisposable>(Disposable.Empty), null, configureWith);
-        }
-
-        public static IRxnApp ToRxnsSupporting<T>(this ContainerBuilder cb, IObservable<T> rxn, string[] args, Action<IRxnLifecycle> configureWith = null) where T : IDisposable
+        public static IRxnApp ToRxnsSupporting(this ContainerBuilder cb, IObservable<IDisposable> rxn, string[] args, Action<IRxnLifecycle> configureWith = null)
         {
             var def = cb.ToRxnDef();
 
             def?.UpdateWith(configureWith);
 
-            return new RxnApp(rxn.ToRxnApp(args), def, new RxnAppFactory());
+            return new RxnApp(rxn, def, new RxnAppFactory());
+        }
+
+        public static IRxnApp ToRxnsSupporting(this ContainerBuilder cb, Action<IRxnLifecycle> configureWith = null)
+        {
+            var def = cb.ToRxnDef();
+
+            def?.UpdateWith(configureWith);
+
+            return new RxnApp(def, new RxnAppFactory());
         }
 
         //need way to convert irxnlifecycle to an IRxnApp
 
-        public static IRxnDef ToRxns(this IContainer cont)
-        {
-            return new AutofacRxnDef(cont);
-        }
+        //public static IRxnDef ToRxns(this IContainer cont)
+        //{
+        //    return new AutofacRxnDef(cont);
+        //}
         
-        public static void Update(this AutofacRxnDef def, AutofacRxnDef other)
-        {
-            other.WrappedDef.Update(def.WrappedContainer);
-        }
+        //public static void Update(this AutofacRxnDef def, AutofacRxnDef other)
+        //{
+        //    other.WrappedDef.Update(def.WrappedContainer);
+        //}
 
         public static IRxnApp ToRxns(this Action<IRxnLifecycle> configurator)
         {
             return new ContainerBuilder().ToRxnsSupporting(configurator);
         }
-
         public static IRxnApp ToRxns<T>(this Action<IRxnLifecycle> configurator, IObservable<T> rxn, string[] args) where T : IDisposable
         {
-            return new ContainerBuilder().ToRxnsSupporting(rxn, args, configurator);
+            return new ContainerBuilder().ToRxnsSupporting(Rxn.DfrCreate(() => rxn.Until()), args, configurator);
         }
     }
 
-    public class AutofacRxnDef : IRxnDef, IAppEvents
+    public class AutofacRxnDef : IRxnDef
     {
+        //todo: remove this from rxndef, we can compose the container in last?
+        //use ms di extesions instead, same as aspnet
         public ContainerBuilder WrappedDef; 
-        public IContainer WrappedContainer;
-
-        private readonly ReplaySubject<Unit> _onStart = new ReplaySubject<Unit>();
-        public IObservable<Unit> OnStart => _onStart.ObserveOn(CurrentThreadScheduler.Instance).SubscribeOn(CurrentThreadScheduler.Instance);
+      //  public IContainer WrappedContainer;
         public IAppContainer Container { get; private set; }
+
 
         public AutofacRxnDef()
         {
@@ -89,12 +92,6 @@ namespace Autofac
         {
             WrappedDef = cb;
         }
-
-        public AutofacRxnDef(IContainer scope) : base()
-        {
-            WrappedContainer = scope;
-        }
-
         public IRxnLifecycle Configure()
         {
             return new AutofacRxnLifecycle(WrappedDef);
@@ -103,27 +100,43 @@ namespace Autofac
 
         public IRxnDef UpdateWith(Action<IRxnLifecycle> lifecycle)
         {
+            //hack to fix multiple builds of a container. need to fix
+            if (WasBuilt())
+            {
+                WrappedDef = new ContainerBuilder();
+            }
+
             var lifeCycle = Configure();
             lifecycle(lifeCycle);
 
             return this;
         }
 
-        public IResolveTypes Build(bool startupServices = true)
+        private bool WasBuilt()
         {
-            WrappedContainer = WrappedDef.Build();
+            if (WrappedDef == null)
+                return false;
 
-            Container = new AutofacAppContainer(WrappedContainer);
+            FieldInfo type = typeof(ContainerBuilder).GetField("_wasBuilt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            return (bool) type.GetValue(WrappedDef);
+        }
 
-            _onStart.OnNext(new Unit());
-
-            if (startupServices)
+        public void Build(IAppContainer updateExisting = null)
+        {
+            if (updateExisting != null)
             {
-                var preStartupServices = Container.Resolve<IContainerPostBuildService[]>();
-                preStartupServices.ForEach(s => Container.ReportExceptions(() => s.Run(Container, Container)));
+                WrappedDef.Update(((AutofacAppContainer) updateExisting).Container);
+                Container = updateExisting;
             }
+            else
+                Container = new AutofacAppContainer(WrappedDef.Build());
 
-            return Container;
+            WrappedDef = new ContainerBuilder();
+        }
+
+        public void Use(IAppContainer container)
+        {
+            Container = container;
         }
     }
 
@@ -315,10 +328,9 @@ namespace Autofac
         {
             var acnt = _cb.Build();
             var cnt = new AutofacAppContainer(acnt);
-
-
+            
             var cb = new ContainerBuilder();
-            cb.Register(_cb => cnt).AsImplementedInterfaces().SingleInstance();
+            cb.Register(_ => cnt).AsImplementedInterfaces().SingleInstance();
 
             cb.Update(acnt);
 

@@ -1,47 +1,27 @@
 ﻿using System;
-using System.IO;
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
-using Rxns.DDD.Commanding;
 using Rxns.Hosting;
-using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
-using Rxns.Logging;
 using Rxns.Microservices;
 
 namespace Rxns
 {
-    public class GetOrCreateAppVersionTargetPath : ServiceCommand
-    {
-        public string SystemName { get; set; }
-        public string Version { get; set; }
-
-        public GetOrCreateAppVersionTargetPath(string systemName, string version)
-        {
-            SystemName = systemName;
-            Version = version;
-        }
-    }
-
-    public class MigrateAppToVersion : GetOrCreateAppVersionTargetPath
-    {
-
-        public MigrateAppToVersion(string systemName, string version) : base(systemName, version)
-        {
-
-        }
-    }
-
     public class RxnHostableApp : IRxnHostableApp
     {
         private readonly IRxnApp _app;
         private IRxnAppContext _context;
         public IRxnAppInfo AppInfo { get; }
-        public IAppContainer Container => _app.Definition.Container;
-        public IResolveTypes Resolver => _app.Definition.Container;
+        public IAppContainer Container { get; set; }
+        public IResolveTypes Resolver => (Container ?? _context?.Resolver ?? _app.Definition.Container); //todo: seriously, wtf?? is that nullable statement
 
         public string AppPath { get; set; }
+        public void Use(IAppContainer container)
+        {
+            Container = container;
+            //_app.Use(container)
+        }
+
         public string AppBinary { get; } = "Rxn.Create.exe";
 
         public IRxnDef Definition => _app.Definition;
@@ -57,14 +37,12 @@ namespace Rxns
 
             if(AppPath.EndsWith(".dll"))
                 AppPath = $"dotnet {AppPath}";
-
-            app.Definition.UpdateWith(lifecycle => { lifecycle.CreatesOncePerApp(() => appInfo); });
         }
 
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool startRxns = true, IAppContainer container = null)
         {
             //do we run the installer here?
-            return _app.Start().Do(c =>
+            return _app.Start(startRxns, container).Do(c =>
             {
                 _context = c;
             });

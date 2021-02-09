@@ -7,7 +7,7 @@ namespace Rxns.Hosting
     {
         IRxnDef Definition { get; }
         IAppSetup Installer { get; }
-        IObservable<IRxnAppContext> Start();
+        IObservable<IRxnAppContext> Start(bool startRxns = true, IAppContainer container = null);
         //need to implement a change version function like Upgrade or Switch(version) ?
         //or is this a concern of the other host?
     }

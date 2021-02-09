@@ -412,22 +412,9 @@ namespace Rxns
             });
         }
 
-        public static IObservable<IRxnAppContext> Create(IRxnHostableApp app, IRxnHost host, IRxnAppCfg cfg)
-        {
-            return host.Run(app, cfg);
-        }
-
-        public static IMicroApp ToRxnApp<T>(this IObservable<T> rxn, string[] args) where T : IDisposable
-        {
-            return new RxnMicroApp(Rxn.Create<IDisposable>(o =>
-            {
-                return rxn.Subscribe(d => { o.OnNext(d); }, e => o.OnError(e), o.OnCompleted);
-            }), args);
-        }
-
         public static IRxnApp WithRxns(this IMicroApp context, IRxnDef def)
         {
-            return new RxnApp(context, def, new RxnAppFactory());
+            return new RxnApp(def, new RxnAppFactory());
         }
 
         public static IRxnApp WithRxns(this Type context, IRxnDef def)
@@ -437,12 +424,14 @@ namespace Rxns
 
         public static IRxnHostableApp Named(this IRxnApp app, IRxnAppInfo appInfo)
         {
+            app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => appInfo));
+
             return new RxnHostableApp(app, appInfo);
         }
 
-        public static IObservable<IRxnAppContext> OnHost(this IRxnHostableApp app, IRxnHost host, IRxnAppCfg cfg)
+        public static IObservable<IRxnHostReadyToRun> OnHost(this IRxnHostableApp app, IRxnHost host, IRxnAppCfg cfg)
         {
-            return host.Run(app, cfg);
+            return host.Stage(app, cfg);
         }
 
 

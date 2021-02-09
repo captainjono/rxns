@@ -84,31 +84,36 @@ namespace Rxns.Hosting.Cluster
                              }
 
                              var connection = _clients[clientName];
-                             
+
+                             if (connection.RouterCfg != null)
+                             {
+                                 ReportStatus.Log.OnWarning($"Client {clientName} is crashing!");
+                                 connection.RouterCfg.Dispose();
+                             }
+
                              connection.Server = pipeServer;
                              connection.ClientName = clientName;
                              connection.ClientId = Guid.NewGuid().ToString();
-                             connection.RouterCfg = 
 
-                             Router.ConfigureWith(connection.ClientName, RxnRouteCfg.OnReactionTo(connection.RespondsTo).PublishTo<IRxn>(message =>
-                             {
-                                 if (!connection.Server.IsConnected)
+                             if (connection.RouterCfg != null)
+                                 connection.RouterCfg = Router.ConfigureWith(connection.ClientName, RxnRouteCfg.OnReactionTo(connection.RespondsTo).PublishTo<IRxn>(message =>
                                  {
-                                     "PIPE CLOSED".LogDebug(clientName);
-                                     return;
-                                 }
+                                     if (!connection.Server.IsConnected)
+                                     {
+                                         "PIPE CLOSED".LogDebug(clientName);
+                                         return;
+                                     }
 
-                                 try
-                                 {
-                                     $"^ {connection.ClientName}:{connection.ClientId}: {message.GetType().Name}".LogDebug();
-                                     RxnsStream.WriteStream(connection.Server, new UseDeserialiseCodec(), new CapturedRxn(TimeSpan.Zero, message));
-                                 }
-                                 catch (Exception e)
-                                 {
-                                     $"{connection.ClientName} => PIPE FAILED => {e}".LogDebug();
-                                 }
-                             }))
-                            ;
+                                     try
+                                     {
+                                         $"^ {connection.ClientName}:{connection.ClientId}: {message.GetType().Name}".LogDebug();
+                                         RxnsStream.WriteStream(connection.Server, new UseDeserialiseCodec(), new CapturedRxn(TimeSpan.Zero, message));
+                                     }
+                                     catch (Exception e)
+                                     {
+                                         $"{connection.ClientName} => PIPE FAILED => {e}".LogDebug();
+                                     }
+                                 }));
 
                              $"Client '{clientName}' connected to to pipeserver".LogDebug();
                             //need to trampolise here otherwise pipeserver isnt happy
@@ -129,7 +134,7 @@ namespace Rxns.Hosting.Cluster
                                      //"Closing pipeserver".LogDebug();
                                      //pipeServer.Close();
                                      //_clients.Remove(name);
-
+                                     connection.RouterCfg.Dispose();
                                      //o.OnCompleted();
                                  });
                          })

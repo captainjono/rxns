@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
@@ -104,10 +105,10 @@ namespace Rxns.Health.AppStatus
 
         private IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
         {
-            return _updates.AllUpdates(status.SystemName, 1)
+            return _updates.AllUpdates(status.SystemName.Split("[main")[0], 1)
                 .FirstOrDefaultAsync()
-                .Select(e => e.FirstOrDefault())
                 .Where(e => e != null)
+                .Select(e => e.FirstOrDefault())
                 .Select(currentVersion =>
                 {
                     if (!status.KeepUpToDate)

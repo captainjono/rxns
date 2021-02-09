@@ -10,12 +10,14 @@ using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Microservices;
 
 namespace Rxns.Hosting
 {
-    public class ConsoleHostedApp : ReportsStatus, IRxnHost
+    public class ConsoleHostedApp : ReportsStatus, IRxnHostReadyToRun
     {
         private IRxnAppCfg _cfg;
+        private IRxnHostableApp _app;
 
         public IDisposable Start()
         {
@@ -47,32 +49,45 @@ namespace Rxns.Hosting
             return new Unit().ToObservable();
         }
 
-        public IObservable<IRxnAppContext> Run(IRxnHostableApp app, IRxnAppCfg cfg)
+        public IObservable<IRxnHostReadyToRun> Stage(IRxnHostableApp app, IRxnAppCfg cfg)
         {
-            _cfg = cfg;
+            return Rxn.Create(() =>
+            {
+                _app = app;
+                _cfg = cfg;
+
+                app.Definition.UpdateWith(def =>
+                {
+                    def.CreatesOncePerApp(_ => this);
+                    def.CreatesOncePerApp(_ => cfg);
+                    def.CreatesOncePerApp(_ => app);
+                });
+
+                return this;
+            });
+        }
+
+        public IObservable<IRxnAppContext> Run(IAppContainer container = null)
+        {
             return Rxn.Create<IRxnAppContext>(o =>
             {
                 try
                 {
-                    app.Definition.UpdateWith(def =>
-                    {
-                        def.CreatesOncePerApp(_ => this);
-                        def.CreatesOncePerApp(_ => cfg);
-                        def.CreatesOncePerApp(_ => app);
-                    });
+                
 
                     try
                     {
-                        if(app.Container == null)
-                            app.Definition.Build();
+                        _app.Definition.Build(container);
                     }
                     catch (Exception e)
                     {
                         OnWarning($"On app build: {e}");
                     }
 
+                    //todo: u
+                    //need to add support for external process
 
-                    return app.Start().Do(c =>
+                    return _app.Start(true, container).Do(c =>
                     {
                         "saw context".LogDebug();
                         o.OnNext(c);

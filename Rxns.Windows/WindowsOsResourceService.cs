@@ -6,13 +6,12 @@ using System.Management;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
-using Microsoft.VisualBasic.Devices;
 using Rxns.Hosting;
 using Rxns.Interfaces;
 
 namespace Rxns.Windows
 {
-    public class WindowsSystemServices : IOperationSystemServices, IDevice
+    public class WindowsSystemServices : IOperationSystemServices
     {
         public IEnumerable<string> GetServiceUsers(string name)
         {
@@ -94,14 +93,19 @@ namespace Rxns.Windows
             });
         }
 
+        public void AllowToBeExecuted(string appName)
+        {
+            //not required on windows
+        }
+
         public string GetVersion()
         {
-            return new ComputerInfo().OSVersion;
+            return Environment.OSVersion.ToString();
         }
 
         public string GetOS()
         {
-            return new ComputerInfo().OSFullName;
+            return Environment.OSVersion.ToString();
         }
 
         public string GetConnection()

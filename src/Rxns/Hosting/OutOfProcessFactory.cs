@@ -13,6 +13,7 @@ using Rxns.DDD.CQRS;
 using Rxns.Health;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting.Cluster;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Playback;
@@ -21,9 +22,13 @@ namespace Rxns.Hosting
 {
     public class OutOfProcessFactory : IRxnAppProcessFactory
     {
+        private readonly IStoreAppUpdates _appStore;
         public static RxnManager<IRxn> RxnManager { get; set; }
 
-        
+        public OutOfProcessFactory(IStoreAppUpdates appStore)
+        {
+            _appStore = appStore;
+        }
         
         public static NamedPipesServerBackingChannel CreateNamedPipeServer()
         {
@@ -132,12 +137,12 @@ namespace Rxns.Hosting
                         //var reactorName = args.Reverse().FirstOrDefault();
                         var routes = RxnCreator.DiscoverRoutes(reactorName, app.Resolver);
                         PipeServer.ListenForNewClient(reactorName, routes);
-                        return new ExternalProcessRxnAppContext(app, args, RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, args, RxnManager, _appStore).ToObservable().Subscribe(o);
                     case RxnMode.InProcess:
-                        return hostManager.GetHostForApp(reactorName).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
+                        return hostManager.GetHostForApp(reactorName).Stage(app, new RxnAppCfg() { Args = args }).SelectMany(h => h.Run()).Subscribe(o);
                     default:
                         "cant dertermine reactor mode, defaulting to inprocess".LogDebug();
-                        return hostManager.GetHostForApp(reactorName).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
+                        return hostManager.GetHostForApp(reactorName).Stage(app, new RxnAppCfg() { Args = args }).SelectMany(h => h.Run()).Subscribe(o);
                 }
             });
         }
@@ -157,21 +162,21 @@ namespace Rxns.Hosting
                         // the consolehost does the building so something similiar to a host
                         // syntax here, but we just want a <reactorName, type[] routes> RxnCreate.LookupReactorRoutes(RxnApp)?
                         PipeServer.ListenForNewClient("main", new Type[] { typeof(IRxn) });
-                        return new ExternalProcessRxnAppContext(app, "reactor main".Split(), RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, "reactor main".Split(), RxnManager, _appStore).ToObservable().Subscribe(o);
                     //should also then startup the supervisor host!
                     case RxnMode.OutOfProcess:
                         var reactorName = args.Reverse().FirstOrDefault();
                         var routes = app.Resolver.Resolve<IManageReactors>().GetOrCreate(reactorName).Reactor.Molecules.SelectMany(m => RxnCreator.DiscoverRoutes(m)).ToArray();
                         PipeServer.ListenForNewClient(reactorName, routes);
 
-                        return new ExternalProcessRxnAppContext(app, args, RxnManager).ToObservable().Subscribe(o);
+                        return new ExternalProcessRxnAppContext(app, args, RxnManager, _appStore).ToObservable().Subscribe(o);
                     case RxnMode.InProcess:
-                        return hostManager.GetHostForApp(null).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
+                        return hostManager.GetHostForApp(null).Stage(app, new RxnAppCfg() { Args = args }).SelectMany(h => h.Run()).Subscribe(o);
                     case RxnMode.Main:
-                        return hostManager.GetHostForApp("main").Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
+                        return hostManager.GetHostForApp("main").Stage(app, new RxnAppCfg() { Args = args }).SelectMany(h => h.Run()).Subscribe(o);
                     default:
                         "cant dertermine mode, defaulting to inprocess".LogDebug();
-                        return hostManager.GetHostForApp(null).Run(app, new RxnAppCfg() { Args = args }).Subscribe(o);
+                        return hostManager.GetHostForApp(null).Stage(app, new RxnAppCfg() { Args = args }).SelectMany(h => h.Run()).Subscribe(o);
                 }
             });
         }

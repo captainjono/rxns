@@ -38,6 +38,23 @@ namespace Rxns.Health
                 var meta = _meta.Values.Where(m => m.Info != null).Select(m => m.Info());
                 var finalMeta = meta.Any() ? meta.ToArray() : new object[] { };
 
+
+                //need to advertise and update via the supervisor?
+                //or i need to fix appstatus to look for main and only send updates to it?
+                // -- i tried to fix appstatus, but i cant ref it cause its net461. need to convert to .net core? wasted my time before running .netduel?
+                //
+
+                //do i want to support diffrent reactors at differnet versions? not sure. dont think so. not worth the effort?
+                //debug carefully once removing this
+                //need to 
+                //"REMOVE DEBUGGGG OVERIDE".LogDebug();
+
+                //if (status.SystemName.EndsWith("[main]"))
+                //{
+                //    status.KeepUpToDate = true;
+                //    status.SystemName = status.SystemName.Split('[')[0];
+                //}
+
                 return _appStatus.PublishSystemStatus(status, finalMeta); //returns commands as responses
             }).SelectMany(r => r);
 

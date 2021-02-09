@@ -87,6 +87,7 @@ namespace Rxns.Hosting
                 .CreatesOncePerApp<AppUpdateServiceClient>()
                 .CreatesOncePerApp<HttpUpdateServiceClient>()
                 .CreatesOncePerApp<LocalAppUpdateServer>()
+                .CreatesOncePerApp<CurrentDirectoryAppUpdateStore>()
                 .CreatesOncePerApp<ZipService>()
                 .CreatesOncePerApp(() => new AppResourceCfg
                 {

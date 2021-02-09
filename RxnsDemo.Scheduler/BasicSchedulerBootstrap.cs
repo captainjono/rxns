@@ -1,8 +1,10 @@
 ﻿using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using Autofac;
 using Rxns;
 using Rxns.Health.AppStatus;
@@ -108,11 +110,15 @@ namespace RxnsDemo.Scheduler
                         })
                         .Includes<AppStatusClientModule>() //allows appstatus reporting of tasks/progress
                         .Includes<RxnsModule>() //sets up auto-reporting. Could omit and manually trigger heatbeats by calling .Ping() method directly
-                        .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>();
+                        .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
+                        ;
+
+                    if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        cfg.Includes<WindowsModule>();
                 })
-                .UseWindowsAddons()
                 .Named(new AppVersionInfo("Micro scheduler", "1.0", true))
                 .OnHost(new ConsoleHostedApp(), new RxnAppCfg())
+                .SelectMany(h => h.Run())
                 .Subscribe(instance =>
                 {
                     instance.Resolver.Resolve<IRxnScheduler>().Start(); //startup the scheduler after any bootstrapping logic

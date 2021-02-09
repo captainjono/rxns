@@ -1,13 +1,14 @@
 ﻿using System;
+using System.Reactive.Linq;
 using Rxns.Logging;
 
 namespace Rxns.Hosting
 {
     public class RxnMicroApp : ReportsStatus, IMicroApp
     {
-        private readonly IObservable<IDisposable> _app;
+        private readonly IObservable<IRxnAppContext> _app;
 
-        public RxnMicroApp(IObservable<IDisposable> app, string[] args = null)
+        public RxnMicroApp(IObservable<IRxnAppContext> app, string[] args = null)
         {
             Args = args ?? new string[0];
             _app = app;
@@ -15,7 +16,7 @@ namespace Rxns.Hosting
 
         public string[] Args { get; }
 
-        public IObservable<IDisposable> Start()
+        public IObservable<IRxnAppContext> Start()
         {
             return _app;
         }

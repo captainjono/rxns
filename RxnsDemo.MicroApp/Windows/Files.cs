@@ -86,7 +86,7 @@ namespace Janison.MicroApp
             {
                 errorAction = (sender, args) =>
                 {
-                    GeneralLogging.Log.OnWarning("FSW => {0}".FormatWith(path), "Restarting because: {0}".FormatWith(args.GetException()));
+                    ReportStatus.Log.OnWarning("FSW => {0}".FormatWith(path), "Restarting because: {0}".FormatWith(args.GetException()));
 
                     Action retryUntilReady = null;
                     retryUntilReady = () => Observable.Timer(TimeSpan.FromSeconds(10)).Subscribe(_ =>
@@ -97,7 +97,7 @@ namespace Janison.MicroApp
                         }
                         catch (Exception e)
                         {
-                            GeneralLogging.Log.OnWarning("FSW => {0}".FormatWith(path), "Cannot restart yet because: {0}".FormatWith(e));
+                            ReportStatus.Log.OnWarning("FSW => {0}".FormatWith(path), "Cannot restart yet because: {0}".FormatWith(e));
                             retryUntilReady();
                         }
                     });

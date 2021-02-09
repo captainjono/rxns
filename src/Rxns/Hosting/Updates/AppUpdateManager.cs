@@ -30,7 +30,52 @@ namespace Rxns.Hosting.Updates
         public string Version { get; set; }
     }
 
-    public class LocalAppUpdateServer : ReportsStatus, IAppUpdateManager, IServiceCommandHandler<UpdateSystemCommand>, IRxnPublisher<IRxn>
+    public class PrepareForAppUpdate : ServiceCommand
+    {
+        public bool OverwriteExisting { get; set; }
+
+        public string SystemName { get; set; }
+        public string Version { get; set; }
+        public string SystemRootPath { get; set; }
+
+        public PrepareForAppUpdate(string systemName, string version, bool overwriteExisting, string root = null)
+        {
+            OverwriteExisting = overwriteExisting;
+        }
+
+    }
+
+    public class GetAppDirectoryForAppUpdate : ServiceCommand
+    {
+        public string SystemName { get; set; }
+        public string Version { get; set; }
+        public string SystemRootPath { get; set; }
+
+        public GetAppDirectoryForAppUpdate(string systemName, string version, string root = null)
+        {
+
+            SystemName = systemName;
+            Version = version;
+            SystemRootPath = root;
+        }
+    }
+
+    public class MigrateAppToVersion : ServiceCommand
+    {
+        public string SystemName { get; set; }
+        public string Version { get; set; }
+        public string SystemRootPath { get; set; }
+
+        public MigrateAppToVersion(string systemName, string version, string root = null)
+        {
+
+            SystemName = systemName;
+            Version = version;
+            SystemRootPath = root;
+        }
+    }
+
+    public class LocalAppUpdateServer : ReportsStatus, IAppUpdateManager, IRxnPublisher<IRxn>
     {
         private readonly ICommandService _cmdHub;
         private readonly IRxnAppInfo _systemInfo;
@@ -233,11 +278,6 @@ namespace Rxns.Hosting.Updates
         //    });
         //}
 
-        public IObservable<string> GetDirectoryForVersion(string systemName, string version)
-        {
-            return _cmdHub.Run(new GetOrCreateAppVersionTargetPath(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>().Select(r => r.Message);
-        }
-
         private IObservable<CommandResult> DownloadAndUpdate(string systemName, string version, bool overwriteExisting)
         {
             if (_onStateChanged.Value() != AppUpdateStatus.Idle)
@@ -245,51 +285,33 @@ namespace Rxns.Hosting.Updates
                 return CommandResult.Failure("Update already in progress").ToObservable();
             }
             
-            return Rxn.DfrCreate<CommandResult>(() =>
+            return Rxn.DfrCreate(() =>
             {
-                if (String.IsNullOrWhiteSpace(version)) throw new ArgumentNullException("version");
-                if (_systemInfo.Name.Equals(systemName, StringComparison.InvariantCultureIgnoreCase) && _systemInfo.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase))
+                if (version.IsNullOrWhitespace()) throw new ArgumentNullException("version");
+
+                if (_systemInfo.Name.BasicallyEquals(systemName) && _systemInfo.Version.BasicallyEquals(version))
                     throw new ArgumentException("cannot update to same version");
                 
                 SetState(AppUpdateStatus.Update);
-
-                return GetDirectoryForVersion(systemName, version).SelectMany(destination =>
-                {
-                    OnVerbose("Using '{0}' for update", destination);
-
-                    //see if the update is already installed
-                    if (_fileSystem.ExistsDirectory(destination) && !overwriteExisting)
+                
+                return _updateService.Download(systemName, version, overwrite: overwriteExisting)
+                    .SelectMany(downloadedVersion =>
                     {
-                        OnWarning("Update already exists");
-                        if (_fileSystem.GetFiles(destination, "*.dll").Any())
+                        if (downloadedVersion.IsNullOrWhitespace())
                         {
-                            SetState(AppUpdateStatus.Idle);
-
-                                                        return _cmdHub.Run(new MigrateAppToVersion(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>();
-
+                            OnVerbose("Already at version '{0}'", downloadedVersion);
+                            return CommandResult.Success("Already @ version").ToObservable();
                         }
 
-                        _fileSystem.DeleteDirectory(destination);
-                    }
+                        OnInformation("Restarting system to version '{0}'", downloadedVersion);
+                        SetState(AppUpdateStatus.Idle);
 
-                    return _updateService.Download(systemName, version, destination)
-                        .SelectMany(_ =>
-                        {
-                            OnInformation("Restarting system to version '{0}'", version);
-
-                            return _cmdHub.Run(new MigrateAppToVersion(_bootstrap.AppInfo.Name, version)).OfType<CommandResult>();
-                        })
-                        .Catch<CommandResult, Exception>(e =>
-                        {
-                            SetState(AppUpdateStatus.Idle);
-
-                            return CommandResult.Failure(e.Message).ToObservable();
-                        });
-                });
-            })
-            .FinallyR(() =>
-            {
-                SetState(AppUpdateStatus.Idle);
+                        return _cmdHub.Run(new MigrateAppToVersion(_bootstrap.AppInfo.Name, downloadedVersion)).OfType<CommandResult>();
+                    })
+                    .Catch<CommandResult, Exception>(e =>
+                    {
+                        return CommandResult.Failure(e.Message).ToObservable();
+                    });
             });
         }
 

@@ -1,10 +1,12 @@
 ﻿using System;
 using System.IO;
+using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
 namespace Rxns.Hosting.Updates
 {
-    public interface IAppUpdateManager
+    public interface IAppUpdateManager : IServiceCommandHandler<UpdateSystemCommand>
     {
         IObservable<IFileMeta> Upload(string systemName, string version, IFileMeta appUpdate);
 

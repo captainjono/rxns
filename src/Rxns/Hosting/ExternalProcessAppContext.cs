@@ -9,14 +9,17 @@ using Rxns.DDD;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Hosting.Cluster;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Microservices;
 
 namespace Rxns.Hosting
 {
 
     public class ExternalProcessRxnAppContext : IRxnAppContext
     {
+        private readonly IStoreAppUpdates _appStore;
         public IRxnHostableApp App { get; }
         public string[] args { get; set; }
         readonly List<IDisposable> _resources = new List<IDisposable>();
@@ -34,8 +37,9 @@ namespace Rxns.Hosting
 
         private ISubject<ProcessStatus> _status = new BehaviorSubject<ProcessStatus>(ProcessStatus.Terminated);
 
-        public ExternalProcessRxnAppContext(IRxnHostableApp app, string[] args, IRxnManager<IRxn> rxnManager)
+        public ExternalProcessRxnAppContext(IRxnHostableApp app, string[] args, IRxnManager<IRxn> rxnManager, IStoreAppUpdates appStore)
         {
+            _appStore = appStore;
             App = app;
             this.args = args;
 
@@ -43,7 +47,7 @@ namespace Rxns.Hosting
 
             if (App.Container == null)
             {
-                App.Definition.Build(false);
+                App.Definition.Build();
             }
 
             Resolver = App.Container;
@@ -51,7 +55,7 @@ namespace Rxns.Hosting
             
         }
 
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool shouldStartRxns = true, IAppContainer container = null)
         {
             return Rxn.Create(() =>
             {
@@ -82,7 +86,6 @@ namespace Rxns.Hosting
         {
             try
             {
-                version = version ?? "1";
                 //if we have different version, dispose of the container
                 if (version != _lastAppVersion)
                 {
@@ -124,6 +127,7 @@ namespace Rxns.Hosting
         /// <param name="version">the apps version</param>
         private void LaunchApp(OutOfProcessRxnAppContext app, string version)
         {
+            
             _container.Start().Do(_ =>
             {
                 _.OnDispose(_container.Status.Subscribe(_status));
@@ -135,23 +139,25 @@ namespace Rxns.Hosting
 
         private OutOfProcessRxnAppContext GetOrCreateApp(IRxnHostableApp app, string version)
         {
-            //todo: install
-            //should lookup dir of app here, then start it
+            var targetPath = _appStore.Run(new GetAppDirectoryForAppUpdate(app.AppInfo.Name, version)).WaitR();//todo: remove waitr
+            
+            //index any dotnet commands by this targetPath
+            if(app.AppPath.StartsWith("dotnet"))
+            {
+                app.AppInfo.Version = version;
+                var appBinary = new FileInfo(app.AppPath.Split(' ').Skip(1).FirstOrDefault()).Name;
+                app.AppPath = $"dotnet {Path.Combine(targetPath, appBinary)}";
+            }
+
             if (_container == null)
             {
-                _container = new OutOfProcessRxnAppContext(app, RxnManager, args);
-                
+                _container = new OutOfProcessRxnAppContext(app, RxnManager, args, targetPath);
                 _container.Status.Subscribe(_status).DisposedBy(_container);
 
                 return _container;
             }
 
             return _container;
-        }
-
-        private string GetDirectoryForVersion(string root, string version)
-        {
-            return Path.Combine(root, version ?? "");
         }
 
         private void SetCurrentVersion(string version)
@@ -174,7 +180,7 @@ namespace Rxns.Hosting
 
         private void Install(IRxnHostableApp app)
         {
-            LogAsHost("Executing install of app");
+            LogAsHost($"Executing install of app {app.Installer.GetType().Name}");
             app.Installer.Install();
         }
 
@@ -225,6 +231,7 @@ namespace Rxns.Hosting
             {
                 StopApp(_container);
                 _appStarted = null;
+                _status.OnNext(ProcessStatus.Terminated);
             }
         }
 
@@ -235,7 +242,7 @@ namespace Rxns.Hosting
 
         public void Dispose()
         {
-            StopApp(_container);
+            Stop();
             DisposeContainer();
             _resources.DisposeAll();
             _resources.Clear();

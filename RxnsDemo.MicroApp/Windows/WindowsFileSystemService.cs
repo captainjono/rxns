@@ -147,5 +147,10 @@ namespace Janison.MicroApp
 
             Directory.SetAccessControl(Environment.ExpandEnvironmentVariables(path), permissions);
         }
+
+        public IFileMeta ToFileMeta(string filename, string contentType, DateTime lastWriteTime)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

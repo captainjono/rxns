@@ -28,7 +28,7 @@ namespace RxnCreate
 
             var currentAppCfg = RxnAppCfg.LoadCfg(appLocation);
 
-            var client = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(new DotNetFileSystemService()), new DotNetFileSystemService(), currentAppCfg);
+            var client = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(new DotNetFileSystemService()), new DotNetFileSystemService(), new CurrentDirectoryAppUpdateStore(), currentAppCfg);
             client.ReportToDebug();
 
             return client.Download(appName, version, appLocation, new RxnAppCfg()
@@ -38,10 +38,16 @@ namespace RxnCreate
                 KeepUpdated = true,
                 AppPath =  Path.Combine(appLocation, binary),
                 Version = version
-            }).Select(_ =>
+            }).Select(downloadedVersionPath =>
             {
+                if (downloadedVersionPath.IsNullOrWhitespace())
+                {
+                    throw new Exception($"Failed to download {appName}@{version}");
+                }
                 //spawn new app
-                Process.Start(new ProcessStartInfo(Path.Combine(appLocation, binary)));
+                //todo update this is another place where the appbinary is used and needs to be consistant with version/ing
+                //untested
+                Process.Start(new ProcessStartInfo(Path.Combine(downloadedVersionPath, binary))); 
 
                 return new Unit();
             });
@@ -112,13 +118,20 @@ namespace RxnCreate
                 appStatusUrl ??= "http://localhost:888";
                 $"Using AppStatus URL: {appStatusUrl}".LogDebug();
 
-                var c = new AppUpdateServiceClient(new HttpUpdateServiceClient(new AppServiceRegistry()
-                {
-                    AppStatusUrl = appStatusUrl
-                }, new AnonymousHttpConnection(new HttpClient()
-                {
-                    Timeout = TimeSpan.FromHours(24)
-                }, new ReliabilityManager(new RetryMaxTimesReliabilityCfg(3)))), fs, destCfg);
+                var c = new AppUpdateServiceClient(
+                    new HttpUpdateServiceClient(new AppServiceRegistry()
+                        {
+                            AppStatusUrl = appStatusUrl
+                        }
+                        , new AnonymousHttpConnection(new HttpClient()
+                        {
+                            Timeout = TimeSpan.FromHours(24)
+                        }
+                        ,new ReliabilityManager(new RetryMaxTimesReliabilityCfg(3))
+                        ))
+                    , fs
+                    , new CurrentDirectoryAppUpdateStore()
+                    , destCfg);
                 c.ReportToDebug();
                 return c;
             }
@@ -126,7 +139,7 @@ namespace RxnCreate
             {
                 "Saving update locally".LogDebug();
 
-                var c = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(fs), fs, destCfg);
+                var c = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(fs), fs, new CurrentDirectoryAppUpdateStore(), destCfg);
                 c.ReportToDebug();
                 return c;
             }

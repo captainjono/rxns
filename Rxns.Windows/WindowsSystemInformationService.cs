@@ -7,8 +7,6 @@ using Rxns.Hosting;
 
 namespace Rxns.Health
 {
-
-
     /// <summary>
     /// A service that provides facilitates gathering operating system specific information on an 
     /// applications runtime environment, and manipulating this environment.

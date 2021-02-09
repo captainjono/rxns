@@ -4,7 +4,7 @@
     {
         
         public string Name { get; }
-        public string Version { get; }
+        public string Version { get; set; }
         public string Url { get; }
         public string Id { get; }
         public bool KeepUpdated { get; }

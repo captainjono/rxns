@@ -1,29 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Subjects;
 using Rxns.DDD;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Microservices;
 
 namespace Rxns.Hosting
 {
     public class InProcessRxnAppContext : IRxnAppContext
     {
         private readonly List<IDisposable> _resources = new List<IDisposable>();
-        public IRxnHostableApp App { get; }
+        private IRxnApp _app;
+        public IRxnHostableApp App => Resolver.Resolve<IRxnHostableApp>();
         public IAppSetup Installer => App.Installer;
         public ICommandService CmdService => Resolver.Resolve<ICommandService>();
         public IAppCommandService AppCmdService => Resolver.Resolve<IAppCommandService>();
         public IRxnManager<IRxn> RxnManager => Resolver.Resolve<IRxnManager<IRxn>>();
-        public IResolveTypes Resolver { get; }
+        public IResolveTypes Resolver { get; set; }
         public string[] args { get; }
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool shouldStartRxns = true, IAppContainer container = null)
         {
-            "Start not implemented ofr inprocess yet".LogDebug();
+            if (container != null)
+                Resolver = container;
 
-            return Rxn.Empty<IRxnAppContext>();
+            return this.ToObservable();
         }
 
         public void Terminate()
@@ -35,7 +39,8 @@ namespace Rxns.Hosting
 
         public InProcessRxnAppContext(IRxnApp app, IResolveTypes container)
         {
-            //App = app;
+            _app = app;
+            
             Resolver = container;
         }
 
@@ -54,24 +59,26 @@ namespace Rxns.Hosting
     public class MicroAppContext : IRxnAppContext
     {
         private readonly List<IDisposable> _resources = new List<IDisposable>();
+        private IMicroApp _app;
         public IRxnHostableApp App { get; }
         public IAppSetup Installer => null;
         public ICommandService CmdService => Resolver.Resolve<ICommandService>();
         public IAppCommandService AppCmdService => Resolver.Resolve<IAppCommandService>();
         public IRxnManager<IRxn> RxnManager => Resolver.Resolve<IRxnManager<IRxn>>();
-        public IResolveTypes Resolver { get; }
+        public IResolveTypes Resolver { get; set;  }
         public string[] args { get; }
 
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool shouldStartRxns = true, IAppContainer container = null)
         {
-            if (MicroApp == null)
-            {
-                "this could be an issue for multipe process running at once".LogDebug();
-                return Rxn.Empty<IRxnAppContext>();
-            }
+            //if (args == null)
+            //{
+            //    "this could be an issue for multipe process running at once".LogDebug();
+            //    return Rxn.Empty<IRxnAppContext>();
+            //}
 
             return Rxn.Create<IRxnAppContext>(o =>
             {
+                Resolver = container;
                 o.OnNext(this);
 
                 return this;
@@ -87,12 +94,10 @@ namespace Rxns.Hosting
 
         public MicroAppContext(IMicroApp app, IResolveTypes container)
         {
-            MicroApp = app;
+            _app = app;
             args = app.Args;
             Resolver = container;
         }
-
-        public IMicroApp MicroApp { get; set; }
 
         public void Dispose()
         {

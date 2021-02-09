@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Autofac;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
@@ -11,7 +12,7 @@ namespace Rxns.Hosting
     {
         IAppContainer Container { get; }
         IRxnDef UpdateWith(Action<IRxnLifecycle> lifecycle);
-        IResolveTypes Build(bool startRxns = true);
+        void Build(IAppContainer updateExisting = null);
     }
     public interface IRxnLifecycle : IModule
     {

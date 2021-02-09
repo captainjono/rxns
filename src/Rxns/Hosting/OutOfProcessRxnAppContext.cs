@@ -11,6 +11,7 @@ using Rxns.DDD.CQRS;
 using Rxns.Health;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Microservices;
 
 namespace Rxns.Hosting
 {
@@ -53,7 +54,7 @@ namespace Rxns.Hosting
         //the cluster needs this info, but this class does the actual execution..
         //i think the cluster should? we see here that we need to have an actual app before we 
         //can create it. this may not always be the case...?
-        public OutOfProcessRxnAppContext(IRxnHostableApp app, IRxnManager<IRxn> rxnManager, string[] args)
+        public OutOfProcessRxnAppContext(IRxnHostableApp app, IRxnManager<IRxn> rxnManager, string[] args, string appRoot = null)
         {
             App = app;
             _name = app.AppInfo.Name;
@@ -71,7 +72,7 @@ namespace Rxns.Hosting
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 ErrorDialog = false,
-                WorkingDirectory = Environment.CurrentDirectory,
+                WorkingDirectory = appRoot ?? Environment.CurrentDirectory,
             };
 
             var tokens = app.AppPath.Split(' ');
@@ -92,7 +93,20 @@ namespace Rxns.Hosting
                 EnableRaisingEvents = true
             };
 
+            Disposable.Create(() =>
+            {
+                $"Stopping App {args.ToStringEach(" ")}".LogDebug();
+                _process.Kill();
+                _process.Dispose();
+            })
+            .DisposedBy(_resources);
+
             _process.Exited += Process_Exited;
+        }
+
+        public void SwitchToDir(string version)
+        {
+
         }
 
 
@@ -142,7 +156,7 @@ namespace Rxns.Hosting
         /// <summary>
         /// Starts the remote process which will host an Activator
         /// </summary>
-        public IObservable<IRxnAppContext> Start()
+        public IObservable<IRxnAppContext> Start(bool shouldStartRxns = true, IAppContainer container = null)
         {
             $"Starting process '{_name}'".LogDebug();
 

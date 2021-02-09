@@ -10,6 +10,7 @@ namespace Rxns.Hosting
         IRxnAppInfo AppInfo { get; }
         IAppContainer Container { get; }
         IResolveTypes Resolver { get; }
-        string AppPath { get; }
+        string AppPath { get; set; }
+        void Use(IAppContainer container);
     }
 }

@@ -16,6 +16,7 @@ using Rxns.DDD.CQRS;
 using Rxns.Health;
 using Rxns.Hosting;
 using Rxns.Hosting.Cluster;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
 
@@ -54,7 +55,7 @@ namespace RxnCreate
                         AppStatusUrl = appStatusUrl,
                         KeepUpdated = true,
                     }.Save(appLocation);
-
+                
                 RxnApps.CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhiteSpace(true.ToString())), appStatusUrl).Catch<Unit, Exception>(
                     e =>
                     {
@@ -84,7 +85,12 @@ namespace RxnCreate
             }
 
             IRxnAppContext ctx = null;
-            
+
+            if (!Debugger.IsAttached)
+            {
+                Debugger.Launch();
+            }
+
             if (args.FirstOrDefault() == "SpareReactor")
             {
                 "Running SpareReactor for auto scaleout".LogDebug();
@@ -110,15 +116,12 @@ namespace RxnCreate
                     return;
                 }
 
-                if (!Debugger.IsAttached)// ; && args.Contains("Cache"))
-                    Debugger.Launch();
-
-                if (args.FirstOrDefault() == "Demo" || true)
+                if (args.FirstOrDefault() == "Demo")
                 {
                     RunDemoAppReactor(args: args).Do(_ => { ctx = _; })
                         .Until();
                 }
-                else if (args.FirstOrDefault() == "TestAgent"|| true)
+                else if (args.FirstOrDefault() == "TestAgent")
                 {
                     UnitTestAgent.RunTestAgentReactor(args: args).Do(_ => { ctx = _; })
                         .Until();
@@ -157,6 +160,7 @@ namespace RxnCreate
                     .ToRxns()
                     .Named(new AppVersionInfo("SpareReactor", "1.0.0", true))
                     .OnHost(new ConsoleHostedApp(), new RxnAppCfg())
+                    .SelectMany(h => h.Run())
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();
@@ -201,22 +205,24 @@ namespace RxnCreate
                 RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
 
                 var cfg = RxnAppCfg.Detect(args);
+                var appStore = new CurrentDirectoryAppUpdateStore();
 
                 return OutOfProcessDemo.DemoApp(RxnApp.SpareReator(url))
                     .ToRxns()
-                    .Named(new ClusteredAppInfo("DemoApp", "1.0.0", args, false))
+                    .Named(new ClusteredAppInfo("DemoApp", cfg.Version, args, false))
                     .OnHost(new ClusteredAppHost(
-                            new OutOfProcessFactory(),
+                            new OutOfProcessFactory(appStore),
                             OutOfProcessFactory.RxnManager,
                             OutOfProcessFactory.PipeServer?.Router,
                             new AutoBalancingHostManager()
-                                .ConfigureWith(new ConsoleHostedApp(), _ => true), cfg)
+                                .ConfigureWith(new ConsoleHostedApp(), _ => true), 
+                            cfg,
+                            appStore)
                                 .ConfigureWith(new AutoScalingAppManager()
-                                    .ConfigureWith(new ReliableAppThatRestartsOnCrash(OutOfProcessFactory.RxnManager))
-                                    .ConfigureWith(new AutoScaleoutReactorPlan(new ScaleoutToEverySpareReactor(), "DemoApp", "Cache", "1.0")))
-                                ,
-                            cfg
-                        )
+                                .ConfigureWith(new ReliableAppThatRestartsOnCrash(OutOfProcessFactory.RxnManager))
+                                .ConfigureWith(new AutoScaleoutReactorPlan(new ScaleoutToEverySpareReactor(), "DemoApp", "Cache", "1.0"))),
+                            cfg)
+                    .SelectMany(h => h.Run())
                     .Do(app =>
                     {
                         $"Advertising to {url}".LogDebug();

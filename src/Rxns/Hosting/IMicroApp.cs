@@ -6,6 +6,6 @@ namespace Rxns.Hosting
     public interface IMicroApp : IReportStatus
     {
         string[] Args { get; }
-        IObservable<IDisposable> Start();
+        IObservable<IRxnAppContext> Start();
     }
 }

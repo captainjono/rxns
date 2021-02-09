@@ -52,7 +52,7 @@ namespace Rxns.Hosting.Cluster
 
                     _scalingManager.Manage(rxnApp);
 
-                    return rxnApp.Start();
+                    return rxnApp.Start(false);
                 })
                 .SelectMany(a =>
                 {
@@ -88,7 +88,7 @@ namespace Rxns.Hosting.Cluster
 
                     _scalingManager.Manage(rxnApp);
 
-                    return rxnApp.Start();
+                    return rxnApp.Start(true);
                 })
                 .Select(isolatedReactor =>
                 {

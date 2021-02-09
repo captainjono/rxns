@@ -21,7 +21,7 @@ namespace Rxns.Autofac
         public IObservable<IReportStatus> ReporterCreated => _reporterCreated;
 
 
-        public AutofacAppContainer(IContainer container, bool startRxns = true) : base(container)
+        public AutofacAppContainer(IContainer container) : base(container)
         {
             Container = container;
 
@@ -37,11 +37,12 @@ namespace Rxns.Autofac
 
             _reporterCreated.DisposedBy(this);
 
-            //if (!ReportStatus.Log.ReportExceptions.HasObservers)
-            //{
+            if (!ReportStatus.Log.ReportExceptions.HasObservers)
+            {
+                //todo: i need to fix container reporting - subscription shouldnt happen here!
                 ReportStatus.Log.Information.Subscribe(ReportInformation);
                 ReportStatus.Log.Errors.Subscribe(ReportExceptions);
-            //}
+            }
 
             var logger = container.Resolve<IRxnLogger>();
             this.SubscribeAll(logger.Information, logger.Errors);
