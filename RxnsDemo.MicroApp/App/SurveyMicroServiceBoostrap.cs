@@ -41,8 +41,8 @@ namespace RxnsDemo.Micro.App
         [STAThread]
         static async Task Main(string[] args)
         {
-
-            ReportStatus.Log.ReportToConsole();
+            ReportStatus.StartupLogger = ReportStatus.Log.ReportToConsole();
+            
             "Configuring App".LogDebug();
 
             //var functionApp = Rxn.Create(() => { "Anything can be in here".LogDebug(); }).ToRxnApp();

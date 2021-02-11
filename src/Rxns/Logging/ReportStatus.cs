@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Disposables;
 using Rxns.Interfaces;
 
 namespace Rxns.Logging
@@ -6,6 +7,7 @@ namespace Rxns.Logging
     public class ReportStatus : ReportsStatus
     {
         public static ReportStatus Log = new ReportStatus();
+        public static IDisposable StartupLogger = Disposable.Empty;
 
         public override string ReporterName
         {

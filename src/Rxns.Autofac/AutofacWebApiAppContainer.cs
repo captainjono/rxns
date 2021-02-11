@@ -38,16 +38,14 @@ namespace Rxns.Autofac
 
             _reporterCreated.DisposedBy(this);
 
-            // if (!ReportStatus.Log.ReportExceptions.HasObservers)
-            // {
-                //todo: i need to fix container reporting - subscription shouldnt happen here!
-                ReportStatus.Log.Information.Subscribe(ReportInformation);
-                ReportStatus.Log.Errors.Subscribe(ReportExceptions);
-         //   }
+             //take over logging so ppl can stream the app logs via the container
+             //maybe this is a violation of SoC?
+             ReportStatus.StartupLogger.Dispose();
+             ReportStatus.Log.Information.Subscribe(ReportInformation);
+             ReportStatus.Log.Errors.Subscribe(ReportExceptions);
          
             var logger = container.Resolve<IRxnLogger>();
             this.SubscribeAll(logger.Information, logger.Errors);
-            this.ReportToDebug();
         }
 
         private void LogAllReporters()
