@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Rxns.Metrics;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
@@ -17,16 +18,19 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     public class SystemMetricsHub : ReportsStatusEventsHub<IReportUserApi>
     {
         private readonly ITimeSeriesView _systemMetricsAggregatedView;
+        private readonly IHubContext<SystemMetricsHub> _context;
         private bool callOnce = true;
 
-        public SystemMetricsHub(ITimeSeriesView systemMetricsAggregatedView)
+        public SystemMetricsHub(ITimeSeriesView systemMetricsAggregatedView, IHubContext<SystemMetricsHub> context)
         {
             _systemMetricsAggregatedView = systemMetricsAggregatedView;
+            _context = context;
         }
 
-        private void SendInitalMetricsTo(IReportUserApi user)
+        private void SendInitalMetricsTo(IClientProxy user)
         {
-            _systemMetricsAggregatedView.GetHistory().Where(v => v != null).Buffer(TimeSpan.FromSeconds(2), 50).Where(v => v.AnyItems()).Select(v => new TimeSeriesData() { Name = v[0].Name, Value = v.Aggregate((long)0, (a,b) => (long)( a + b.Value) / v.Count) }).Do(s => user.OnUpdate(s)).Subscribe();
+            _systemMetricsAggregatedView.GetHistory().Where(v => v != null).Buffer(TimeSpan.FromSeconds(2), 50).Where(v => v.AnyItems()).Select(v => new TimeSeriesData() { Name = v[0].Name, Value = v.Aggregate((long)0, (a,b) => (long)( a + b.Value) / v.Count) })
+                .Do(s => user.SendAsync("onUpdate", s)).Subscribe();
         }
 
         public override Task OnConnectedAsync()
@@ -34,14 +38,16 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             this.ReportExceptions(() =>
             {
                 OnVerbose("{0} connected", Context.ConnectionId);
-                SendInitalMetricsTo(Clients.Caller);
+                var connected = _context.Clients.Client(Context.ConnectionId);
+                
+                SendInitalMetricsTo(connected);
 
                 if (callOnce)
                 {
                     callOnce = false;
                     ActiveMetricsUpdates();
                 }
-                Observable.Timer(TimeSpan.FromSeconds(1)).Subscribe(this, _ => SendInitalMetricsTo(Clients.Caller));
+                Observable.Timer(TimeSpan.FromSeconds(1)).Subscribe(this, _ => SendInitalMetricsTo(connected));
             });
 
             return base.OnConnectedAsync();
@@ -65,7 +71,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                                         .SelectMany(s => s) //i think i need to reimplement the batched event passing using a delimiter - couldnt find the code in the frontend to deserilise
                                         .Subscribe(this, metric =>
                                         {
-                                            Clients.All.OnUpdate(metric);
+                                            _context.Clients.All.SendAsync("onUpdate", metric);
                                         })
                                         .DisposedBy(this);
         }

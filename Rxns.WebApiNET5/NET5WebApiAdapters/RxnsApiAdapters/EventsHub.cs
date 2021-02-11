@@ -54,11 +54,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     {
         private readonly IAppCommandService _cmdService;
         private readonly ISystemStatusStore _statusStore;
+        private readonly IHubContext<EventsHub> _context;
 
-        public EventsHub(IEnumerable<IAppContainer> containers, IAppCommandService cmdService, ISystemStatusStore statusStore)
+        public EventsHub(IEnumerable<IAppContainer> containers, IAppCommandService cmdService, ISystemStatusStore statusStore, IHubContext<EventsHub> context)
         {
             _cmdService = cmdService;
             _statusStore = statusStore;
+            _context = context;
 
             foreach (var container in containers)
             {
@@ -85,7 +87,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 }).DisposedBy((IManageResources)this);
             }
 
-            statusStore.Subscribe(this, s => Clients.All.StatusUpdatesSubscribe(s.Distinct(new TenantOnlyStatusComparer())
+            statusStore.Subscribe(this, s => _context.Clients.All.SendAsync("StatusUpdatesSubscribe", s.Distinct(new TenantOnlyStatusComparer())
                                                                                  .Select(x => new
                                                                                  {
                                                                                      Tenant = x.Key.Tenant,
@@ -96,7 +98,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                                                                                                          System = y,
                                                                                                          Meta = s[y]
                                                                                                      })
-                                                                                 })))
+                                                                                 }).ToArray()))
                         .DisposedBy(this);
         }
 
@@ -107,15 +109,15 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 if (Context.User == null) return;
 
                 OnVerbose("{0} connected", Context.ConnectionId);
-                SendInitalStatus(Clients.Caller);
+                SendInitalStatus(_context.Clients.Client(Context.ConnectionId));
             });
             return base.OnConnectedAsync();
         }
 
-        private void SendInitalStatus(dynamic caller)
+        private void SendInitalStatus(IClientProxy caller)
         {
             _statusStore.FirstAsync().Subscribe(this,
-                s => caller.StatusInitialSubscribe(s.Distinct(new TenantOnlyStatusComparer())
+                s => caller.SendAsync("StatusInitialSubscribe", s.Distinct(new TenantOnlyStatusComparer())
                             .Select(x => new
                             {
                                 Tenant = x.Key.Tenant,
@@ -203,7 +205,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         {
             this.ReportExceptions(() =>
             {
-                Clients.All.EventReceived(evt);
+                _context.Clients.AllExcept(Context.ConnectionId).SendAsync("EventReceived", evt);
             });
         }
     }

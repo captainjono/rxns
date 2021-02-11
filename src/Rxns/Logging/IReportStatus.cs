@@ -73,10 +73,6 @@ namespace Rxns.Interfaces
 
         void OnError(Exception exception);
 
-        void OnError(string exceptionMessage, params object[] args);
-
-        void OnError(Exception innerException, string exceptionMessage, params object[] args);
-
         void OnInformation(string info, params object[] args);
 
         void OnWarning(string info, params object[] args);

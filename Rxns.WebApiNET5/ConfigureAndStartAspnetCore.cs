@@ -3,6 +3,8 @@ using System.Reactive.Linq;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -52,14 +54,17 @@ namespace Rxns.WebApiNET5
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection s)
         {
-            s.AddControllers();
+            s
+            .AddControllers();
             s.AddRouting();
-            s.AddSignalRCore()
-                .AddJsonProtocol(j => { })
+            s.AddSignalR()
+            .AddJsonProtocol()
                 .AddHubOptions<EventsHub>(c =>
                 {
+                    
                     c.EnableDetailedErrors = true;
                     c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                    
                 })
                 .AddHubOptions<ReportHub>(c =>
                 {
@@ -123,12 +128,25 @@ namespace Rxns.WebApiNET5
             // server.UseHttpsRedirection();
             server.UseRouting();
 
+            
             //server.UseAuthentication();
             //server.UseAuthorization();
 
             server.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHub<ReportHub>("/reportHub", o =>
+                {
+                    o.Transports =
+                        HttpTransportType.WebSockets |
+                        HttpTransportType.LongPolling;
+                });
+                endpoints.MapHub<EventsHub>("/eventsHub", o =>
+                {
+                    o.Transports =
+                        HttpTransportType.WebSockets |
+                        HttpTransportType.LongPolling;
+                });
             });
 
 

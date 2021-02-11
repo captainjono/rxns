@@ -1,35 +1,34 @@
-angular.module('portal').factory('eventHubService', function (Hub, $localStorage, rxnPortalConfiguration, rx) {
+angular.module('portal').factory('eventHubService', function ($localStorage, rxnPortalConfiguration, rx) {
 
 
     var log = new rx.Subject();
     var statusInitial = new rx.Subject();
     var statusUpdates = new rx.Subject();
 
-    var hub = new Hub('eventsHub', {
-        rootPath: rxnPortalConfiguration.baseWebServicesUrl,
+    const hub = new signalR.HubConnectionBuilder()
+        .withUrl("/eventsHub")
+        //.rootPath(rxnPortalConfiguration.baseWebServicesUrl)
+        //   .configureLogging(signalR.LogLevel.Information)
+        //    .withAutomaticReconnection()
+        //'bearer_token': ''//$localStorage.authorizationData.token
+        .build();
 
-        listeners: {
-            'EventReceived': function (remoteEvents) {
-               // remoteEvents.forEach(function (remoteEvent) {
-                    log.onNext(remoteEvents);
-                
-            },
-            'StatusInitialSubscribe': function (remoteEvents) {
-                // remoteEvents.forEach(function (remoteEvent) {
-                statusInitial.onNext(remoteEvents);
+    hub.start().then(function () {
+        console.log("RxnHubs connected")
+    }).catch(function (err) {
+        return console.error("RxnHubs connected failed: " + err.toString());
+    });
 
-            },
-            'StatusUpdatesSubscribe': function (remoteEvents) {
-                // remoteEvents.forEach(function (remoteEvent) {
-                statusUpdates.onNext(remoteEvents);
+    hub.on("EventReceived", function (remoteEvents) {
+        log.onNext(remoteEvents);
+    });
 
-            }
-        },
-        methods: ['sendCommand'],
+    hub.on("StatusInitialSubscribe", function (remoteEvents) {
+        statusInitial.onNext(remoteEvents);
+    });
 
-        queryParams: {
-            'bearer_token': ''//$localStorage.authorizationData.token
-        }
+    hub.on("StatusUpdatesSubscribe", function (remoteEvents) {
+        statusUpdates.onNext(remoteEvents);
     });
 
     var eventHubService = {

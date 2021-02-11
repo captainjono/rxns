@@ -35,16 +35,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             _rsImpl.OnError(exception);
         }
 
-        public void OnError(string exceptionMessage, params object[] args)
-        {
-            _rsImpl.OnError(exceptionMessage, args);
-        }
-
-        public void OnError(Exception innerException, string exceptionMessage, params object[] args)
-        {
-            _rsImpl.OnError(innerException, exceptionMessage, args);
-        }
-
         public void OnInformation(string info, params object[] args)
         {
             _rsImpl.OnInformation(info, args);

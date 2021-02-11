@@ -68,7 +68,7 @@ namespace Rxns
             }
             catch (Exception e)
             {
-                reactor.OnError(e, "Cannot configure publisher because of: {0}", e.Message);
+                reactor.OnError( new Exception("Cannot configure publisher because of: {0}".FormatWith(e.Message)));
                 return Disposable.Empty;
             }
 

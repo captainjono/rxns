@@ -98,7 +98,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
-        public void ConnectUserToReport(ReportUser user, ITimeSeriesView report)
+        public void ConnectUserToReportDirect(ReportUser user, ITimeSeriesView report)
         {
             var reportStream = report.GetHistory().Concat(report.GetUpdates());
             var context = new ReportConnectionContext()
@@ -121,14 +121,14 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         public void ConnectUserToReport(ReportUser user, string reportName)
         {
-            var report = LookupReports().FirstOrDefault(r => r == reportName);
+            var report = _reports.FirstOrDefault(r => r.ReportName == reportName);
             if (report == null)
             {
                 throw new Exception("Report '{0}' not found".FormatWith(reportName));
             }
 
 
-            ConnectUserToReport(user, report);
+            ConnectUserToReportDirect(user, report);
         }
     }
 }

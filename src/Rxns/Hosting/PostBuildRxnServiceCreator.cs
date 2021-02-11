@@ -24,7 +24,7 @@ namespace Rxns.Hosting
                 }
                 catch (Exception e)
                 {
-                    logger.OnError("Service: {0} failed to startup: {1}", service.GetType(), e);
+                    logger.OnError(new Exception("Service: {0} failed to startup: {1}".FormatWith(service.GetType()), e));
                 }
         }
     }

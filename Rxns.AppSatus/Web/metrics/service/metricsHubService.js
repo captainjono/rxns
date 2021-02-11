@@ -1,36 +1,33 @@
-angular.module('metrics').factory('metricsHubService', function (Hub, $localStorage, rxnPortalConfiguration, rx) {
+angular.module('metrics').factory('metricsHubService', function ($localStorage, rxnPortalConfiguration, rx) {
 
 
     var log = new rx.Subject();
     var onLoad = new rx.Subject();
     var onUpdate = new rx.Subject();
 
-    var hub = new Hub('systemMetricsHub', {
-        rootPath: rxnPortalConfiguration.baseWebServicesUrl,
 
-        listeners: {
-            'HistoricalData': function (allMetrics) {
-                // remoteEvents.forEach(function (remoteEvent) {
-                onLoad.onNext(allMetrics);
+    const hub = new signalR.HubConnectionBuilder()
+        .withUrl("/reportHub")
+        //.rootPath(rxnPortalConfiguration.baseWebServicesUrl)
+        //  .configureLogging(signalR.LogLevel.Debug)
 
-            },
-            'OnUpdate': function (metric) {
-                // remoteEvents.forEach(function (remoteEvent) {
-                onUpdate.onNext(metric);
-            }
-        },
-        methods: ['sendCommand'],
+        //    .withAutomaticReconnect([0, 0, 10000])
+        //'bearer_token': ''//$localStorage.authorizationData.token
+        .build();
 
-        queryParams: {
-            'bearer_token': ''// $localStorage.authorizationData.token
-        }
+    hub.start().then(function () {
+        console.log("RxnMetrics now streaming")
+    }).catch(function (err) {
+        return console.error("RxnMetrics connected failed: " + err.toString());
     });
 
-    hub.on('disconnected', function() {
-        setTimeout(function() {
-            $.connection.hub.start();
-        }, 5000); // Restart connection after 5 seconds.
-     });
+    hub.on("HistoricalData", function (allMetrics) {
+        onLoad.onNext(allMetrics);
+    });
+
+    hub.on("OnUpdate", function (metric) {
+        onUpdate.onNext(metric);
+    });
 
     var metricsHubService = {
         onLoad: onLoad,
