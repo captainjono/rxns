@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using Rxns;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Metrics;
@@ -29,10 +30,10 @@ namespace System.Reactive.Linq
             var infoStream = reporter?.Information;
 
             if (errors != null)
-                subs.Add(errorStream.Subscribe(errors));
+                errorStream?.Do(e => errors(e)).Finally(() => { "LOG CRASHED".LogDebug();}).Until().DisposedBy(subs);
 
             if (information != null)
-                subs.Add(infoStream.Subscribe(information));
+                infoStream?.Do(e => information(e)).Finally(() => { "LOG CRASHED".LogDebug();}).Until().DisposedBy(subs);
 
             return subs;
         }

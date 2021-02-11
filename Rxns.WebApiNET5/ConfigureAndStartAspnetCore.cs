@@ -74,7 +74,7 @@ namespace Rxns.WebApiNET5
         {
             var rxnApp = App(WebApiCfg.BindingUrl);
             var appInfo = AppInfo; 
-            var webApiHost = new WebApiHost(WebApiCfg, new AspNetCoreWebApiAdapter());
+            var webApiHost = new WebApiHost(WebApiCfg);
 
             //var consoleHost = new ConsoleHostedApp(); // for unit/testing
             //var reliableHost = new RxnSupervisorHost(...); //will automatically reboot your app on failure. "always on"
@@ -145,7 +145,7 @@ namespace Rxns.WebApiNET5
             //    .LogErrorsWith(container);
 
             server.UseStaticFiles();
-            var rxnsPortalRoot = new PhysicalFileProvider(@"c:\jan\rxns\Rxns.AppSatus\Web\dist\");
+            var rxnsPortalRoot = new PhysicalFileProvider(cfg.Html5Root);
             var rxnsPortal = new FileServerOptions
             {
                 EnableDefaultFiles = true,

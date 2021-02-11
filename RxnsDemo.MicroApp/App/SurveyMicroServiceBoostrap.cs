@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reactive.Linq;
 using System.Security.Policy;
+using System.Threading.Tasks;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -38,17 +39,17 @@ namespace RxnsDemo.Micro.App
     {
 
         [STAThread]
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            
 
+            ReportStatus.Log.ReportToConsole();
             "Configuring App".LogDebug();
 
             //var functionApp = Rxn.Create(() => { "Anything can be in here".LogDebug(); }).ToRxnApp();
             //var functionRxnApp = functionApp.WithRxns(new ContainerBuilder().ToRxnDef());
 
 
-            AspNetCoreWebApiAdapter.StartWebServices<MicroServiceBoostrapperAspNetCore>(MicroServiceBoostrapperAspNetCore.Cfg, null);
+            await AspNetCoreWebApiAdapter.StartWebServices<MicroServiceBoostrapperAspNetCore>(MicroServiceBoostrapperAspNetCore.Cfg);
 
             //var rxnApp = HostSurveyDomainFeatureModule(apiCfg.BindingUrl).ToRxns().UseWindowsAddons();           
             //var appInfo = new AppVersionInfo("Survey Micro Service", "1.0", true);
@@ -125,7 +126,7 @@ namespace RxnsDemo.Micro.App
         {
             BindingUrl = "http://*:888",
             Html5IndexHtml = "index.html",
-            Html5Root = @"..\..\..\..\Rxns.AppSatus\Web\dist\" //the rxns appstatus portal
+            Html5Root = @"/Users/janison/rxns/Rxns.AppSatus/Web/dist/" //the rxns appstatus portal
         };
 
         //todo:
@@ -140,7 +141,7 @@ namespace RxnsDemo.Micro.App
                 //the services to the api
                 .CreatesOncePerApp<SurveyAnswersDomainService>()
                 .CreatesOncePerApp(() => new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>()))
-                .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{s.userId}%{s.AttemptId}")
+                .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{ s.userId}%{s.AttemptId}")
                 .CreatesOncePerApp<TapeArrayTenantModelRepository<SurveyAnswers, ISurveyAnswer>>()
                 //api
                 .RespondsToCmd<BeginSurveyCmd>()
@@ -163,7 +164,6 @@ namespace RxnsDemo.Micro.App
                 .CreatesOncePerApp<RxnDebugLogger>()
                 
                 .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
-                .CreatesOncePerApp<WindowsSystemInformationService>() //so we can scale based on cpu usage etc
                 //setup OS abstractions
                 //test sim to exercise api
                 //.CreatesOncePerApp<Basic30UserSurveySimulation>()

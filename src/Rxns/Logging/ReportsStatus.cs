@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -126,9 +127,18 @@ namespace Rxns.Logging
 
         public void OnMessage(LogLevel level, string message, object[] args, string reporter = null)
         {
-            if (!ReportInformation.HasObservers) return;
+            var msg = new LogMessage<string>()
+            {
+                Reporter = reporter ?? ReporterName, Level = level,
+                Message = args == null ? message : String.Format(message, args)
+            };
+            if (!ReportInformation.HasObservers)
+            {
+                Debug.WriteLine(msg);
+                return;
+            }
 
-            ReportInformation.OnNext(new LogMessage<string>() { Reporter = reporter ?? ReporterName, Level = level, Message = args == null ? message : String.Format(message, args) });
+            ReportInformation.OnNext(msg);
         }
 
         /// <summary>

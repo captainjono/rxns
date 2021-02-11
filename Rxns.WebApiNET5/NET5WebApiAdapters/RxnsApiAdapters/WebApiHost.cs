@@ -70,9 +70,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 var endWs = Disposable.Empty;
                 try
                 {
-                    //if(container != null)
-                    //    _app.Use(container);
-
                     _app.Definition.UpdateWith(lifecycle =>
                     {
                         lifecycle
@@ -90,13 +87,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
                     _app.Definition.Build(container);
 
-                    return _app.Start(true, container).Select(context =>
-                    {
-                        //endWs = _webApiImpl.StartWebServices(_cfg, _app.Definition as AutofacRxnDef, true, "notusedyet", ReportStatus.Log);
-
-                        return context;
-                    })
-                    .FinallyR(() => { endWs.Dispose(); }).Subscribe(o);
+                    return _app.Start(true, container).FinallyR(() => { endWs.Dispose(); }).Subscribe(o);
 
                 }
                 catch (Exception e)

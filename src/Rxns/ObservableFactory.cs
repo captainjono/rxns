@@ -425,6 +425,7 @@ namespace Rxns
         public static IRxnHostableApp Named(this IRxnApp app, IRxnAppInfo appInfo)
         {
             app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => appInfo));
+            app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => app));
 
             return new RxnHostableApp(app, appInfo);
         }

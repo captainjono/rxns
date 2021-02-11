@@ -38,6 +38,7 @@ namespace Rxns.Health.AppStatus
                 .CreatesOncePerApp<LocalBackingChannel<IRxn>>(true)
                 .CreatesOncePerApp<ResolverCommandFactory>()
                 .RespondsToSvcCmds<StartReactor>()
+                .CreatesOncePerApp<NoOpSystemResourceService>(true)
 
                 //order is important. start reactions before services
                 .CreatesOncePerApp<PostBuildRxnServiceCreator>()

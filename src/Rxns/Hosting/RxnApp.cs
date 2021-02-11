@@ -27,7 +27,7 @@ namespace Rxns.Hosting
         }
     }
 
-    public class RxnApp : ReportsStatus, IRxnApp, IAppEvents
+    public class RxnApp : IRxnApp, IAppEvents
     {
         private readonly IObservable<IDisposable> _inline;
         private readonly IRxnAppFactory _rxnFactory;
@@ -48,9 +48,10 @@ namespace Rxns.Hosting
             _inline = inline;
             Definition = def;
             _rxnFactory = rxnFactory;
-
+            
             Definition.UpdateWith(l =>
             {
+                l.CreatesOncePerApp(_ => this);
                 l.CreatesOncePerApp(_ => new DynamicStartupTask((_, __) => inline.Until()));
             });
         }
@@ -64,7 +65,8 @@ namespace Rxns.Hosting
 
         public IObservable<IRxnAppContext> Start(bool startRxns = true, IAppContainer container = null)
         {
-            var app = _rxnFactory.Create(this, this, container ?? Definition.Container, RxnSchedulers.TaskPool);
+            var finalContainer = container ?? Definition.Container;
+            var app = _rxnFactory.Create(this, finalContainer, finalContainer, RxnSchedulers.TaskPool);
             
             return app.Start(startRxns, container).Do(appContext=>
             {
@@ -75,11 +77,11 @@ namespace Rxns.Hosting
                     {
                         try
                         {
-                            s.Run(this, app.Resolver);
+                            s.Run(container, app.Resolver);
                         }
                         catch (Exception e)
                         {
-                            OnError(e);
+                            container.OnError(e);
                         }
                     });
                 }
@@ -112,6 +114,11 @@ namespace Rxns.Hosting
 
         private readonly ReplaySubject<Unit> _onStart = new ReplaySubject<Unit>();
         public IObservable<Unit> OnStart => _onStart.ObserveOn(CurrentThreadScheduler.Instance).SubscribeOn(CurrentThreadScheduler.Instance);
+
+        public void Dispose()
+        {
+            _onStart?.Dispose();
+        }
     }
 
     public class NoInstaller : IAppSetup

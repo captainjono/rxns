@@ -54,10 +54,11 @@ namespace RxnsDemo.Scheduler
                 }.ToList()
             };
 
+            work.ReportToDebug();
             scheduler.ReportToDebug();
+            
             scheduler.Start();
             scheduler.Schedule(work);
-            
         }
 
         private static void RunAdvancedExample()

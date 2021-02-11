@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -23,7 +24,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         /// <param name="encryptionKey"></param>
         /// <param name="reporter"></param>
         /// <returns></returns>
-        public static IDisposable StartWebServices<T>(IWebApiCfg cfg/*IOAuthAuthorizationServerProvider authProvider, IAuthenticationTokenProvider refreshProvider,*/ )
+        public static async Task<IDisposable> StartWebServices<T>(IWebApiCfg cfg/*IOAuthAuthorizationServerProvider authProvider, IAuthenticationTokenProvider refreshProvider,*/ )
             where T : ConfigureAndStartAspnetCore
         {
             Action stopServer = () => { };
@@ -50,7 +51,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                     })
                     .Build();
 
-                host.Run();
+                await host.RunAsync();
 
                 //var configuredWebApi = Host.CreateDefaultBuilder()
                 //    .ConfigureServices((h,s) =>
@@ -99,7 +100,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 //        //    //    .LogErrorsWith(container);
 
                 //        //    server.UseStaticFiles();
-                //        //    var rxnsPortalRoot = new PhysicalFileProvider(@"c:\jan\rxns\Rxns.AppSatus\Web\dist\");
+                //        //    var rxnsPortalRoot = new PhysicalFileProvider();
                 //        //    var rxnsPortal = new FileServerOptions
                 //        //    {
                 //        //        EnableDefaultFiles = true,
@@ -154,7 +155,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             }
             catch (Exception e)
             {
-                reporter?.OnError(e, "Webservices cannot be started");
+                ReportStatus.Log.OnError(e, "Webservices cannot be started");
                 return null;
             }
         }

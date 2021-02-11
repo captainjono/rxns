@@ -26,9 +26,6 @@ namespace Rxns.Windows
             };
 
             return lifecycle
-                .Includes<WindowsModule>()
-                .CreatesOncePerApp<DotNetFileSystemConfiguration>()
-                .CreatesOncePerApp<DotNetFileSystemService>()
                 .CreatesOncePerApp<WindowsSystemInformationService>()
                 .CreatesOncePerApp<WindowsSystemServices>();
         }

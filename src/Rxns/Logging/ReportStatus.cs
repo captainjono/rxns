@@ -9,7 +9,7 @@ namespace Rxns.Logging
 
         public override string ReporterName
         {
-            get { return "RSLGeneric"; }
+            get { return "AppLog"; }
         }
 
         public void OnError(string reporterName, Exception exception)

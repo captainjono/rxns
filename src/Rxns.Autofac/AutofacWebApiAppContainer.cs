@@ -32,22 +32,22 @@ namespace Rxns.Autofac
             var onReporterResolved = new OnTypeResolved<IReportStatus>();
             onReporterResolved.Resolved.Subscribe(_reporterCreated);
             cb.RegisterModule(onReporterResolved);
-
+            cb.Update(Container);
+            
             LogAllReporters();
 
             _reporterCreated.DisposedBy(this);
 
-            if (!ReportStatus.Log.ReportExceptions.HasObservers)
-            {
+            // if (!ReportStatus.Log.ReportExceptions.HasObservers)
+            // {
                 //todo: i need to fix container reporting - subscription shouldnt happen here!
                 ReportStatus.Log.Information.Subscribe(ReportInformation);
                 ReportStatus.Log.Errors.Subscribe(ReportExceptions);
-            }
-
+         //   }
+         
             var logger = container.Resolve<IRxnLogger>();
             this.SubscribeAll(logger.Information, logger.Errors);
-
-            cb.Update(Container);
+            this.ReportToDebug();
         }
 
         private void LogAllReporters()
