@@ -98,9 +98,9 @@ namespace Rxns.Metrics
             {
                 ReporterName = this.ReporterName,
                 Component = "TimeSeriesNotifications",
-                Info = () => new
+                Info = () => new []
                 {
-                    Watchers = _watchers.Count
+                    new AppStatusInfo("Watchers", _watchers.Count)
                 }
             });
         }

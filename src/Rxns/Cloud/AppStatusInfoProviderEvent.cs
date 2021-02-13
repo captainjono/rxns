@@ -7,10 +7,44 @@ using Rxns.Interfaces;
 
 namespace Rxns.Cloud
 {
+    public class AppStatusInfo
+    {
+        public string Key { get; set; }
+        public object Value { get; set; }
+
+        public AppStatusInfo()
+        {
+            
+        }
+        
+        public AppStatusInfo(string key, object value)
+        {
+            Key = key;
+            Value = value;
+        }
+    }
+    
+    public class AppHeatbeat : IRxn
+    {
+        public SystemStatusEvent Status { get; set; }
+        public AppStatusInfo[] Meta { get; set; }
+
+        public AppHeatbeat()
+        {
+            
+        }
+        public AppHeatbeat(SystemStatusEvent status, AppStatusInfo[] meta)
+        {
+            Status = status;
+            Meta = meta;
+        }
+    }
+
+    
     public class AppStatusInfoProviderEvent : IRxn
     {
         public string Component = Guid.NewGuid().ToString();
         public string ReporterName;
-        public Func<object> Info;
+        public Func<AppStatusInfo[]> Info;
     }
 }

@@ -43,9 +43,9 @@ namespace Rxns.Autofac
              ReportStatus.StartupLogger.Dispose();
              ReportStatus.Log.Information.Subscribe(ReportInformation);
              ReportStatus.Log.Errors.Subscribe(ReportExceptions);
-         
-            var logger = container.Resolve<IRxnLogger>();
-            this.SubscribeAll(logger.Information, logger.Errors);
+
+             foreach (var logger in container.Resolve<IRxnLogger[]>())
+                 this.SubscribeAll(logger.Information, logger.Errors);
         }
 
         private void LogAllReporters()

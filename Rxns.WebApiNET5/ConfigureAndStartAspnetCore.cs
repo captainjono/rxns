@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reactive.Linq;
+using System.Text.Json;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -57,8 +58,15 @@ namespace Rxns.WebApiNET5
             s
             .AddControllers();
             s.AddRouting();
-            s.AddSignalR()
-            .AddJsonProtocol()
+            s.AddSignalR(o =>
+                {
+                    o.EnableDetailedErrors = true;
+                })
+            .AddJsonProtocol(o =>
+            {
+                o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
+                o.PayloadSerializerOptions.AllowTrailingCommas = true;
+            })
                 .AddHubOptions<EventsHub>(c =>
                 {
                     
@@ -66,6 +74,11 @@ namespace Rxns.WebApiNET5
                     c.KeepAliveInterval = TimeSpan.FromSeconds(20);
                     
                 })
+            .AddHubOptions<SystemMetricsHub>(c =>
+            {
+                c.EnableDetailedErrors = true;
+                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            })
                 .AddHubOptions<ReportHub>(c =>
                 {
                     c.EnableDetailedErrors = true;
@@ -142,6 +155,13 @@ namespace Rxns.WebApiNET5
                         HttpTransportType.LongPolling;
                 });
                 endpoints.MapHub<EventsHub>("/eventsHub", o =>
+                {
+                    o.Transports =
+                        HttpTransportType.WebSockets |
+                        HttpTransportType.LongPolling;
+                });
+                
+                endpoints.MapHub<SystemMetricsHub>("/systemMetricsHub", o =>
                 {
                     o.Transports =
                         HttpTransportType.WebSockets |

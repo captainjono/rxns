@@ -4,18 +4,13 @@ using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
+using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health.AppStatus;
 using Rxns.Interfaces;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
-    public class AppHeatbeat : IRxn
-    {
-        public SystemStatusEvent Status { get; set; }
-        public object Meta { get; set; }
-    }
-
     //[Authorize]
     public class SystemStatusController : ReportsStatusApiControllerWithUpload
     {
@@ -29,7 +24,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         [Route("systemstatus/heartbeats")]
         [HttpGet]
-        public dynamic GetSystemStatus()
+        public SystemStatusModel[] GetSystemStatus()
         {
             return _appStatus.GetSystemStatus();
         }

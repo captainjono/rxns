@@ -35,8 +35,8 @@ namespace Rxns.Health
 
                 OnVerbose("Publishing status to support service");
 
-                var meta = _meta.Values.Where(m => m.Info != null).Select(m => m.Info());
-                var finalMeta = meta.Any() ? meta.ToArray() : new object[] { };
+                var meta = _meta.Values.Where(m => m.Info != null).SelectMany(m => m.Info());
+                var finalMeta = meta.Any() ? meta.ToArray() : new AppStatusInfo[0];
 
 
                 //need to advertise and update via the supervisor?

@@ -9,14 +9,13 @@ namespace Rxns.Hosting
     public class RxnAppClusterManager : IRxnProcessor<AppProcessStarted>, IRxnPublisher<IRxn>
     {
         private int appCount = 0;
-        public Func<object> ClusterStatus;
+        public Func<AppStatusInfo[]> ClusterStatus;
 
         public RxnAppClusterManager()
         {
-            ClusterStatus = () => new
-            {
-                Processes = appCount,
-                Cluster = "Healthy"
+            ClusterStatus = () => new [] {
+                new AppStatusInfo("Apps", appCount),
+                new AppStatusInfo("Cluster", "Healthy")
             };
         }
 

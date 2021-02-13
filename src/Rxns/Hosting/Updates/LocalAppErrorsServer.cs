@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reactive;
 using Ionic.Zip;
+using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health;
 using Rxns.Health.AppStatus;
@@ -36,7 +37,7 @@ namespace Rxns.Hosting.Updates
             return new Unit().ToObservable();
         }
 
-        public IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, params object[] meta)
+        public IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             return _appStatusMgr.UpdateSystemStatusWithMeta(".", status, meta);
         }

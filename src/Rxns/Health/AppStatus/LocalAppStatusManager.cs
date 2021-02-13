@@ -17,6 +17,19 @@ using Rxns.WebApi.AppStatus;
 
 namespace Rxns.Health.AppStatus
 {
+
+    public class SystemStatusModel
+    {
+        public string Tenant { get; set; }
+        public object[] Systems { get; set; }
+    }
+
+    public class AppStatusModel
+    {
+        public SystemStatusEvent System { get; set; }
+        public object[] Meta { get; set; }
+    }
+    
     public class LocalAppStatusManager : ReportsStatus, IAppStatusManager, IRxnPublisher<IRxn>
     {
         private readonly ISystemStatusStore _systemStatus;
@@ -33,7 +46,7 @@ namespace Rxns.Health.AppStatus
             _systemStatus = systemStatus;
         }
 
-        public dynamic GetSystemStatus()
+        public SystemStatusModel[] GetSystemStatus()
         {
             return this.TryCatch(() =>
             {
@@ -44,17 +57,19 @@ namespace Rxns.Health.AppStatus
                 if (all.AnyItems())
                 {
                     //find all the tenants
-                    return all.Distinct(new TenantOnlyStatusComparer()).Select(x => new
+                    var res =  all.Distinct(new TenantOnlyStatusComparer()).Select(x => new SystemStatusModel()
                     {
                         Tenant = x.Key.Tenant,
                         Systems = all.Keys.Where(k => k.Tenant == x.Key.Tenant)
                             .OrderBy(o => o.SystemName)
-                            .Select(y => new
+                            .Select(y => new AppStatusModel()
                             {
                                 System = y,
                                 Meta = all[y]
-                            })
-                    });
+                            }).ToArray()
+                    }).ToArray();
+
+                    return res;
                 }
 
                 return all.ToLookup(t => t.Key.Tenant);
@@ -66,7 +81,7 @@ namespace Rxns.Health.AppStatus
             return _systemStatus.GetAllSystemStatus().Wait();
         }
 
-        private IObservable<bool> AddOrUpdateStatus(SystemStatusEvent status, params object[] meta)
+        private IObservable<bool> AddOrUpdateStatus(SystemStatusEvent status, object[] meta)
         {
             OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName, status.IpAddress);
             

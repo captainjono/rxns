@@ -34,7 +34,7 @@ angular.module('portal').factory('eventHubService', function ($localStorage, rxn
     var eventHubService = {
         sendCommand: function(destination, cmd) {
 
-            hub.sendCommand(destination, cmd);
+            hub.invoke("sendCommand", destination, cmd);
 
             console.log(destination + ": " + cmd);
         },

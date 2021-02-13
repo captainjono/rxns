@@ -122,17 +122,13 @@ namespace Rxns.Health
 
             _publishEvent(new AppStatusInfoProviderEvent()
             {
-                Info = () =>
-                        new
-                        {
-                            CpuAverage = _cpuAverage,
-                            MemAverage = _memAverage,
-                         //   Threads = _threadAv,
-                        //    Handles = _threadAv,
-                         //   AppMem = _threadAv,
-                            AppThreadsMax = RxnSchedulers.ThreadPoolSize,
-                            AppThreadsSize = RxnSchedulers.TaskSchedulerMeta.PoolCurrent
-                        }
+                Info = () => new[]
+                {
+                    new AppStatusInfo("Cpu", _cpuAverage),
+                    new AppStatusInfo("Mem", _memAverage),
+                    new AppStatusInfo("ThrdPl", RxnSchedulers.ThreadPoolSize),
+                    new AppStatusInfo("TaskPl", RxnSchedulers.TaskSchedulerMeta.PoolCurrent),
+                }
             });
         }
 

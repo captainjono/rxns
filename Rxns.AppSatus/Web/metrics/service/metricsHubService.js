@@ -7,7 +7,7 @@ angular.module('metrics').factory('metricsHubService', function ($localStorage, 
 
 
     const hub = new signalR.HubConnectionBuilder()
-        .withUrl("/reportHub")
+        .withUrl("/systemMetricsHub")
         //.rootPath(rxnPortalConfiguration.baseWebServicesUrl)
         //  .configureLogging(signalR.LogLevel.Debug)
 

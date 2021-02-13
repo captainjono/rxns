@@ -8,6 +8,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text;
 using System.Threading.Tasks;
+using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Hosting.Updates;
@@ -25,7 +26,7 @@ namespace Rxns.Health
 
         IObservable<Unit> DeleteError(long id);
 
-        IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, params object[] meta);
+        IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta);
 
         IObservable<Unit> PublishLog(Stream zippedLog);
     }

@@ -156,19 +156,10 @@ angular.module('metrics').controller('MetricsCtrl', function ($scope, $timeout, 
     };
 
     var nodes = new VisDataSet([
-      //{ id: 1, label: 'matter notification generator' },
-      //{ id: 2, label: 'notifications' },
-      //{ id: 3, label: 'Node 3' },
-      //{ id: 4, label: 'default' },
-      //{ id: 5, label: 'badges' }
     ]);
     
     // create an array with edges
     var edges = new VisDataSet([
-      //{ from: 1, to: 2 },
-      //{ from: 2, to: 4 },
-      //{ from: 5, to: 4 },
-      //{ from: 3, to: 5 }
     ]);
 
     // create a network
@@ -194,22 +185,18 @@ angular.module('metrics').controller('MetricsCtrl', function ($scope, $timeout, 
         $scope.sub = metricsHubService.onUpdate.subscribe(function (event) {
             addDataPoint(graph, {
                 x: moment(),
-                y: event.Value,
-                group: event.Name,
+                y: event.value,
+                group: event.name,
                 label: {
                     className: 'chartTitle',
-                    content: event.Value > 10 ? event.Name : ' ' 
+                    content: event.value > 10 ? event.name : ' ' 
                     
                 }
             });
 
 
             //console.log('value:' + event.Value);
-
-            if(event) {
-                console.log('WARN:' + JSON.stringify(event));
-            }
-            addToNetwork(nodes, event.Name, event.Value);
+            addToNetwork(nodes, event.name, event.value);
         });
     };
     

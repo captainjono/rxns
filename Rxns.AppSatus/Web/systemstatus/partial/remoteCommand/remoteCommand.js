@@ -11,7 +11,7 @@ angular.module('systemstatus').controller('remoteCommandCtrl', function ($scope,
     }
 
     printToTailSummaryOnUI = function(msg) {
-        var asConsoleMsg = `[${moment(msg.Timestamp).format("YYYY-MM-DD HH:mm:ss.SS")}][${msg.Level}][${msg.Tenant}][${msg.Reporter}] ${msg.Message}`;
+        var asConsoleMsg = `[${moment(msg.timestamp).format("YYYY-MM-DD HH:mm:ss.SS")}][${msg.level}][${msg.tenant}][${msg.reporter}] ${msg.message}`;
         switch(msg.Level)
         {
             case 'Info':
@@ -29,11 +29,11 @@ angular.module('systemstatus').controller('remoteCommandCtrl', function ($scope,
     var sub = eventHubService.logEntry.subscribe(function (message) {
 
         $scope.$apply(function () {
-            var msg = angular.fromJson(message.Message);
-            msg.Tenant = message.Tenant;
+            var msg = angular.fromJson(message.message);
+            msg.tenant = message.tenant;
 
-            printToTailSummaryOnUI(msg, 100);
             printToConsole(msg)
+            printToTailSummaryOnUI(msg, 100);
         });
     });
     

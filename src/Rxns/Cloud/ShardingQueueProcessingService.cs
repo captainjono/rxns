@@ -54,11 +54,11 @@ namespace Rxns.Cloud
             _publish = publish;
             publish(new AppStatusInfoProviderEvent()
             {
-                Info = () => new
+                Info = () => new []
                 {
-                    QueueName,
-                    QueueCurrent,
-                    QueueSize
+                    new AppStatusInfo("Queue", QueueName),
+                    new AppStatusInfo("QueueC", QueueCurrent),
+                    new AppStatusInfo("QueueSize", QueueSize)
                 }
             });
         }

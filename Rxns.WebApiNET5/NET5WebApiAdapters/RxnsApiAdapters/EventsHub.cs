@@ -11,6 +11,7 @@ using Rxns.DDD.Commanding;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 using Rxns.Microservices;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
@@ -50,12 +51,34 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     }
 
     //[Authorize]
-    public class EventsHub : ReportsStatusEventsHub<IAppStatusHub>
+    public class EventsHub : ReportsStatusEventsHub<IAppStatusHub>, IRxnLogger
     {
         private readonly IAppCommandService _cmdService;
         private readonly ISystemStatusStore _statusStore;
         private readonly IHubContext<EventsHub> _context;
+        private IRxnAppInfo _systeminfo;
 
+
+        public Action<LogMessage<string>> Information => info =>
+        {
+            EventReceived(new RemoteEventReceived()
+            {
+                Message = info.FromMessage().Serialise(), //was .FromMessage not TOstring
+                Tenant = _systeminfo.Name,
+                Destination = "Everyone"
+            });
+        };
+
+        public Action<LogMessage<Exception>> Errors => error =>
+        {
+            EventReceived(new RemoteEventReceived
+            {
+                Message = error.FromMessage().Serialise(),
+                Tenant = _systeminfo.Name,
+                Destination = "Everyone"
+            });
+        };
+        
         public EventsHub(IEnumerable<IAppContainer> containers, IAppCommandService cmdService, ISystemStatusStore statusStore, IHubContext<EventsHub> context)
         {
             _cmdService = cmdService;
@@ -64,11 +87,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
             foreach (var container in containers)
             {
-                var systeminfo = container.Resolve<IRxnAppInfo>();
+                _systeminfo = container.Resolve<IRxnAppInfo>();
 
                 container.SubscribeAll(info =>
                 {
-                    var si = systeminfo;
+                    var si = _systeminfo;
                     EventReceived(new RemoteEventReceived()
                     {
                         Message = info.FromMessage().Serialise(), //was .FromMessage not TOstring
@@ -77,7 +100,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                     });
                 }, error =>
                 {
-                    var si = systeminfo;
+                    var si = _systeminfo;
                     EventReceived(new RemoteEventReceived
                     {
                         Message = error.FromMessage().Serialise(),
@@ -205,7 +228,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         {
             this.ReportExceptions(() =>
             {
-                _context.Clients.AllExcept(Context.ConnectionId).SendAsync("EventReceived", evt);
+                _context.Clients.All.SendAsync("EventReceived", evt);
             });
         }
     }

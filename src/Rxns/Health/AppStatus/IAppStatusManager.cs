@@ -12,7 +12,7 @@ namespace Rxns.Health.AppStatus
     public interface IAppStatusManager
     {
 
-        dynamic GetSystemStatus();
+        SystemStatusModel[] GetSystemStatus();
         IObservable<bool> UploadLogs(string tenantId, string systemName, IFileMeta file);
 
         IObservable<bool> UpdateSystemStatus(SystemStatusEvent status, params dynamic[] meta);

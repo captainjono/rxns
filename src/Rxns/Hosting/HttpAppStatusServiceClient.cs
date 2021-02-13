@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
+using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health;
 using Rxns.Logging;
@@ -61,10 +62,10 @@ namespace Rxns.Hosting
             return Connection.Call(client => client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), uploadStream)).Select(_ => new Unit());
         }
 
-        public IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, params object[] meta)
+        public IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             OnVerbose($"Publishing System Status to {BaseUrl}");
-            return _eventFactory.ToCommands(Connection.Call(client => client.PostAsJsonAsync(WithBaseUrl("systemstatus/heartbeat-2/publish"), new { Status = status, Meta = meta })));
+            return _eventFactory.ToCommands(Connection.Call(client => client.PostAsJsonAsync(WithBaseUrl("systemstatus/heartbeat-2/publish"), new AppHeatbeat(status, meta))));
         }
     }
 }

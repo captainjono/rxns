@@ -107,9 +107,9 @@ namespace Rxns.Scheduling
                 {
                     _eventManager.Publish(new AppStatusInfoProviderEvent()
                     {
-                        Info = () => new
+                        Info = () => new []
                         {
-                            TaskGroup = $"{Name} ({Tasks.Count} - {(_groupStartTime.HasValue ? (_groupEndTime - _groupStartTime).Value.ToString("g") : "0").Replace("0.0", "")})",
+                            new AppStatusInfo(Name, $"{Tasks.Count} - {(_groupStartTime.HasValue ? (_groupEndTime - _groupStartTime).Value.ToString("g") : "0").Replace("0.0", "")}"), 
                         },
                         ReporterName = Name
                     }).Until();
