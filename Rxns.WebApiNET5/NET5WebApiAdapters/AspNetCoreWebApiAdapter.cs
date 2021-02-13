@@ -33,7 +33,8 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
 
                 var host = Host.CreateDefaultBuilder(/*args*/)
                     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
-                    .ConfigureWebHostDefaults(webHostBuilder => {
+                    .ConfigureWebHostDefaults(webHostBuilder =>
+                    {
                         webHostBuilder
                             .UseUrls(cfg.BindingUrl.Split(','))
                             .UseContentRoot(cfg.Html5Root)
@@ -43,110 +44,18 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                                 // opts.ListenHandle(123554);
                                 // opts.ListenUnixSocket("/tmp/kestrel-test.sock");
                                 //opts.Listen(IPAddress.Loopback, port: 5002);
-                                opts
-                                    .ListenAnyIP(888);
+                                opts.ListenAnyIP(888);
                                 //opts.ListenLocalhost(5004, opts => opts.UseHttps());
                                 //opts.ListenLocalhost(5005, opts => opts.UseHttps());
                             })
-                            
+
                             .UseStartup<T>();
                     })
                     .Build();
 
                 await host.RunAsync();
 
-                //var configuredWebApi = Host.CreateDefaultBuilder()
-                //    .ConfigureServices((h,s) =>
-                //    {
-                        
-                //        //s.Add(new ServiceDescriptor(typeof(IWebApiCfg), cfg));
-                     
-                        
-                //    .ConfigureWebHostDefaults(webBuilder =>
-                //    {
-                //        webBuilder.UseUrls("http://+:888/".Split(','));
-                            
-                //        //{
-
-                //        //    if (env.IsDevelopment())
-                //        //    {
-                //        //        webBuilder.UseDeveloperExceptionPage();
-                //        //    }
-                //        //    else
-                //        //    {
-                //        //        server.UseHsts();
-                //        //    }
-
-                //        //    // server.UseHttpsRedirection();
-                //        //    server.UseRouting();
-
-                //        //    //server.UseAuthentication();
-                //        //    //server.UseAuthorization();
-
-                //        //    server.UseEndpoints(endpoints =>
-                //        //    {
-                //        //        endpoints.MapControllers();
-                //        //    });
-
-
-                //        //    //var webCfg = new HttpConfiguration();
-                //        //    //if(_requestCfg != null)
-                //        //    //{
-                //        //    //    webCfg = _requestCfg(webCfg);
-                //        //    //}
-                //        //    //.RequireSsl()
-
-
-                //        //    //webCfg = webCfg.UseAttributeRouting()
-                //        //    //    .ResolveControllersWith(container)
-                //        //    //    .LogErrorsWith(container);
-
-                //        //    server.UseStaticFiles();
-                //        //    var rxnsPortalRoot = new PhysicalFileProvider();
-                //        //    var rxnsPortal = new FileServerOptions
-                //        //    {
-                //        //        EnableDefaultFiles = true,
-                //        //        EnableDirectoryBrowsing = false,
-                //        //        FileProvider = rxnsPortalRoot,
-                //        //        StaticFileOptions = { FileProvider = rxnsPortalRoot, ServeUnknownFileTypes = true },
-                //        //        DefaultFilesOptions = { DefaultFileNames = new[] { "index.html", } }
-                //        //    };
-
-
-
-                //        //    //  .AllowCrossDomain()
-                //        //    // .Use<TokenInQueryStringToAuthorizationHeaderMiddleware>()
-
-
-                //        //    //if (allowErrors)
-                //        //    //{
-                //        //    //    webCfg.PassthroughErrors();
-                //        //    //    hubConfig.PassthroughErrors();
-                //        //    //}
-
-                //        //    //webCfg.EnableCompression(); //handle gzip streams
-                //        //    //via middleware
-
-                //        //    //the order here is important, you must set it before using the webapi
-                //        //    //otherwise the controllers wont recognise the tokens and [Authorize] will fail
-                //        //    server
-                //        //        .AllowCrossDomain()
-                //        //        //.WithAuthentication(authProvider, refreshProvider, encryptionKey)
-
-                //        //        .UseFileServer(rxnsPortal);
-
-                //        //    //.MapSignalRWithCrossDomain(hubConfig, authProvider, refreshProvider, encryptionKey);
-                //        //})//UseStartup<ConfigureAndStartAspnetCore>()
-                //        //   ;
-
-                        
-                        
-                        
-                //    })
-                //    .Build();
-
-                //    configuredWebApi.StartAsync();
-                    stopServer = () => host.Dispose();
+                stopServer = () => host.Dispose();
 
                 return new DisposableAction(() =>
                 {
@@ -165,7 +74,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         private void CreateWebApi(IWebApiCfg cfg,/* IOAuthAuthorizationServerProvider authProvider, IAuthenticationTokenProvider refreshProvider, */ IApplicationBuilder server, IWebHostEnvironment env)
         {
 
-         
+
 
         }
     }

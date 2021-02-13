@@ -4,6 +4,9 @@
         <AzureFunctionsVersion>V3</AzureFunctionsVersion>
     </PropertyGroup>
     <ItemGroup>
+        <PackageReference Include="Azure.Storage.Blobs" Version="12.9.0-beta.1" />
+        <PackageReference Include="Azure.Storage.Queues" Version="12.7.0-beta.1" />
+        <PackageReference Include="Microsoft.Azure.NotificationHubs" Version="1.0.7" />
         <PackageReference Include="Microsoft.Azure.WebJobs.Core" Version="3.0.25" />
         <PackageReference Include="Microsoft.Azure.WebJobs.Extensions" Version="4.0.1" />
         <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.EventHubs" Version="4.2.0" />
@@ -21,7 +24,6 @@
         </None>
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\RxnsDemo.MicroApp\RxnsDemo.Micro.csproj" />
       <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
     </ItemGroup>
 </Project>

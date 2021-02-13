@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using Rxns.Interfaces;
 
 namespace Rxns.Logging
@@ -51,7 +52,7 @@ namespace Rxns.Logging
 
         public override string ToString()
         {
-            return $"{(Level != LogLevel.None ? $"[{Environment.CurrentManagedThreadId:00}][{Timestamp:HH:mm:ss.ffff}][{Level}]" : "")}[{Reporter}] {(!Equals(Message, default(T)) ? Message.ToString() : "(null message logged)")}";
+            return $"{(Level != LogLevel.None ? $"[{Thread.CurrentThread.Name.IsNullOrWhiteSpace($"{Environment.CurrentManagedThreadId:00}")}][{Timestamp:HH:mm:ss.ffff}][{Level}]" : "")}[{Reporter}] {(!Equals(Message, default(T)) ? Message.ToString() : "(null message logged)")}";
         }
 
         public IRxn ToRxn(string source = null)

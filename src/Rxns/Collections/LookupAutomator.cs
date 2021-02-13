@@ -19,13 +19,13 @@ namespace Rxns.Collections
     /// I removed the input/output streams and as the IProcessInput 
     /// 
     /// Example usage of my train of thought;
-    ///             var summaryVm = new LookupAutomator<RvMatterSummary>(_app.Model.DetailsStream, 4);
-    //_eventManager.CreateSubscription<MoreStuff>()
-    //    .Where(w => w.Target == summaryVm.TargetId)
-    //    .SelectMany(summaryVm.Process).Subscribe(_eventManager.Publish).DisposedBy(_resources);
+    ///             var modelVA = new LookupAutomator<ModelClass>(_app.Model.DetailsStream, 4);
+    //_rxnManager.CreateSubscription<MoreStuff>()
+    //    .Where(w => w.Target == modelVA.TargetId)
+    //    .SelectMany(modelVA.Process).Subscribe(_eventManager.Publish).DisposedBy(_resources);
 
-    //SummaryId = summaryVm.TargetId;
-    //summaryVm.Query.ObserveOn(RxApp.UIScheduler).Subscribe(m => Model = m);
+    //ModelId = modelVA.TargetId;
+    //ModelId.Query.ObserveOn(RxApp.UIScheduler).Subscribe(m => Model = m);
     /// </summary>
     /// <typeparam name="TStuff"></typeparam>
     public class LookupAutomator<TStuff, TFilter> : ILookupStuff<TStuff>, IDisposable

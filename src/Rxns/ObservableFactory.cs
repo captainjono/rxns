@@ -438,7 +438,7 @@ namespace Rxns
 
         public static IObservable<T> On<T>(IScheduler scheduler, Func<T> operation)
         {
-            return Observable.Start(operation, scheduler);
+            return Observable.Start( operation, scheduler);
         }
 
         public static IObservable<Unit> On(IScheduler scheduler, Action operation)
