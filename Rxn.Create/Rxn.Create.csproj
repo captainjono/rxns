@@ -24,9 +24,9 @@
     </None>
   </ItemGroup>
 
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <!--<Target Name="PostBuild" AfterTargets="PostBuildEvent">
       <Exec Command="dotnet $(TargetPath) NewAppUpdate DemoApp Latest-1 $(TargetDir)/ false true http://localhost:888/" />
-    </Target>
+    </Target>-->
 
 <!--  <Target Name="PostBuild" AfterTargets="PostBuildEvent">--><!--
 --><!--    <Exec Command="dotnet $(TargetPath) NewAppUpdate DotNetTestWorker Latest-1 $(TargetDir)/ false true http://192.168.1.2:888/" />--><!--

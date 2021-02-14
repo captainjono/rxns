@@ -105,8 +105,12 @@ namespace Rxns.Collections
         /// <param name="expiration"></param>
         /// <param name="lockTime"></param>
         /// <param name="cleanupSchedulder"></param>
-        public ExpiringCacheDecorator(TObj decorated, Func<TObj, TKey, TValue> getter, Action<TObj, TKey, TValue> setter,
-            Func<TObj, TKey, bool> exists, Action<TObj, TKey> removeFunc, TimeSpan expiration, TimeSpan? lockTime = null,
+        public ExpiringCacheDecorator(
+            TObj decorated, 
+            Func<TObj, TKey, TValue> getter, Action<TObj, TKey, TValue> setter,
+            Func<TObj, TKey, bool> exists, Action<TObj, TKey> removeFunc, 
+            TimeSpan expiration, 
+            TimeSpan? lockTime = null,
             IScheduler cleanupSchedulder = null)
         {
             _getter = getter;

@@ -18,7 +18,10 @@ using RxnsDemo.Micro.App.Models;
 
 namespace Rxns.Azure
 {
-    public static class RxnQueueWrapper
+    /// <summary>
+    /// this is a WIP spike into creating a generic adapter for rxns to scale out components or reactors onto an fully managed azure function
+    /// </summary>
+    public static class AzureFunctionHost
     {
         //we can enable and disable logs via a static global prop
 
@@ -34,7 +37,7 @@ namespace Rxns.Azure
             var cb = new ContainerBuilder();
             cb.Register(c => new AzureBackingChannel<IRxn>(new AzureCfg()
             {
-                StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=KfhghXZnRiqjALL26ad1YLSDBvMV12yQKgm2s/YySoy1ukP8jFOuWKrPI5+JDVyKvtpMUdic4EP5FCRVIPvbfw==;EndpointSuffix=core.windows.net"
+                StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
             }, c.Resolve<IComponentContext>().Resolve<IResolveTypes>()))
             .AsImplementedInterfaces()
             .SingleInstance();
