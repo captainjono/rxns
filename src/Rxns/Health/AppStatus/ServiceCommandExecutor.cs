@@ -30,7 +30,7 @@ namespace Rxns.Health.AppStatus
             _statusStore = statusStore;
 
 
-            if(cfg.Args.Any())
+            if(cfg.Args.AnyItems())
                 _respondsToRoute = RxnCreator.DiscoverRoutes(cfg.Args.Last().ToLower(), resolver);
             //else
                 //_respondsToRoute = new Type[] { typeof(IRxn) };

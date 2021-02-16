@@ -114,7 +114,7 @@ namespace Rxns
                 lock(singleThread)
                 {
                     if (!_isActive)
-                        return Activate().Do(_ => PublishMsg(message)).Subscribe();
+                        return Activate().Do(_ => PublishMsg(message)).Select(_ => new Unit()).Subscribe(o);
                     else
                         PublishMsg(message);
                     

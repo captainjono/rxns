@@ -66,7 +66,8 @@ namespace Rxns.Hosting
         {
             var cfg = LoadCfg(cfgName?? CfgName);
 
-            cfg.Args = args;
+            if(args != null)
+                cfg.Args = args;
 
             return cfg;
         }

@@ -121,11 +121,6 @@ namespace RxnCreate
                     RunDemoAppReactor(args: args).Do(_ => { ctx = _; })
                         .Until();
                 }
-                else if (args.FirstOrDefault() == "TestAgent")
-                {
-                    UnitTestAgent.RunTestAgentReactor(args: args).Do(_ => { ctx = _; })
-                        .Until();
-                }
                 else
                 {
                     RunSpareReactor().Do(_ => { ctx = _; })
@@ -172,21 +167,7 @@ namespace RxnCreate
                     .Subscribe(o);
             });
         }
-        
-        public class TestCfg : StartUnitTest
-        {
-            public static TestCfg Detect()
-            {
-                var cfg = new TestCfg();
-                if (File.Exists("unittest.cfg"))
-                {
-                    cfg = File.ReadAllText("unittest.cfg").FromJson<TestCfg>();
-                }
 
-                return cfg;
-            }
-        }
-        
         private static IObservable<IRxnAppContext> RunDemoAppReactor(string url = "http://localhost:888/", params string[] args)
         {
             return Rxns.Rxn.Create<IRxnAppContext>(o =>

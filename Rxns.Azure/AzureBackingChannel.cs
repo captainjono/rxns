@@ -61,7 +61,7 @@ namespace Rxns.Azure
             _azureCfg = azureCfg;
             _typeResolver = typeResolver;
         }
-
+        
         public void Publish(T message)
         {
             _messageQueuePub.SendMessage(message.Serialise().ResolveAs(message.GetType()));

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Autofac;
 using Microsoft.Azure.Storage.Queue;
@@ -24,21 +23,11 @@ namespace Rxns.Azure
     /// </summary>
     public static class AzureFunctionHost
     {
-        [FunctionName("SurveyProgressViewFnc")]
-        public static async Task RunAsync([QueueTrigger("eventManagerSubscribe", Connection = "")] string rxn, [Queue("eventManagerPublish", Connection = "")] CloudQueue outputQueue, DiagnosticsTraceWriter log)
-        {
-            ReportStatus.Log.ReportToConsole();
-            log.Trace(TraceLevel.Info, $"StudentProgressView SAW: {rxn}", null);
+        //we can enable and disable logs via a static global prop
 
-            var studentProgress = new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>());
-            var result = await studentProgress.Process(rxn.FromJson<UserSurveyStartedEvent>()).ToTask();
 
-            //can turn this into a eventManager, and use a rxncreator to start it up
-            await outputQueue.AddMessageAsync(new CloudQueueMessage(result.ToJson()));
-        }
-
-        [FunctionName("SurveyProgressViewFncRxnIntegration")]
-        public static async Task RunAsync([QueueTrigger("eventsink", Connection = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net")] string rxn, ILogger log)
+        [FunctionName("Rxn_QueueWrapper")]
+        public static async Task RunAsync([ServiceBusTrigger("myqueue", Connection = "")] string rxn, ILogger log)
         {
             //need to work out a convention to dynmically generate this class ^^ and queue worker for a given reactor
             var microservice = new MicroServiceBoostrapperAspNetCore();
@@ -79,6 +68,16 @@ namespace Rxns.Azure
             log.LogInformation($"StudentProgressView processed message: {rxn}");
         }
 
-        
+        [FunctionName("SurveyProgressView")]
+        public static async Task RunAsync([QueueTrigger("eventManagerSubscribe", Connection = "")] string rxn, [Queue("eventManagerPublish", Connection = "")] CloudQueue outputQueue, DiagnosticsTraceWriter log)
+        {
+            log.Trace(TraceLevel.Info, $"StudentProgressView SAW: {rxn}", null);
+
+            var studentProgress = new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>());
+            var result = await studentProgress.Process(rxn.FromJson<UserSurveyStartedEvent>()).ToTask();
+
+            //can turn this into a eventManager, and use a rxncreator to start it up
+            await outputQueue.AddMessageAsync(new CloudQueueMessage(result.ToJson()));
+        }
     }
 }

@@ -14,6 +14,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Rxns;
 using Rxns.Azure;
+using Rxns.Cloud;
 using Rxns.Collections;
 using Rxns.DDD.BoundedContext;
 using Rxns.Health;
@@ -84,7 +85,7 @@ namespace RxnsDemo.Micro.App
             SurveyRoom
                 //the services to the api
                 .CreatesOncePerApp<SurveyAnswersDomainService>()
-                .CreatesOncePerApp(() => new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>()))
+                //.CreatesOncePerApp(() => new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>()))
                 .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{ s.userId}%{s.AttemptId}")
                 .CreatesOncePerApp<TapeArrayTenantModelRepository<SurveyAnswers, ISurveyAnswer>>()
                 //api
@@ -117,7 +118,17 @@ namespace RxnsDemo.Micro.App
                 .CreatesOncePerApp(_ => new DynamicStartupTask((r, c) =>
                 {
                     //any other app startup logic can go here
+                    var evenBusToAzureFunc = new RxnManager<IRxn>(new AzureBackingChannel<IRxn>(new AzureCfg()
+                    {
+                        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+                    }, c.Resolve<IComponentContext>().Resolve<IResolveTypes>(), publishOnlyMode: true));
 
+                    TimeSpan.FromSeconds(10).Then(true).Do(_ =>
+                    {
+                        "publishing event to azure".LogDebug();
+                        evenBusToAzureFunc.Publish(new AppHeatbeat()).WaitR();
+
+                    }).Until(ReportStatus.Log.OnError);
                 }))
                 ;
 
