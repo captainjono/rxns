@@ -69,7 +69,7 @@ namespace Rxns.Cloud
 
         }
 
-        public IObservable<Unit> Advertise(string apiName, string apiUrl)
+        public IObservable<Unit> Advertise(string system, string apiName, string apiUrl)
         {
             return Rxn.Create<Unit>(o =>
             {
@@ -77,15 +77,21 @@ namespace Rxns.Cloud
                 SsdpCommunicationsServer server = null;
                 SsdpDevicePublisher emitter = null;
 
+                var url = $"http://{GetLocalIpAddress()}/".LogDebug("BROADCAST");
 
-                var client = new SsdpService();
-                client.ControlUrl = new Uri($"http://{GetLocalIpAddress()}/");
-
-                if (localIpAddress.IsNullOrWhitespace())
+                server = new SsdpCommunicationsServer(new SocketFactory(localIpAddress));
+                emitter = new SsdpDevicePublisher();
+                emitter.NotificationBroadcastInterval = TimeSpan.FromSeconds(1);
+                emitter.AddDevice(new SsdpRootDevice()
                 {
-                    server = new SsdpCommunicationsServer(new SocketFactory(localIpAddress));
-                    emitter = new SsdpDevicePublisher(server);
-                }
+                    DeviceTypeNamespace = system,
+                    FriendlyName = apiName, 
+                    Location = new Uri(apiUrl), 
+                    Manufacturer = "rxns", 
+                    ModelName = apiName, 
+                    DeviceType = apiName,
+                    Uuid = $"uuid:{Guid.NewGuid().ToString()}"
+                });
 
                 return Disposable.Create(() =>
                 {
@@ -129,15 +135,16 @@ namespace Rxns.Cloud
                     if (IPAddress.IsLoopback(address.Address))
                         continue;
 
-                    if (!address.IsDnsEligible)
-                    {
-                        if (mostSuitableIp == null)
-                            mostSuitableIp = address;
-                        continue;
-                    }
-
+                    
                     try
                     {
+                        if (!address.IsDnsEligible)
+                        {
+                            if (mostSuitableIp == null)
+                                mostSuitableIp = address;
+                            continue;
+                        }
+
                         if (address.PrefixOrigin != PrefixOrigin.Dhcp)
                         {
                             if (mostSuitableIp == null || !mostSuitableIp.IsDnsEligible)
@@ -149,7 +156,6 @@ namespace Rxns.Cloud
                     {
                         $"WARNING: could not up prefixorigin of {address.Address}. Ignoring.".LogDebug();
                         //mostSuitableIp = address;
-                        continue;
                     }
 
                     return address.Address.ToString();
