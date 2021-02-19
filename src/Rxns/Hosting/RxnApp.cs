@@ -90,11 +90,11 @@ namespace Rxns.Hosting
             });
         }
         
-        public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spaceReactor =>
+        public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spareReactor =>
         {
             appStatusUrl ??= "http://localhost:888";
 
-            spaceReactor
+            spareReactor
                 .Includes<AppStatusClientModule>()
                 .Includes<RxnsModule>()
                 .CreatesOncePerApp<NoOpSystemResourceService>()
