@@ -77,7 +77,7 @@ namespace Rxns.Hosting
                     {
                         try
                         {
-                            s.Run(container, app.Resolver);
+                            s.Run(finalContainer, app.Resolver);
                         }
                         catch (Exception e)
                         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
 using System.Reflection;
+using System.Threading.Tasks;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Interfaces;
@@ -135,6 +137,35 @@ namespace Rxns
         public static IObservable<T> Create<T>(TimeSpan repeats, Func<T> action, IScheduler seconds = null)
         {
             return Observable.Timer(repeats, seconds ?? Scheduler.Default).Select(_ => action());
+        }
+        
+        public static IObservable<T> Create<T>(Func<Task<T>> action)
+        {
+            return Observable.Create<T>(o =>
+            {
+                try
+                {
+                    action().ContinueWith(result =>
+                    {
+                        if (result.IsFaulted)
+                        {
+                            o.OnError(result.Exception);
+                            o.OnCompleted();
+                            return;
+                        }
+
+                        o.OnNext(result.Result);
+                        o.OnCompleted();
+                    });
+
+                    return Disposable.Empty;
+                }
+                catch (Exception e)
+                {
+                    o.OnError(e);
+                    return Disposable.Empty;
+                }
+            });
         }
 
         public static IObservable<T> CreatePulse<T>(TimeSpan repeats, Func<T> action, IScheduler seconds = null)
@@ -456,30 +487,35 @@ namespace Rxns
         /// <returns></returns>
         public static IObservable<T> SelectMany<T, R>(this R[] items, Func<R, IObservable<T>> selector)
         {
+            if (!items.AnyItems()) return Observable.Empty<T>();
             return Rxn.Create<T>(o =>
             {
-                var current = 0;
+                var current = 0; 
                 bool isCanceled = false;
                 Action trampolineIterate = null;
                 var currentSelector = Disposable.Empty;
-
+                Action RunIf = () =>
+                {
+                    if (current >= items.Length || isCanceled)
+                    {
+                        o.OnCompleted();
+                    }
+                    else
+                    {
+                        CurrentThreadScheduler.Instance.Schedule(() => trampolineIterate());
+                    }
+                };
+                
                 trampolineIterate = () => currentSelector = selector(items[current++]).Subscribe(
-                    result => { o.OnNext(result); },
-                    onError => { o.OnError(onError); },
+                    result => { o.OnNext(result); }, 
+                    onError => { o.OnError(onError); }, 
                     () =>
                     {
-                        if (current == items.Length || isCanceled)
-                        {
-                            o.OnCompleted();
-                        }
-                        else
-                        {
-                            CurrentThreadScheduler.Instance.Schedule(() => trampolineIterate());
-                        }
+                        RunIf();
                     });
 
-                trampolineIterate();
-
+                RunIf();
+                
                 return Disposable.Create(() =>
                 {
                     currentSelector.Dispose();

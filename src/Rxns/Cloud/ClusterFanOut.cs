@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using Rxns.Logging;
 
 namespace Rxns.Cloud
@@ -15,12 +16,12 @@ namespace Rxns.Cloud
 
     public class ClusterFanOut<T, TR>
     {
-        private readonly IDictionary<string, IClusterWorker<T, TR>> _agents = new Dictionary<string, IClusterWorker<T, TR>>();
+        public readonly IDictionary<string, IClusterWorker<T, TR>> Workers = new Dictionary<string, IClusterWorker<T, TR>>();
         
         public IDisposable RegisterWorker(IClusterWorker<T, TR> worker)
         {
-            _agents.Add(worker.Route, worker);
-            $"Worker registered, pool size {_agents.Count}".LogDebug();
+            Workers.Add(worker.Route, worker);
+            $"Worker registered, pool size {Workers.Count}".LogDebug();
             return Disposable.Empty;
         }
 
@@ -28,7 +29,7 @@ namespace Rxns.Cloud
 
         public IObservable<TR> Fanout(T cfg) //todo make generic
         {
-            if (_agents.Count >= _lastWorkerIndex)
+            if (Workers.Count >= _lastWorkerIndex)
             {
                 _lastWorkerIndex = 0;
             }
@@ -37,7 +38,7 @@ namespace Rxns.Cloud
                 _lastWorkerIndex++;
             }
 
-            var nextAgent = _agents.Skip(_lastWorkerIndex).FirstOrDefault().Value;
+            var nextAgent = Workers.Skip(_lastWorkerIndex).FirstOrDefault().Value;
 
             $"Sending work to {nextAgent.Name} @ {nextAgent.Route}".LogDebug();
 

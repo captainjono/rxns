@@ -49,7 +49,7 @@ namespace Rxns.Hosting
                     var anonConnection = cc.ResolveTag<IHttpConnection>("anonymous");
                     var authedConnection = cc.ResolveTag<IHttpConnection>("authenticated");
                     var credentials = cc.Resolve<ITenantCredentials>();
-                    var cfg = cc.Resolve<CommandServiceClientCfg>();
+                    var cfg = cc.Resolve<IAppServiceRegistry>();
 
                     return new CommandServiceClient(cfg, authedConnection, anonConnection, credentials);
                 })

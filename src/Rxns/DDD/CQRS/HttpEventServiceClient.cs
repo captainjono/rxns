@@ -30,17 +30,19 @@ namespace Rxns.DDD.CQRS
         }
     }
 
-    public class HttpEventsServiceClient : AppServicesClient, IServiceCommandHandler<StreamLogs>
+    public class HttpEventsServiceClient : AuthenticatedServiceClient, IServiceCommandHandler<StreamLogs>
     {
+        private readonly IAppServiceRegistry _cfg;
         private readonly IAppContainer _app;
         private readonly IRxnAppInfo _appInfo;
         private IDisposable _stopStream;
         private readonly StringBuilder _eventsAsJsonMemPool = new StringBuilder();
 
 
-        public HttpEventsServiceClient(CommandServiceClientCfg cfg, IHttpConnection connection, IAppContainer app, IRxnAppInfo appInfo)
-            : base(cfg, connection)
+        public HttpEventsServiceClient(IAppServiceRegistry cfg, IHttpConnection connection, IAppContainer app, IRxnAppInfo appInfo)
+            : base(connection)
         {
+            _cfg = cfg;
             _app = app;
             _appInfo = appInfo;
         }
@@ -102,9 +104,9 @@ namespace Rxns.DDD.CQRS
             });
         }
 
-        protected override void SetConfiguration(CommandServiceClientCfg cfg)
+        protected override string BaseUrl()
         {
-            BaseUrl = cfg.BaseUrl;
+            return _cfg.AppStatusUrl;
         }
     }
 }

@@ -13,24 +13,19 @@ namespace Rxns.DDD.CQRS
         public string BaseUrl { get; set; }
     }
 
-    public class CommandServiceClient : AppServicesClient, ICommandService
+    public class CommandServiceClient : AuthenticatedServiceClient, ICommandService
     {
+        private readonly IAppServiceRegistry _services;
         private readonly IHttpConnection _anonConnection;
         private readonly ITenantCredentials _defaultCredentials;
 
-        public CommandServiceClient(CommandServiceClientCfg cfg, IHttpConnection connection, IHttpConnection anonConnection, ITenantCredentials defaultCredentials)
-            : base(cfg, connection)
+        public CommandServiceClient(IAppServiceRegistry services, IHttpConnection connection, IHttpConnection anonConnection, ITenantCredentials defaultCredentials) : base(connection)
         {
+            _services = services;
             _anonConnection = anonConnection;
             _defaultCredentials = defaultCredentials;
 
             //_jsonSettings.NullValueHandling = NullValueHandling.Ignore;
-        }
-
-        protected override void SetConfiguration(CommandServiceClientCfg cfg)
-        {
-            BaseUrl = cfg.BaseUrl;
-            OnInformation("New BaseURL: {0}", BaseUrl);
         }
 
         public IObservable<DomainQueryResult<T>> Run<T>(IDomainQuery<T> query)
@@ -65,6 +60,11 @@ namespace Rxns.DDD.CQRS
             return Connection.Call((c, cancel) => c.PostAsync(WithBaseUrl("cmd/{0}".FormatWith("embedded_in_command_cmd")), new StringContent(cmd, Encoding.UTF8, "text/json"), cancel))
                 .SelectMany(r => r.Content.ReadAsStringAsync())
                 .Select(c => CommandResult.Success());// c.Deserialise<object>().AsSuccessfulResult();
+        }
+
+        protected override string BaseUrl()
+        {
+            return _services.AppStatusUrl;
         }
     }
 }

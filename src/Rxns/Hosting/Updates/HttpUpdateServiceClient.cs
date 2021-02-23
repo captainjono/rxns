@@ -7,10 +7,12 @@ namespace Rxns.Hosting.Updates
 {
     public class HttpUpdateServiceClient : AuthenticatedServiceClient, IUpdateStorageClient
     {
+        private readonly IAppServiceRegistry _cfg;
+
         public HttpUpdateServiceClient(IAppServiceRegistry cfg, IHttpConnection connection)
           : base(connection)
         {
-            this.BaseUrl = cfg.AppStatusUrl;
+            _cfg = cfg;
         }
 
         public IObservable<bool> CreateUpdate(string systemName, string version, Stream appUpdate)
@@ -43,6 +45,11 @@ namespace Rxns.Hosting.Updates
                     resp.EnsureSuccessStatusCode();
                     return resp.Content.ReadAsStringAsync();
                 }).Select(r => r.Deserialise<AppUpdateInfo[]>());
+        }
+
+        protected override string BaseUrl()
+        {
+            return _cfg.AppStatusUrl;
         }
     }
     
