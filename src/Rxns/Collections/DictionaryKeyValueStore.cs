@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reactive;
 using Rxns.Interfaces;
@@ -12,7 +13,7 @@ namespace Rxns.Collections
         
         public DictionaryKeyValueStore(IDictionary<TKey, TValue> store = null)
         {
-            _store = store ?? new Dictionary<TKey, TValue>();
+            _store = store ?? new UseConcurrentReliableOpsWhenCastToIDictionary<TKey, TValue>(new ConcurrentDictionary<TKey, TValue>());
         }
 
         public IObservable<TValue> Get(TKey key)

@@ -51,14 +51,13 @@ namespace Rxns.WebApiNET5
         public ConfigureAndStartAspnetCore()
         {
         }
-        
+
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection s)
         {
-            s
-            .AddControllers();
-            s.AddRouting();
-            s.AddSignalR(o =>
+            s.AddControllers();
+            s.AddRouting()
+            .AddSignalR(o =>
                 {
                     o.EnableDetailedErrors = true;
                 })
@@ -67,23 +66,23 @@ namespace Rxns.WebApiNET5
                 o.PayloadSerializerOptions.PropertyNameCaseInsensitive = true;
                 o.PayloadSerializerOptions.AllowTrailingCommas = true;
             })
-                .AddHubOptions<EventsHub>(c =>
-                {
-                    
-                    c.EnableDetailedErrors = true;
-                    c.KeepAliveInterval = TimeSpan.FromSeconds(20);
-                    
-                })
+            .AddHubOptions<EventsHub>(c =>
+            {
+
+                c.EnableDetailedErrors = true;
+                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
+            })
             .AddHubOptions<SystemMetricsHub>(c =>
             {
                 c.EnableDetailedErrors = true;
                 c.KeepAliveInterval = TimeSpan.FromSeconds(20);
             })
-                .AddHubOptions<ReportHub>(c =>
-                {
-                    c.EnableDetailedErrors = true;
-                    c.KeepAliveInterval = TimeSpan.FromSeconds(20);
-                });
+            .AddHubOptions<ReportHub>(c =>
+            {
+                c.EnableDetailedErrors = true;
+                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            });
 
         }
 
@@ -100,7 +99,7 @@ namespace Rxns.WebApiNET5
                 {
                     "Launching App in WebApi host".LogDebug();
 
-                    
+
                     appReadyToRun // the apps supervisor
                         .SelectMany(h => h.Run(new AutofacAppContainer(container)))
                         .Do(rxnAppContext => { "App started".LogDebug(); })
@@ -114,17 +113,17 @@ namespace Rxns.WebApiNET5
 
         public IObservable<IRxnHostReadyToRun> CreateApp(ContainerBuilder cb, Func<Action<IRxnLifecycle>, Action<IRxnLifecycle>> lifecycle = null, string[] args = default(string[]))
         {
-            var rxnApp =  App(WebApiCfg.BindingUrl);
+            var rxnApp = App(WebApiCfg.BindingUrl);
             var appInfo = AppInfo;
             var webApiHost = new WebApiHost(WebApiCfg);
 
             //var consoleHost = new ConsoleHostedApp(); // for unit/testing
             //var reliableHost = new RxnSupervisorHost(...); //will automatically reboot your app on failure. "always on"
 
-             return cb
-                .ToRxnsSupporting(rxnApp)
-                .Named(appInfo)
-                .OnHost(webApiHost, new RxnAppCfg(){ Args = args });
+            return cb
+               .ToRxnsSupporting(rxnApp)
+               .Named(appInfo)
+               .OnHost(webApiHost, new RxnAppCfg() { Args = args });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -146,7 +145,7 @@ namespace Rxns.WebApiNET5
             // server.UseHttpsRedirection();
             server.UseRouting();
 
-            
+
             //server.UseAuthentication();
             //server.UseAuthorization();
 
@@ -165,7 +164,7 @@ namespace Rxns.WebApiNET5
                         HttpTransportType.WebSockets |
                         HttpTransportType.LongPolling;
                 });
-                
+
                 endpoints.MapHub<SystemMetricsHub>("/systemMetricsHub", o =>
                 {
                     o.Transports =

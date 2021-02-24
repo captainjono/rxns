@@ -72,8 +72,8 @@ namespace Rxns.Health.AppStatus
                     return res;
                 }
 
-                return all.ToLookup(t => t.Key.Tenant);
-            });
+                return new SystemStatusModel[0];
+            }).ToArray();
         }
 
         private Dictionary<SystemStatusEvent, object[]> GetStatus()

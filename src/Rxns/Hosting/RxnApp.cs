@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -89,7 +92,69 @@ namespace Rxns.Hosting
                 _onStart.OnNext(new Unit());
             });
         }
-        
+
+        /// <summary>
+        /// In a system with multiple network adapters, sometimes an 'incorrect' adapter is bound instead of the one you'd
+        /// expect. For example, rather than using your WiFi network, the system might pick a VPN adapter etc. In this case
+        /// packets are sent/received on the network and you often get no responses, or unexpected/incorrect responses. To
+        /// solve this you can manually specify an IP by passing it to the constructor of a SsdpCommunicationsServer instance,
+        /// then passing that instance to the publisher/locator instance. 
+        /// 
+        /// https://github.com/Yortw/RSSDP/wiki/Frequently-Asked-Questions#i-dont-get-search-results-or-notifications
+        /// </summary>
+        /// <returns></returns>
+        public static string GetIpAddress()
+        {
+            UnicastIPAddressInformation mostSuitableIp = null;
+            var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+            foreach (var network in networkInterfaces)
+            {
+                if (network.OperationalStatus != OperationalStatus.Up)
+                    continue;
+
+                var properties = network.GetIPProperties();
+
+                if (properties.GatewayAddresses.Count == 0)
+                    continue;
+
+                foreach (var address in properties.UnicastAddresses)
+                {
+                    if (address.Address.AddressFamily != AddressFamily.InterNetwork)
+                        continue;
+
+                    if (IPAddress.IsLoopback(address.Address))
+                        continue;
+
+
+                    try
+                    {
+                        if (!address.IsDnsEligible)
+                        {
+                            if (mostSuitableIp == null)
+                                mostSuitableIp = address;
+                            continue;
+                        }
+
+                        if (address.PrefixOrigin != PrefixOrigin.Dhcp)
+                        {
+                            if (mostSuitableIp == null || !mostSuitableIp.IsDnsEligible)
+                                mostSuitableIp = address;
+                            continue;
+                        }
+                    }
+                    catch (Exception)
+                    {
+
+                    }
+
+                    return address.Address.ToString();
+                }
+            }
+
+            return mostSuitableIp?.Address.ToString();
+        }
+
         public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spareReactor =>
         {
             appStatusUrl ??= "http://localhost:888";

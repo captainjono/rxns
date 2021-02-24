@@ -49,7 +49,7 @@ namespace RxnsDemo.Micro.App
             
             "Configuring App".LogDebug();
             
-            await AspNetCoreWebApiAdapter.StartWebServices<MicroServiceBoostrapperAspNetCore>(MicroServiceBoostrapperAspNetCore.Cfg);
+            await AspNetCoreWebApiAdapter.StartWebServices<MicroServiceBoostrapperAspNetCore>(MicroServiceBoostrapperAspNetCore.Cfg, args);
                
             Console.WriteLine("Press anykey to terminate");
             Console.ReadLine();
@@ -86,7 +86,7 @@ namespace RxnsDemo.Micro.App
                 //the services to the api
                 .CreatesOncePerApp<SurveyAnswersDomainService>()
                 //.CreatesOncePerApp(() => new SurveyProgressView(new DictionaryKeyValueStore<string, SurveyProgressModel>()))
-                .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{ s.userId}%{s.AttemptId}")
+                .CreatesOncePerApp<Func<ISurveyAnswer, string>>(_ => s => $"{s.userId}%{s.AttemptId}")
                 .CreatesOncePerApp<TapeArrayTenantModelRepository<SurveyAnswers, ISurveyAnswer>>()
                 //api
                 .RespondsToCmd<BeginSurveyCmd>()
@@ -104,7 +104,7 @@ namespace RxnsDemo.Micro.App
                 })
                 .CreatesOncePerApp(() => new AppServiceRegistry()
                 {
-                    AppStatusUrl = appStatusUrl
+                    AppStatusUrl = "http://localhost:888"
                 })
                 .CreatesOncePerApp<RxnDebugLogger>()
                 

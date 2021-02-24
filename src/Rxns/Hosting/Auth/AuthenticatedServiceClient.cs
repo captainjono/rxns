@@ -20,7 +20,7 @@ namespace Rxns.Hosting
         /// <returns></returns>
         protected string WithBaseUrl(string route)
         {
-            return string.Format("{0}/{1}", BaseUrl(), route).AsNormalisedUrl();
+            return string.Format("{0}/{1}", BaseUrl().TrimEnd('/'), route).AsNormalisedUrl();
         }
     }
 }

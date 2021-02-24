@@ -34,17 +34,18 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<bool> AddOrUpdate(SystemStatusEvent status, dynamic[] meta)
         {
-                var key = AsKey(status);
-                return _backingStoreK.AddOrUpdate(key, new StringStore() {j = status.Serialise()})
-                    .Concat(_backingStoreV.AddOrUpdate(key, new StringStore() {j = meta.Serialise()})
+            var key = AsKey(status);
+            return _backingStoreK.AddOrUpdate(key, new StringStore() {j = status.Serialise()})
+                .Concat(_backingStoreV.AddOrUpdate(key, new StringStore() {j = meta.Serialise()})
                     .Do(_ =>
                     {
-                            _notificationChannel.OnNext(new Dictionary<SystemStatusEvent, dynamic[]>()
-                            {
-                                {status, meta}
-                            });
+                        _notificationChannel.OnNext(new Dictionary<SystemStatusEvent, dynamic[]>()
+                        {
+                            {status, meta}
+                        });
                     }))
-                    .LastOrDefaultAsync();
+                .LastOrDefaultAsync();
+            
         }
 
         private string AsKey(SystemStatusEvent status)

@@ -14,7 +14,6 @@ using Rxns.Hosting.Updates;
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
     //[Authorize]
-    [Route("updates")]
     public class UpdatesController : ReportsStatusApiControllerWithUpload
     {
         private readonly IAppUpdateManager _updateManager;
@@ -28,7 +27,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         }
 
         //[ValidateMimeMultipartContentFilter]
-        [Route("{systemName}/{version}")]
+        [Route("updates/{systemName}/{version}")]
         [HttpPost]
         public async Task<HttpResponseMessage> Upload(string systemName, string version)
         {
@@ -44,7 +43,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 });
         }
 
-        [Route("{systemName}/{version}")]
+        [Route("updates/{systemName}/{version}")]
         [HttpGet]
         public async Task<HttpResponseMessage> GetUpdate(string systemName, string version)
         {
@@ -80,20 +79,20 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 });
         }
 
-        [Route("{systemName}/{version}/get")]
+        [Route("updates/{systemName}/{version}/get")]
         [HttpPost]
         public async Task<HttpResponseMessage> GetUpdateWithPost(string systemName, string version)
         {
             return await GetUpdate(systemName, version);
         }
 
-        [Route("{systemName}/latest")]
+        [Route("updates/{systemName}/latest")]
         [HttpGet]
         public async Task<HttpResponseMessage> GetLatestUpdate(string systemName)
         {
             return await GetUpdate(systemName, null);
         }
-        [Route("{systemName}/list")]
+        [Route("updates/{systemName}/list")]
         [HttpGet]
         public IObservable<IActionResult> AllUpdates(string systemName = null, int top = 3)
         {
@@ -119,7 +118,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
-        [Route("{systemName}/{version}/push")]
+        [Route("updates/{systemName}/{version}/push")]
         [HttpPost]
         public async Task<HttpResponseMessage> PushUpdate(string systemName, string version, [FromBody] string[] tenants)
         {

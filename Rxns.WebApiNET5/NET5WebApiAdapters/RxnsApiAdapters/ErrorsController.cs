@@ -8,7 +8,6 @@ using Rxns.Metrics;
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
     //[Authorize]
-    [Route("errors")]
     public class ErrorsController : ReportsStatusApiController
     {
         private readonly IAppErrorManager _errorMgr;
@@ -20,7 +19,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         //[HideUncaughtExceptions]
 
-        [Route("archive")]
+        [Route("errors/archive")]
         [HttpGet]
         public IEnumerable<SystemErrors> GetAllErrors(int page = 0, int size = 10, string tenant = null)
         {
@@ -28,28 +27,28 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         }
 
         //[HideUncaughtExceptions]
-        [Route("")]
+        [Route("errors")]
         [HttpGet]
         public IEnumerable<SystemErrors> GetOutstandingErrors(int page = 0, int size = 10, string tenant = null, string systemName = null)
         {
             return _errorMgr.GetOutstandingErrors(page, size, tenant, systemName);
         }
 
-        [Route("{errorId}/meta")]
+        [Route("errors/{errorId}/meta")]
         [HttpGet]
         public IEnumerable<SystemLogMeta> GetErrorMeta(string errorId)
         {
             return _errorMgr.GetErrorMeta(errorId).ToEnumerable();
         }
 
-        [Route("{errorId}/meta/publish")]
+        [Route("errors/{errorId}/meta/publish")]
         [HttpPost]
         public void InsertErrorMeta(string errorId, [FromBody] SystemLogMeta[] meta)
         {
             _errorMgr.InsertErrorMeta(errorId, meta);
         }
         
-        [Route("basicReport/publish")]
+        [Route("errors/basicReport/publish")]
         [HttpPost]
         public void InsertError([FromBody] BasicErrorReport error)
         {
