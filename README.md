@@ -1,6 +1,6 @@
 <!-- TOC -->
 
-- [1. Reactions](#1-reactions)
+1. [1. Reactions](#1-reactions)
 
 <!-- /TOC -->
 
@@ -56,6 +56,7 @@ Core motivations include:
 * [AppStatus](appstatus.md)
 * [DDD/CQRS](cloudpatterns.md)
 * [DDD Aggegrates](dddaggs.md)
+* [Domain Contexts](dddcontexts.md)
 * [BuildingBlocks](buildingblocks.md)
 * [RxnHosts](rxnhosts.md)
 * [Cloud scaling](cloudscaling.md)

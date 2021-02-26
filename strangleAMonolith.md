@@ -14,6 +14,7 @@ Pattern | Application
 
 This is an example of [domain command handler](dddaggs.md) which transitions a db centric legacy system to an event source micro-app. 
 -   Here fields in a legacy monolith database have been profiled and selected intelligently based on the cloud providers desired plan specifics in order to reduce the overhead of certain hot fields and reduce db teirs.
+-   It uses a set of [domain contexts](dddcontexts.md) to ease the transition of converting events to legacy calls ato the logged in user and correct tenant db. You can then manage these concerns at other levels in wholistic ways that [are cloud durable](reliability.md)
 -   The example uses an [event sourced aggregate](#) as the microservice persistant mechanism to add highly scalable comment'ing features to an existing CRM style system
 
 ```c#
@@ -66,7 +67,7 @@ This is an example of [domain command handler](dddaggs.md) which transitions a d
         }
 ```
 
-your future state in a pure event source model would look like this. Dont worry about the lock here, thats just to serilise access to the aggregate which can be stored locally immediately with your user getting a response in > 10ms, then you can lazily persist that to a cloud db or push it into a [read model such as a legacy db with a view processor pattern](ViewProcessors.md)
+your future state in a pure event source model would look like this. Dont worry about the lock here, thats just to serilise access to the aggregate which can be stored locally immediately with your user getting a response in > 10ms, then you can [lazily persist that to a cloud db with a `sharding queue processor` or push it into a [read model such as a legacy db with a db view processor pattern](ViewProcessors.md)
 
 ```c#
         public IObservable<DomainCommandResult<bool>> Handle(RevokeDocumentAccessForIndividualCmd cmd)
