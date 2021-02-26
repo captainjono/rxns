@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+using Rxns.Collections;
 
 namespace Rxns.Playback
 {
     public class InMemoryTapeRepo : ITapeRepository
     {
-        readonly IDictionary<string, ITapeStuff> _tapes = new Dictionary<string, ITapeStuff>();
+        readonly IDictionary<string, ITapeStuff> _tapes = new UseConcurrentReliableOpsWhenCastToIDictionary<string, ITapeStuff>(new ConcurrentDictionary<string, ITapeStuff>());
 
         public void Delete(string name)
         {

@@ -84,9 +84,9 @@ namespace Rxns.Metrics
             foreach (var ee in all)
             {
                 var ce = ee.Source.Contents.Take(1).WaitR() as CapturedRxn;
-                var e = ce.Recorded as BasicErrorReport;
-                
+                if (ce == null) continue;
 
+                var e = ce.Recorded as BasicErrorReport;
                 yield return new SystemErrors()
                 {
                     Error = e.Error,

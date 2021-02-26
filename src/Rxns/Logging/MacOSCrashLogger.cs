@@ -43,7 +43,7 @@ namespace Rxns.Logging
         {
             var allErrors = Directory.GetFiles($"/Library/Logs/DiagnosticReports/", $"{programName}*.*");
             allErrors.ForEach(e =>
-            {
+            {   
                 $"Detected crash report: {e}".LogDebug(programName);
 
                 //log the actual crash, then delete it

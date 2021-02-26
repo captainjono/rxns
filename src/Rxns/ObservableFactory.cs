@@ -177,15 +177,13 @@ namespace Rxns
         {
             return Create<Process>(o =>
             {
-                $"Starting {pathToProcess}".LogDebug();
-
                 var reactorProcess = new ProcessStartInfo
                 {
-
                     ErrorDialog = false,
                     WorkingDirectory = new FileInfo(pathToProcess).DirectoryName,
                     FileName = pathToProcess,
                     Arguments = args,
+                    UseShellExecute = false,
                     RedirectStandardError = true,
                     RedirectStandardOutput = true
                 };
@@ -195,6 +193,8 @@ namespace Rxns
                     StartInfo = reactorProcess,
                     EnableRaisingEvents = true,
                 };
+
+                $"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
 
                 var nameOfProcess = new FileInfo(pathToProcess).Name;
 

@@ -30,6 +30,7 @@ namespace Rxns.Cloud
         /// </summary>
         protected int _started;
         protected readonly bool _isSynchronous;
+        private int _workerId;
         protected Action<IRxn> _publish { get; private set; }
 
         /// <summary>
@@ -98,53 +99,59 @@ namespace Rxns.Cloud
         /// <param name="workerShardSelector"></param>
         protected virtual void StartQueue(params Func<TQueueItem, bool>[] workerShardSelector)
         {
-            if (Interlocked.CompareExchange(ref _started, 1, 0) == 1) return;
-
-            QueueSize = workerShardSelector.Length;
-            _shardQueue = new Subject<TQueueItem>();
-            _queueFunc = item => _shardQueue.OnNext(item);
-            var workerId = 0;
-
-            OnInformation("Queue configured as {0}", _isSynchronous ? "sync" : "async");
-
             foreach (var where in workerShardSelector)
             {
-                try
-                {
-                    var consumer = _shardQueue.Where(where);
-                    //need this incase the implementor "awaits", which causes the consuming enumerable to advance before the previous consumer has fully processed "not a proper queue"
-                    if (_isSynchronous) consumer = consumer.Synchronize(where);
+               StartQueue(where);
+            }
+        }
 
-                    consumer
-                        .ObserveOn(_queueWorkerScheduler)
-                        .Do(_ => Interlocked.Increment(ref QueueCurrent))
-                        .SelectMany(request => this.ReportExceptions(() => ProcessQueueItem(request).Where(@event => @event != null).ToArray()))
-                        .Do(@event => @event.ForEach(_publish))
-                        .Select(_ => new Unit())
-                        .Catch<Unit, Exception>(e =>
+        public void StartQueue(Func<TQueueItem, bool> where)
+        {
+            try
+            {
+                if (Interlocked.CompareExchange(ref _started, 1, 0) != 1)
+                {
+                    QueueSize = 8;
+                    _shardQueue = new Subject<TQueueItem>();
+                    _queueFunc = item => _shardQueue.OnNext(item);
+                    _workerId = 0;
+
+                    OnInformation("Queue configured as {0}", _isSynchronous ? "sync" : "async");
+                }
+
+                var consumer = _shardQueue.Where(where);
+                //need this incase the implementor "awaits", which causes the consuming enumerable to advance before the previous consumer has fully processed "not a proper queue"
+                if (_isSynchronous) consumer = consumer.Synchronize(where);
+
+                consumer
+                    .ObserveOn(_queueWorkerScheduler)
+                    .Do(_ => Interlocked.Increment(ref QueueCurrent))
+                    .SelectMany(request => this.ReportExceptions(() => ProcessQueueItem(request).Where(@event => @event != null).ToArray()))
+                    .Do(@event => @event.ForEach(_publish))
+                    .Select(_ => new Unit())
+                    .Catch<Unit, Exception>(e =>
+                    {
+                        OnError(e);
+                        return new Unit().ToObservable();
+                    })
+                    .Do(_ => Interlocked.Decrement(ref QueueCurrent))
+                    .Subscribe(_ => { },
+                        error =>
                         {
-                            OnError(e);
-                            return new Unit().ToObservable();
+                            if (error is OperationCanceledException)
+                                OnVerbose("Queue processing has been stopped");
+                            else
+                            {
+                                OnError("Terminating the consumer for this queue processor due to: {0}", error);
+                            }
                         })
-                        .Do(_ => Interlocked.Decrement(ref QueueCurrent))
-                        .Subscribe(_ => { },
-                                error =>
-                                {
-                                    if (error is OperationCanceledException)
-                                        OnVerbose("Queue processing has been stopped");
-                                    else
-                                    {
-                                        OnError("Terminating the consumer for this queue processor due to: {0}", error);
-                                    }
-                                })
-                        .DisposedBy(_queueResources);
+                    .DisposedBy(_queueResources);
 
-                    OnVerbose("[{0}] Started sharding consumer", workerId++);
-                }
-                catch (Exception e)
-                {
-                    OnError(e);
-                }
+                OnVerbose("[{0}] Started sharding consumer", Interlocked.Increment(ref _workerId));
+            }
+            catch (Exception e)
+            {
+                OnError(e);
             }
         }
 

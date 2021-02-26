@@ -98,10 +98,6 @@ namespace Rxns.Hosting
                     TotalTransferTimeout = TimeSpan.FromMinutes(5),
                     EnableCompression = true
                 })
-                .CreatesOncePerApp(() => new AppServiceRegistry()
-                {
-                    AppStatusUrl = "http://localhost:888"
-                })
                 .CreatesOncePerApp<AppCommandService>();
         }
     }

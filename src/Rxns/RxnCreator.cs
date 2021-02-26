@@ -7,10 +7,12 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Security;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Health;
 using Rxns.Interfaces;
+using Rxns.Logging;
 
 
 namespace Rxns
@@ -269,6 +271,38 @@ namespace Rxns
                     });
                 }
             };
+
+        public static IObservable<IRxn> MonitorHealth<T>(IReportHealth doctor, string processorName,out Func<IEnumerable<IMonitorAction<IRxn>>> before, Func<IObservable<IRxn>> doDelivery)
+        {
+            var health = HealthMonitor.ForQueue<IRxn>(doctor, processorName);
+            before = () => health.Select(h => h.Before());
+
+            //let them hook it up
+            //if (inputScheduler != null) inputStream = inputStream.ObserveOn(inputScheduler);
+
+            //return inputStream.Subscribe(processor as IReportStatus ?? reactor, evnt =>
+            //{
+            try
+            {
+                var result = doDelivery();
+
+                //publish all events that resulted from the processing
+
+                if (result != null)
+                    return result
+                        .MonitorR(health.Select(h => h.After()).ToArray());
+
+
+            }
+            catch (Exception e)
+            {
+
+                OnError(ReportStatus.Log, doctor, null, e);
+            }
+            //});
+            return Rxn.Empty();
+
+        }
 
         /// <summary>
         /// Called each time an error occours during a reaction. Override this static method if you wish to override the default behaviour
