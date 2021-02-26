@@ -10,3 +10,86 @@ Pattern | Application
 [Reactor](reactors.md) | Create a seperate enclave where you can standup existing components or APIs behind elastic microserivces
 [Cloud Scaling](cloudscaling.md) | Take existing APIs and push them into the cloud to increase ability to withstand copmpute spikes in a growing system
 [AppStatus](#scaling.md) | Bolt real-time monitoring through a Cloud console onto the side of an existing app or service without refactoring
+
+
+This is an example of [domain command handler](dddaggs.md) which transitions a db centric legacy system to an event source micro-app. 
+-   Here fields in a legacy monolith database have been profiled and selected intelligently based on the cloud providers desired plan specifics in order to reduce the overhead of certain hot fields and reduce db teirs.
+-   The example uses an [event sourced aggregate](#) as the microservice persistant mechanism to add highly scalable comment'ing features to an existing CRM style system
+
+```c#
+        public IObservable<DomainCommandResult<long>> Handle(AttachMessageToDocumentCmd cmd)
+        {
+            lock (GetDocmentLock(cmd.Tenant, cmd.FileNumber))
+            {
+                return Rxn.Create(() =>
+                {
+                    //make sure your LookupId functions hit caches to reduce db chatter
+                    //otherwise you new Microservice will cause erratic spikes
+                    //also ensure you have sorted transient failures otherwise you can 
+                    //corrupt the state of the write model                        
+                    return ReliablyRun(cmd.Tenant, lookup => lookup.Run(db =>
+                    {
+                        long id;
+
+                        
+                        //use the event as the mechanism to derive user/tenant context for database operations
+                        var userContext = _exeContext.FromUserDomain(cmd).User.Value;
+                        var enteredBy = "{0} {1}".FormatWith(userContext.Name.FirstName, userContext.Name.LastName).Trim();
+                        db.rri_DocumentComment( //use legacy stored proc to persist data into read model
+                            _legacyDb.LookupUserId(cmd.Tenant, cmd.UserName), 
+                            _legacyDb.LookupDocumentId(cmd.Tenant, cmd.DocumentNumber), 
+                            cmd.Subject, 
+                            cmd.Message, 
+                            enteredBy, 
+                            userContext.IsPrivate, 
+                            cmd.Created, 
+                            out id
+                            );
+
+                        //return an event sourced message which can be used to update 
+                        //redundant write models or webcache or data lakes etc
+                        var sideEffect = new NewDocumentMessageAdded(cmd.FileNumber, 
+                                                                cmd.UserName, 
+                                                                id.ToString(), 
+                                                                cmd.Subject, 
+                                                                cmd.Message, 
+                                                                enteredBy, 
+                                                                cmd.IsPrivate, 
+                                                                userContext.IsPrivate, 
+                                                                cmd.Created);
+                        sideEffect.AssignTenant(cmd.Tenant);
+
+                        return DomainCommandResult<long>.FromSuccessfulResult(id, sideEffect);
+                    }));
+                });
+            }
+        }
+```
+
+your future state in a pure event source model would look like this. Dont worry about the lock here, thats just to serilise access to the aggregate which can be stored locally immediately with your user getting a response in > 10ms, then you can lazily persist that to a cloud db or push it into a [read model such as a legacy db with a view processor pattern](ViewProcessors.md)
+
+```c#
+        public IObservable<DomainCommandResult<bool>> Handle(RevokeDocumentAccessForIndividualCmd cmd)
+        {
+            lock (GetDocumentLock(cmd.Tenant, cmd.FileNumber))
+            {
+                return Rxn.Create(() =>
+                {
+                    if (cmd.Tenant.IsNullOrWhitespace()) 
+                        return false.AsFailureWith(new DomainCommandException(cmd, 
+                                                        "No tenant supplied for command:id {0}", cmd.Id));
+                    if (cmd.DocumentNumber.IsNullOrWhitespace()) 
+                        return false.AsFailureWith(new DomainCommandException(cmd, 
+                                                        "No DocumentNumber supplied for command:id {0}", cmd.Id));
+
+                    var matter = _matterRepo.GetById(cmd.Tenant, cmd.FileNumber);
+                    matter.AssignFileNumber(cmd.FileNumber);
+                    matter.RevokeExternalAccessForIndividual(cmd.FirstName, cmd.LastName);
+                    var processed = _matterRepo.Save(cmd.Tenant, matter).ToArray();
+
+                    return true.AsSuccessWith(processed);
+                },
+                error => false.AsFailureWith(error));
+            }
+        }
+```
