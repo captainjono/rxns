@@ -20,6 +20,8 @@ using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Microservices;
+using Rxns.Scheduling;
+using StringExtensions = System.StringExtensions;
 
 namespace Autofac
 {
@@ -290,6 +292,13 @@ namespace Autofac
 
             return this;
         }
+        public IRxnLifecycle RunsTask<T>() where T : ITask
+        {
+            _cb.RegisterTasks<T>();
+            
+            return this;
+        }
+
 
         public IRxnLifecycle RespondsToQry<T>() where T : IDomainQuery
         {

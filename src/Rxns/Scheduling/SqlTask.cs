@@ -146,8 +146,8 @@ namespace Rxns.Scheduling
         {
             using (var transaction = _database.BeginTransaction(connectionString, database))
             {
-                _database.ExecuteScript(script, transaction).Wait();
-                transaction.Commit();
+                _database.ExecuteScript(script, transaction.Value).Wait();
+                transaction.Value.Commit();
             }
         }
 

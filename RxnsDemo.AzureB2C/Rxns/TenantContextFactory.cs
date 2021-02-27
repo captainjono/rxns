@@ -1,0 +1,34 @@
+﻿using System;
+
+namespace RxnsDemo.AzureB2C.Rxns
+{
+    /// <summary>
+    /// todo: add caching to getters ?
+    /// </summary>
+    public class TenantContextFactory : ITenantContextFactory
+    {
+
+        public Func<string, ITenantContext> _tenantFactory { get; set; }
+        private readonly IUserContextFactory _userContextFactory;
+
+        public TenantContextFactory(IUserContextFactory userContextFactory)
+        {
+
+            //_tenantFactory = tenantFactory;
+            _userContextFactory = userContextFactory;
+        }
+
+
+        public IUserContext GetUserContext(string tenant, string userName = null)
+        {
+            return _userContextFactory.GetUserContext(tenant, userName);
+        }
+
+        public ITenantContext GetContext(string tenant)
+        {
+            return _tenantFactory(tenant);
+        }
+    }
+
+
+}  

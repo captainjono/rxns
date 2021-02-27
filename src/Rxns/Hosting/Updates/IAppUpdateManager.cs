@@ -17,5 +17,6 @@ namespace Rxns.Hosting.Updates
         IObservable<bool> PushUpdate(string systemName, string version, string username, string[] tenants);
 
         IObservable<AppUpdateStatus> SystemStatus { get; }
+        void UploadLog(int logNumber = 0, bool truncate = false);
     }
 }

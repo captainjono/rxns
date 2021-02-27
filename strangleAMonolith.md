@@ -25,7 +25,7 @@ This is an example of [domain command handler](dddaggs.md) which transitions a d
                 return Rxn.Create(() =>
                 {
                     //make sure your LookupId functions hit caches to reduce db chatter
-                    //otherwise you new Microservice will cause erratic spikes
+                    //otherwise your new Microservice will cause erratic spikes in its usage.
                     //also ensure you have sorted transient failures otherwise you can 
                     //corrupt the state of the write model                        
                     return ReliablyRun(cmd.Tenant, lookup => lookup.Run(db =>
@@ -49,7 +49,8 @@ This is an example of [domain command handler](dddaggs.md) which transitions a d
 
                         //return an event sourced message which can be used to update 
                         //redundant write models or webcache or data lakes etc
-                        var sideEffect = new NewDocumentMessageAdded(cmd.FileNumber, 
+                        var sideEffect = new NewDocumentMessageAdded(
+                                                                cmd.FileNumber, 
                                                                 cmd.UserName, 
                                                                 id.ToString(), 
                                                                 cmd.Subject, 
@@ -57,7 +58,8 @@ This is an example of [domain command handler](dddaggs.md) which transitions a d
                                                                 enteredBy, 
                                                                 cmd.IsPrivate, 
                                                                 userContext.IsPrivate, 
-                                                                cmd.Created);
+                                                                cmd.Created
+                                                                );
                         sideEffect.AssignTenant(cmd.Tenant);
 
                         return DomainCommandResult<long>.FromSuccessfulResult(id, sideEffect);
@@ -67,7 +69,7 @@ This is an example of [domain command handler](dddaggs.md) which transitions a d
         }
 ```
 
-your future state in a pure event source model would look like this. Dont worry about the lock here, thats just to serilise access to the aggregate which can be stored locally immediately with your user getting a response in > 10ms, then you can [lazily persist that to a cloud db with a `sharding queue processor` or push it into a [read model such as a legacy db with a db view processor pattern](ViewProcessors.md)
+your future state in a pure event source model would look like this. It uses an `ITenantModelRepository<>` to store the aggregate with an [ITapeArray](playback.md) and return a response in `< 10ms`, with a side-effect event generated which could be utimately used with a `AzurePushClient` to [send notifications to users](rxnInAzure.md), or could be [lazily persist that to a cloud db with a `sharding queue processor` or fan it out via a [RxnManager](buildingblocks.md)] backed by a [AzureQueueBackingChannel](rxnInAzure.md) to power cloud functions that could update a [read model such as a legacy db with a db view processor pattern](ViewProcessors.md)
 
 ```c#
         public IObservable<DomainCommandResult<bool>> Handle(RevokeDocumentAccessForIndividualCmd cmd)

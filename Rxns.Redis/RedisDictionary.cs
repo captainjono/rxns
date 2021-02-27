@@ -107,7 +107,7 @@ namespace Rxns.Redis
                 {
                     return false;
                 }
-                value = (TValue) redisValue.Box();
+                value = (TValue) redisValue.;
 
                 return true;
             }
@@ -117,7 +117,7 @@ namespace Rxns.Redis
         {
             get
             {
-                return _database.HashValues(_redisKey).Select(val => (TValue) val.Box()).ToList();
+                return _database.HashValues(_redisKey).Select(val => (TValue) val).ToList();
             }
         }
 

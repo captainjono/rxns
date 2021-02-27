@@ -5,6 +5,7 @@ using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Microservices;
+using Rxns.Scheduling;
 
 namespace Rxns.Hosting
 {
@@ -34,6 +35,8 @@ namespace Rxns.Hosting
         IRxnLifecycle RespondsToCmd<T>() where T : IDomainCommand;
         IRxnLifecycle RespondsToQry<T>() where T : IDomainQuery;
         IRxnLifecycle RespondsToSvcCmds<T>() where T : IServiceCommand;
+        IRxnLifecycle RunsTask<T>() where T : ITask;
+
 
         IRxnLifecycle Emits<T>() where T : IRxn;
         IRxnLifecycle EmitsAnyIn<T>() where T : IRxn;

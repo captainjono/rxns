@@ -7,6 +7,7 @@ using Autofac.Core;
 using Rxns.Interfaces;
 using Rxns.DDD.Commanding;
 using Rxns.Logging;
+using Rxns.Scheduling;
 
 namespace Autofac
 {
@@ -60,6 +61,26 @@ namespace Autofac
             foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IRxn>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
             {
                 cb.RegisterType(type).AsSelf().InstancePerDependency();
+            }
+        }
+
+
+        /// <summary>
+        /// Registers all ScheduableTasks from the assembly containing the specified type so that they can be resolved
+        /// via the container and as a named instance from json shorthand aka tasks.json
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cb"></param>
+        /// <param name="c"></param>
+        /// <returns></returns>
+        public static void RegisterTasks<T>(
+            this ContainerBuilder cb)
+        {
+
+            //register all SchedulableTask's as they are created dynamically in various places from the container
+            foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<SchedulableTask>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
+            {
+                cb.RegisterType(type).AsImplementedInterfaces().AsSelf().Named<ISchedulableTask>(type.Name).InstancePerDependency();
             }
         }
 

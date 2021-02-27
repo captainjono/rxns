@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Reactive;
+using Autofac.Features.OwnedInstances;
 
 namespace Rxns.Scheduling
 {
-    public interface IDbTransaction : IDisposable
-    {
-        void Commit();
-    }
-
     public class RxSqlException : Exception
     {
         public int Number { get; set; }
@@ -29,6 +26,6 @@ namespace Rxns.Scheduling
         IObservable<Unit> ExecuteScript(string connectionString, string script, string database = null);
         IObservable<Unit> ExecuteScript(string script, IDbTransaction database);
 
-        IDbTransaction BeginTransaction(string connectionString, string database);
+        Owned<IDbTransaction> BeginTransaction(string connectionString, string database);
     }
 }

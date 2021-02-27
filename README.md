@@ -1,6 +1,6 @@
 <!-- TOC -->
 
-1. [1. Reactions](#1-reactions)
+- [1. Reactions](#1-reactions)
 
 <!-- /TOC -->
 
