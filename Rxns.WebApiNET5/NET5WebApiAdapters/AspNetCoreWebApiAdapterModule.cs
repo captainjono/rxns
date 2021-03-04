@@ -1,4 +1,6 @@
-﻿using Rxns.Hosting;
+﻿using Rxns.DDD;
+using Rxns.Health.AppStatus;
+using Rxns.Hosting;
 using Rxns.Logging;
 using Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters;
 
@@ -28,7 +30,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<StaticFileSystemConfiguration>()
                 .CreatesOncePerRequest<CommandWebApiController>()
                 .CreatesOncePerRequest<AnonymousCommandController>()
-                .CreatesOncePerApp<ResolverCommandFactory>();
+                .CreatesOncePerApp<ResolverCommandFactory>()
+                .Includes<AppStatusServerModule>() //server modules always after client module
+                .Includes<DDDServerModule>()
+                //so adapters can be swapped out
+                 ;
 
 
         }

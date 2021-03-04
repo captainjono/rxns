@@ -6,7 +6,7 @@ namespace Rxns.DDD.BoundedContext
     {
         public string Id { get; set; }
         public DateTime Timestamp { get; set; }
-        public string Tenant { get; private set; }
+        public string Tenant { get; set; }
 
 
         public DomainEvent()
@@ -16,9 +16,8 @@ namespace Rxns.DDD.BoundedContext
         }
 
 
-        public DomainEvent(string tenant)
+        public DomainEvent(string tenant) : this()
         {
-
             Tenant = tenant;
         }
 

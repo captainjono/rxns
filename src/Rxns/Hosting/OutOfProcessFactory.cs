@@ -29,6 +29,31 @@ namespace Rxns.Hosting
         {
             _appStore = appStore;
         }
+
+        public static IRxnClusterHost CreateClusterHost(string[] args, IStoreAppUpdates appStore, IRxnAppCfg cfg, string systemName = null, string reactor = null, string version = null)
+        {
+            if (args.Contains("reactor"))
+            {
+                OutOfProcessFactory.CreateNamedPipeClient(args.SkipWhile(a => a != "reactor").Skip(1).FirstOrDefault() ?? "spare");
+            }
+            else
+            {
+                OutOfProcessFactory.CreateNamedPipeServer();
+            }
+
+
+            return new ClusteredAppHost(
+                    new OutOfProcessFactory(appStore),
+                    OutOfProcessFactory.RxnManager,
+                    OutOfProcessFactory.PipeServer?.Router,
+                    new AutoBalancingHostManager()
+                        .ConfigureWith(new ConsoleHostedApp(), _ => true),
+                        cfg,
+                        appStore)
+                    .ConfigureWith(new AutoScalingAppManager()
+                    .ConfigureWith(new ReliableAppThatRestartsOnCrash(OutOfProcessFactory.RxnManager))
+                    .ConfigureWith(new AutoScaleoutReactorPlan(systemName.IsNullOrWhitespace() ? null : new ScaleoutToEverySpareReactor(), systemName, reactor, version)));
+        }
         
         public static NamedPipesServerBackingChannel CreateNamedPipeServer()
         {

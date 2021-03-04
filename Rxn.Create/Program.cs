@@ -172,37 +172,19 @@ namespace RxnCreate
         {
             return Rxns.Rxn.Create<IRxnAppContext>(o =>
             {
-                if (args.Contains("reactor"))
-                {
-                    OutOfProcessFactory.CreateNamedPipeClient(args.SkipWhile(a => a != "reactor").Skip(1).FirstOrDefault() ?? "spare");
-                }
-                else
-                {
-                    OutOfProcessFactory.CreateNamedPipeServer();
-                }
-
                 //setup static object.Serialise() & string.Deserialise() methods
                 RxnExtensions.DeserialiseImpl = (t, json) => JsonExtensions.FromJson(json, t);
                 RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
 
                 var cfg = RxnAppCfg.Detect(args);
                 var appStore = new CurrentDirectoryAppUpdateStore();
+                var clusterHost = OutOfProcessFactory.CreateClusterHost(args, appStore, cfg, "DemoApp", "Cache", "1.0");
+
 
                 return OutOfProcessDemo.DemoApp(RxnApp.SpareReator(url))
                     .ToRxns()
                     .Named(new ClusteredAppInfo("DemoApp", cfg.Version, args, false))
-                    .OnHost(new ClusteredAppHost(
-                            new OutOfProcessFactory(appStore),
-                            OutOfProcessFactory.RxnManager,
-                            OutOfProcessFactory.PipeServer?.Router,
-                            new AutoBalancingHostManager()
-                                .ConfigureWith(new ConsoleHostedApp(), _ => true), 
-                            cfg,
-                            appStore)
-                                .ConfigureWith(new AutoScalingAppManager()
-                                .ConfigureWith(new ReliableAppThatRestartsOnCrash(OutOfProcessFactory.RxnManager))
-                                .ConfigureWith(new AutoScaleoutReactorPlan(new ScaleoutToEverySpareReactor(), "DemoApp", "Cache", "1.0"))),
-                            cfg)
+                    .OnHost(clusterHost, cfg)
                     .SelectMany(h => h.Run())
                     .Do(app =>
                     {

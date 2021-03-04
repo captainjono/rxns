@@ -14,8 +14,8 @@ namespace Rxns.Hosting.Updates
 {
     public class LocalAppStatusServer : IAppStatusServiceClient
     {
-        private readonly IAppErrorManager _errorMgr;
-        private readonly IAppStatusManager _appStatusMgr;
+        protected readonly IAppErrorManager _errorMgr;
+        protected readonly IAppStatusManager _appStatusMgr;
 
         public LocalAppStatusServer(IAppErrorManager errorMgr, IAppStatusManager appStatusMgr)
         {

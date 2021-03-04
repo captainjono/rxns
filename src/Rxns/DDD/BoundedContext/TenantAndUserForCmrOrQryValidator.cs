@@ -15,7 +15,7 @@ namespace Rxns.DDD.BoundedContext
 
     public class UserDomainEvent : DomainEvent, IRequireUserContext
     {
-        public string UserName { get; private set; }
+        public string UserName { get; set; }
 
         public UserDomainEvent() { }
 

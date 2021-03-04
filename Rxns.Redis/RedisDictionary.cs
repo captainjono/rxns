@@ -107,7 +107,7 @@ namespace Rxns.Redis
                 {
                     return false;
                 }
-                value = (TValue) redisValue.;
+                value = (TValue)(dynamic) redisValue;
 
                 return true;
             }
@@ -117,7 +117,7 @@ namespace Rxns.Redis
         {
             get
             {
-                return _database.HashValues(_redisKey).Select(val => (TValue) val).ToList();
+                return _database.HashValues(_redisKey).Select(val => (TValue)(dynamic) val).ToList();
             }
         }
 
@@ -209,7 +209,7 @@ namespace Rxns.Redis
         {
             return _database
                         .HashScan(_redisKey)
-                        .Select(he => new KeyValuePair<TKey, TValue>((TKey) he.Name.Box(), (TValue) he.Value.Box()))
+                        .Select(he => new KeyValuePair<TKey, TValue>((TKey)(dynamic) he.Name, he.Value.To<TValue>()))
                         .GetEnumerator();
         }
 
@@ -220,7 +220,7 @@ namespace Rxns.Redis
 
         private bool Set(TKey key, TValue value)
         {
-            return _database.HashSet(_redisKey, key.ToRedisValue(), value.ToRedisValue());
+            return _database.HashSet(_redisKey, key.ToString(), value.ToRedisValue());
         }
 
         private bool IsKeyNull(TKey key)
@@ -231,7 +231,7 @@ namespace Rxns.Redis
         public IDictionary<TKey, TValue> GetValues(TKey[] keys)
         {
             var hashEntries = _database.HashGetAll(_redisKey).Where(r => keys.Select(k => k.ToRedisValue()).ToList().Contains(r.Name.ToString())).ToList();
-            return hashEntries.ToDictionary(e => (TKey) e.Name, e => e.Value.To<TValue>());
+            return hashEntries.ToDictionary(e => (TKey)(dynamic)e.Name, e => e.Value.To<TValue>());
         }
     }
 }

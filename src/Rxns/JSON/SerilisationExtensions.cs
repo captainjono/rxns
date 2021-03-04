@@ -27,6 +27,8 @@ namespace Rxns.NewtonsoftJson
 
         public static object FromJson(this string json, Type targetType = null, ITraceWriter deserialisationLog = null, JsonSerializerSettings settings = null)
         {
+            if (json.IsNullOrWhitespace() || json == "{}") return null;
+
             var s = settings ?? DefaultSettings;
             s.TraceWriter = deserialisationLog;
             return targetType == null ? JsonConvert.DeserializeObject(json, s) : JsonConvert.DeserializeObject(json, targetType, s);

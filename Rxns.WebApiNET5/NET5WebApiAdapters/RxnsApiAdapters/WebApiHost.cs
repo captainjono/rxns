@@ -28,7 +28,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         public IDisposable Start()
         {
-            return this.ReportToDebug();
+            return Disposable.Empty;
         }
 
         public void Restart(string version = null)
@@ -73,13 +73,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                     _app.Definition.UpdateWith(lifecycle =>
                     {
                         lifecycle
-                            //.CreatesOncePerApp<AutofacTypeResolver>()
-                            .Includes<AppStatusClientModule>()
-                            .Includes<RxnsModule>()
-                            .Includes<AppStatusServerModule>() //server modules always after client module
-                            .Includes<DDDServerModule>()
-                            //so adapters can be swapped out
-                            .Includes<AspNetCoreWebApiAdapterModule>()
                             .CreatesOncePerApp(_ => _appCfg)
                             .CreatesOncePerApp(_ => _app)
                             .CreatesOncePerApp(_ => _cfg);

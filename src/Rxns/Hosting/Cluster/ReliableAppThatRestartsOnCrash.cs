@@ -55,6 +55,11 @@ namespace Rxns.Hosting.Cluster
         /// <param name="version">Null indicates will scaleout with latest version and stay upto date automatically. otherwise u can still upgrade the scaleouts later with UpdateSystemCommand's</param>
         public AutoScaleoutReactorPlan(IRampupStyle rampup, string systemName, string reactor = null, string version = null)
         {
+            if (rampup == null)
+            {
+                "Byhpassing AutoScalout due to no rampup".LogDebug();
+                return;
+            }
             _rampup = rampup;
             _systemName = systemName;
             _reactor = reactor;

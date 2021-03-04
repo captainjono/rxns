@@ -94,13 +94,7 @@ namespace Rxns.Hosting
         }
 
         /// <summary>
-        /// In a system with multiple network adapters, sometimes an 'incorrect' adapter is bound instead of the one you'd
-        /// expect. For example, rather than using your WiFi network, the system might pick a VPN adapter etc. In this case
-        /// packets are sent/received on the network and you often get no responses, or unexpected/incorrect responses. To
-        /// solve this you can manually specify an IP by passing it to the constructor of a SsdpCommunicationsServer instance,
-        /// then passing that instance to the publisher/locator instance. 
-        /// 
-        /// https://github.com/Yortw/RSSDP/wiki/Frequently-Asked-Questions#i-dont-get-search-results-or-notifications
+        /// Avoid VM / VPN / local adapters to listen on
         /// </summary>
         /// <returns></returns>
         public static string GetIpAddress()

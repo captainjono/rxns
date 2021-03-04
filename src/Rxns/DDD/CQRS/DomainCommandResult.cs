@@ -62,5 +62,15 @@ namespace Rxns.DDD.Commanding
         {
             return DomainCommandResult<T>.FromSuccessfulResult(cmdId, result,  sideEffects.ToArray());
         }
+
+        public static DomainCommandResult<T> ToSuccessResultWith<T, TR>(this TR cmd, T result, params IDomainEvent[] changes) where TR : IDomainCommand
+        {
+            return DomainCommandResult<T>.FromSuccessfulResult(cmd.Id, result, changes);
+        }
+
+        public static DomainCommandResult<T> ToFailureResultWith<T, TR>(this TR cmd, Exception error) where TR : IDomainCommand
+        {
+            return DomainCommandResult<T>.FromFailureResult(cmd.Id, error);
+        }
     }
 }

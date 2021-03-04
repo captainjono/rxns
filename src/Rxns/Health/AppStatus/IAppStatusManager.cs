@@ -9,9 +9,15 @@ namespace Rxns.Health.AppStatus
         public string Route { get; set; }
     }
 
+    public interface IAppHeartBeatHandler
+    {
+        IObservable<IRxn> OnNewAppDiscovered(IAppStatusManager appStatus, SystemStatusEvent app);
+        IObservable<IRxn> OnAppHeartBeat(IAppStatusManager appStatus,  SystemStatusEvent app);
+    }
+
     public interface IAppStatusManager
     {
-
+        IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status);
         SystemStatusModel[] GetSystemStatus();
         IObservable<bool> UploadLogs(string tenantId, string systemName, IFileMeta file);
 

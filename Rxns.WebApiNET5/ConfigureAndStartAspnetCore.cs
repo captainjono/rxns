@@ -19,7 +19,7 @@ using Rxns.WebApiNET5.NET5WebApiAdapters.System.Web.Http;
 
 namespace Rxns.WebApiNET5
 {
-    public interface IWebApiRxn
+    public interface IRxnAppDef
     {
         Func<string, Action<IRxnLifecycle>> App { get; }
         IRxnAppInfo AppInfo { get; }
@@ -42,7 +42,7 @@ namespace Rxns.WebApiNET5
         }
     }
 
-    public abstract class ConfigureAndStartAspnetCore : IWebApiRxn
+    public abstract class ConfigureAndStartAspnetCore : IRxnAppDef
     {
         public abstract Func<string, Action<IRxnLifecycle>> App { get; }
         public abstract IRxnAppInfo AppInfo { get; }
@@ -89,7 +89,19 @@ namespace Rxns.WebApiNET5
 
         public void ConfigureContainer(ContainerBuilder cb)
         {
-            var appReadyToRun = CreateApp(cb);
+            CreateApp(cb, this).Until();
+        }
+
+        public static IObservable<IRxnHostReadyToRun> CreateApp(ContainerBuilder cb, IRxnAppDef rxnAppDef, string[] args = default(string[]))
+        {
+            var rxnApp = rxnAppDef.App("http://localhost:888");
+            var appInfo = rxnAppDef.AppInfo;
+            var webApiHost =  new WebApiHost(rxnAppDef.WebApiCfg);
+
+            var appReadyToRun = cb
+                .ToRxnsSupporting(rxnApp)
+                .Named(appInfo)
+                .OnHost(webApiHost, new RxnAppCfg() { Args = args });
 
             cb.Register(c =>
             {
@@ -98,8 +110,7 @@ namespace Rxns.WebApiNET5
                 return new RxnStarter(() =>
                 {
                     "Launching App in WebApi host".LogDebug();
-
-
+                    
                     appReadyToRun // the apps supervisor
                         .SelectMany(h => h.Run(new AutofacAppContainer(container)))
                         .Do(rxnAppContext => { "App started".LogDebug(); })
@@ -107,23 +118,11 @@ namespace Rxns.WebApiNET5
                 });
             }).AsImplementedInterfaces().SingleInstance();
 
-
-
-        }
-
-        public IObservable<IRxnHostReadyToRun> CreateApp(ContainerBuilder cb, Func<Action<IRxnLifecycle>, Action<IRxnLifecycle>> lifecycle = null, string[] args = default(string[]))
-        {
-            var rxnApp = App(WebApiCfg.BindingUrl);
-            var appInfo = AppInfo;
-            var webApiHost = new WebApiHost(WebApiCfg);
-
             //var consoleHost = new ConsoleHostedApp(); // for unit/testing
             //var reliableHost = new RxnSupervisorHost(...); //will automatically reboot your app on failure. "always on"
 
-            return cb
-               .ToRxnsSupporting(rxnApp)
-               .Named(appInfo)
-               .OnHost(webApiHost, new RxnAppCfg() { Args = args });
+
+            return appReadyToRun;
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -141,6 +140,9 @@ namespace Rxns.WebApiNET5
             {
                 server.UseHsts();
             }
+
+            server.UseDeveloperExceptionPage();
+
 
             // server.UseHttpsRedirection();
             server.UseRouting();

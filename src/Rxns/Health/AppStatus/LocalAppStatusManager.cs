@@ -35,14 +35,16 @@ namespace Rxns.Health.AppStatus
         private readonly ISystemStatusStore _systemStatus;
         private readonly IAppStatusStore _appStatus;
         private readonly IAppUpdateManager _updates;
+        private readonly IAppHeartBeatHandler[] _heartBeatHandlers;
         private Action<IRxn> _publish;
         private IDictionary<string, string> _keepUpToDateWithNewAppVersions = new ConcurrentDictionary<string, string>();
 
 
-        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates)
+        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates, IAppHeartBeatHandler[] heartBeatHandlers)
         {
             _appStatus = appStatus;
             _updates = updates;
+            _heartBeatHandlers = heartBeatHandlers;
             _systemStatus = systemStatus;
         }
 
@@ -85,16 +87,23 @@ namespace Rxns.Health.AppStatus
         {
             OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName, status.IpAddress);
             
-
             return _systemStatus.AddOrUpdate(status, meta)
                 .Do(isNew =>
                 {
-                    if (isNew && IsSpareReactor(status))
+                    if (isNew)
                     {
-                        _publish(new SpareReactorAvailible()
+                        _heartBeatHandlers.ForEach(h => h.OnNewAppDiscovered(this, status));
+                        if (IsSpareReactor(status))
                         {
-                            Route = status.GetRoute()
-                        });
+                            _publish(new SpareReactorAvailible()
+                            {
+                                Route = status.GetRoute()
+                            });
+                        }
+                    }
+                    else
+                    {
+                        _heartBeatHandlers.ForEach(h => h.OnAppHeartBeat(this, status));
                     }
                 });
         }
@@ -118,7 +127,7 @@ namespace Rxns.Health.AppStatus
                 .SelectMany(wasAdded => _appStatus.FlushCommands(appRoute).ToArray().ToObservable().Concat(UpdateSystemCommandIfOutofDate(status)));
         }
 
-        private IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
+        public IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
         {
             return _updates.AllUpdates(status.SystemName.Split("[main")[0], 1)
                 .FirstOrDefaultAsync()

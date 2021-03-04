@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
@@ -35,6 +36,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             {
 
                 var host = Host.CreateDefaultBuilder(args)
+                    .UseEnvironment("Development")
                     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
                     .ConfigureLogging((a, l) => l.AddConsole().AddDebug().SetMinimumLevel(LogLevel.Trace))
                     .ConfigureWebHostDefaults(webHostBuilder =>
@@ -42,6 +44,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         webHostBuilder
                             .UseUrls(cfg.BindingUrl.Split(','))
                             .UseContentRoot(cfg.Html5Root)
+                            .CaptureStartupErrors(true)
                             .UseKestrel(opts => {
                                 
                                 // Bind directly to a socket handle or Unix socket
@@ -58,7 +61,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
 
                 await host.RunAsync();
 
-                stopServer = () => host.Dispose();
+                stopServer = () =>
+                {
+                    "Stopping api on purpose".LogDebug();
+                    host.Dispose();
+                };
 
                 return new DisposableAction(() =>
                 {
