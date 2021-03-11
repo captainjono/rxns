@@ -1,19 +1,34 @@
-# Reactors
-A
+# *Patterns and Practives:* Reactors 
+
 # Why?
 
-Every reactive application can be thought of as a *set of reactions*. When something happens, something is told todo something and so on to create the domain logic of your app. As apps grow, these boundaries can become blurred if care is not taken, causing issues with maintainence costs, scalability, event storms, a other... chain reactions. Once you build your reactive app, taming it becomes the next challenge. Reactors are a pattern to bring order to your app.
+Every reactive application can be thought of as a *set of reactions*. When something happens, something else happens, which triggers something else and so on and so for.. At a micro-level, your application becomes a series of chain reactions where buisness rules trigger a series of buisness processes that model succinctly your problem domain.
 
-Reactors benifits include: 
-- Isolatation boundaries in your Reactive application that allow Domain specific services start, stop and independently of eachother at any point in time, without a user ever knowing.
-- Horitizontal scaling point for your app, allowing it to adapt to whatever core count or user load your app generates.
-- Faciliate decoupling of your app
-- Stop and start independtly of eachother, including at any point during runtime
-- Can scale independently of eachother, including being sent [Out Of Process] or [Into the Cloud]   
+> This style of App modelling has become popularised now with the [acceleration towards Serverless computing](https://betterprogramming.pub/serverless-is-amazing-but-heres-the-big-problem-9e76b65f23c6)
+
+ As these Reactive Apps grow, boundaries between services can often become blurred if care is not taken, mainifesting as:
+ - Increased maintainence costs
+ - Decreased Scalability 
+ - Increawsed chance of experiencing event storms
+ - Creating Multiple points of failure
+ 
+ and other types of unexpected side-effects. Once you build your reactive app, taming it becomes the next challenge. 
+ 
+ `Reactors` is *Domain Modelling* *pattern* that attempts to bring order to the *Reactive* *world*. 
+ 
+ Benifits include: 
+- `Isolatation boundaries` in your Reactive application that allow Domain specific services start, stop and independently of eachother at any point in time, without a user ever knowing.
+- `Horitizontal scaling points` for your app, allowing it to adapt to whatever core count or user load your app generates.
+- Faciliate `decoupling` of your app components
+  - Stop and start independtly of eachother, including at any point during runtime
+  - Can scale independently of eachother, including being sent [`Out Of Process`] or [`Into the Cloud`]
+- Naturally evolve of independendly deploable micro-architectures
 
 ## reACTORS
 
-Reactors are a modern take on other actor frameworks like `Erlang`, `Lisp`, `Akka` and `Orleans` that was designed to utilise Cloud Native technologies instead of aimed at on-prem or other self-managed infrastructure. The aim of reactors ecapsulate your App's buisness domains from being polluted by the semantics of the technological domain where they put the bytes to the streams and actually run. This adapting of domains acts as a natural barrier that without intrusion limits the use-case to the point where seemlessly move from host to host later on with fluid motion. Your app can go from single threaded to multi by to simpling running it on a `ClusteringAppHost`. Hosts can be composed together to create multi-threaded-cloud-functions. Learn more about [AppHosts  here](#AppHosts)
+Reactors are a modern take on other actor frameworks like `Erlang`, `Lisp`, `Akka`, `ServiceFrabic` and `Orleans` that was designed from the ground up instead utilise *Cloud Native* technologies instead of aimed at on-prem or other self-managed infrastructure. 
+
+One of the core aims of Reactors are to encapsulate your App's buisness domains and stop them from being polluted by the semantics of the technological domain where they put the bytes to the streams and come alive. This adapting of domains acts as a natural barrier that without intrusion limits the use-case to the point where seemlessly move from host to host or platform to platform is reality. Your app can go from single threaded to multi by simpling running it on a `ClusteringAppHost`. Hosts addtionally can be composed together to create multi-threaded-cloud-functions. Learn more about [AppHosts  here](#AppHosts)
 
 # Specifics
 

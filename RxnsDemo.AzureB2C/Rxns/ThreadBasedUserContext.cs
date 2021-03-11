@@ -8,12 +8,13 @@ using System.Threading;
 using Rxns;
 using Rxns.DDD.BoundedContext;
 using Rxns.Logging;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
 
 
-    public class ThreadBasedRvUserContext : IUserContext
+    public class ThreadBasedUserContext : IUserContext
     {
         //private readonly IClientModelRepository _appRepo;
         private readonly IPrincipal _user;
@@ -26,7 +27,7 @@ namespace RxnsDemo.AzureB2C.Rxns
                 if (!user.Identity.IsAuthenticated) return null;
 
                 var claims = new ClaimsIdentity(GetUser().Identity);
-                return claims.FindFirst(RvClaimTypes.Email).Value;
+                return claims.FindFirst(RxnClaimTypes.Email).Value;
             }
         }
         public string Name
@@ -37,7 +38,7 @@ namespace RxnsDemo.AzureB2C.Rxns
                 if (!user.Identity.IsAuthenticated) return "anonymous";
 
                 var claims = new ClaimsIdentity(GetUser().Identity);
-                return claims.FindFirst(RvClaimTypes.FullName).Value;
+                return claims.FindFirst(RxnClaimTypes.FullName).Value;
             }
         }
 
@@ -51,7 +52,7 @@ namespace RxnsDemo.AzureB2C.Rxns
                 if (!user.Identity.IsAuthenticated) return Guid.Empty;
 
                 var claims = new ClaimsIdentity(GetUser().Identity);
-                return Guid.Parse(claims.FindFirst(RvClaimTypes.UserId).Value);
+                return Guid.Parse(claims.FindFirst(RxnClaimTypes.UserId).Value);
             }
         }
 
@@ -71,7 +72,7 @@ namespace RxnsDemo.AzureB2C.Rxns
                 if (!user.Identity.IsAuthenticated) return null;
 
                 var claims = new ClaimsIdentity(user.Identity);
-                return claims.FindFirst(RvClaimTypes.Tenant).Value;
+                return claims.FindFirst(RxnClaimTypes.Tenant).Value;
             }
         }
 
@@ -83,7 +84,7 @@ namespace RxnsDemo.AzureB2C.Rxns
                 if (!user.Identity.IsAuthenticated) return null;
 
                 var claims = new ClaimsIdentity(user.Identity);
-                return claims.FindAll(RvClaimTypes.Role).Select(s => s.Value).ToArray();
+                return claims.FindAll(RxnClaimTypes.Role).Select(s => s.Value).ToArray();
             }
         }
 
@@ -96,7 +97,7 @@ namespace RxnsDemo.AzureB2C.Rxns
             return principal;
         }
 
-        public ThreadBasedRvUserContext()//IClientModelRepository appRepo = null)
+        public ThreadBasedUserContext()//IClientModelRepository appRepo = null)
         {
             _user = Thread.CurrentPrincipal;
             //_appRepo = appRepo;
@@ -112,7 +113,7 @@ namespace RxnsDemo.AzureB2C.Rxns
             //});
         }
 
-        public ThreadBasedRvUserContext(IPrincipal threadContext)
+        public ThreadBasedUserContext(IPrincipal threadContext)
         {
             _user = threadContext;
         }

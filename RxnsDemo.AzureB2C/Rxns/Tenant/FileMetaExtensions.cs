@@ -1,16 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Text;
 using Rxns;
 using Rxns.Collections;
 using Rxns.Interfaces;
 using Rxns.WebApi.Compression;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public static class FileMetaExtensions
     {

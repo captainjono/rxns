@@ -1,19 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using Dapper;
-using Newtonsoft.Json;
-using Rxns;
-using Rxns.DDD.BoundedContext;
-using Rxns.Interfaces;
-using Rxns.NewtonsoftJson;
-
-namespace RxnsDemo.AzureB2C.Rxns
+﻿namespace RxnsDemo.AzureB2C.Rxns.Sql
 {
 
     //public class SqlEventSourcingRepository

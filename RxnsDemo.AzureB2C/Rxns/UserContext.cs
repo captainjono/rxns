@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Rxns.DDD.BoundedContext;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {

@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Rxns.DDD.BoundedContext;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public interface ITenantContext
     {
@@ -10,7 +9,6 @@ namespace RxnsDemo.AzureB2C.Rxns
         
         ITenantDatabaseFactory DatabaseContext { get; }
         ITenantDiscardRepository DiscardContext { get; }
-        
         
         //IDictionary<string, Document> Documents { get; }
         //Users { get; }

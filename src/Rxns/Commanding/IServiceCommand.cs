@@ -20,18 +20,20 @@ namespace Rxns.DDD.Commanding
 
     public static class ServiceCommandExtensions
     {
-        public static RxnQuestion AsQuestion(this IUniqueRxn cmd)
+        public static RxnQuestion AsQuestion(this IUniqueRxn cmd, string route = null)
         {
             return new RxnQuestion()
             {
                 Options = cmd.ToString(),
-                Id = cmd.Id
+                Id = cmd.Id,
+                Destination = route
             };
         }
     }
 
-    public class RxnQuestion : IUniqueRxn
+    public class RxnQuestion : IRxnQuestion
     {
+        public string AskedBy { get; }
         public string Options { get; set; }
         public string Id { get; set; }
         public string Destination { get; set; }
@@ -67,7 +69,7 @@ namespace Rxns.DDD.Commanding
         /// <param name="cmd">The command</param>
         /// <param name="route">The tenant, systemName, or tenant\systenName, or tenant\systemName\app</param>
         /// <returns>The the command is intended for the given tenant or system</returns>
-        public static bool IsFor(this RxnQuestion cmd, string route)
+        public static bool IsFor(this IRxnQuestion cmd, string route)
         {
             return String.IsNullOrWhiteSpace(cmd.Destination) || cmd.Destination.AsRoute().Contains(route.AsRoute());
         }

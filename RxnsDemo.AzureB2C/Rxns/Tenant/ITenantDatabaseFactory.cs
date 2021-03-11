@@ -1,7 +1,7 @@
 ﻿using Autofac.Features.OwnedInstances;
 using Rxns.Scheduling;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public interface ITenantDatabaseFactory
     {

@@ -4,19 +4,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Rxns;
 using Rxns.DDD.BoundedContext;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.Playback;
 
-namespace Janison.Micro
+namespace Rxns.Playback
 {
-
-
     public class RxnToTenantModelPlaybackAutomator : ReportsStatus, IRxnTapeToTenantRepoPlaybackAutomator
     {
         public void Play(string tapeDir, Func<string, IAggRoot> getById, Action<IAggRoot, IEnumerable<IDomainEvent>> save, ITapeRepository tapes, IFileSystemService fs, Action<ITapeStuff, ITapeRepository, Exception> onError = null)

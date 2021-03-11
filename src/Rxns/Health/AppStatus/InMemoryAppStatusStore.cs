@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using Rxns.Collections;
@@ -53,6 +54,19 @@ namespace Rxns.Health.AppStatus
         {
             return (Cache[CACHE_KEY_SYSTEM_LOG] as CircularBuffer<object>).Contents();
         }
+        
+        public string SaveLog(Stream log, string file)
+        {
+            if (!Directory.Exists("TenantLogs"))
+                Directory.CreateDirectory("TenantLogs");
+
+            using (var nextLog = File.Create(Path.Combine("TenantLogs", file)))
+            {
+                log.CopyTo(nextLog);
+            }
+
+            return file;
+        }
 
         public void Add(LogMessage<string> message)
         {
@@ -75,15 +89,16 @@ namespace Rxns.Health.AppStatus
 
         private readonly object _cacheKey = new object();
 
-        public IEnumerable<RxnQuestion> FlushCommands(string route)
+        public IEnumerable<IRxnQuestion> FlushCommands(string route)
         {
             var tenantKey = GetCommandKey(route);
 
-            if (Cache.ContainsKey(tenantKey))
+
+            lock (_cacheKey)
             {
-                lock (_cacheKey)
+                if (Cache.ContainsKey(tenantKey))
                 {
-                    var cmds = (Cache[tenantKey] as List<RxnQuestion>).Where(cmd => cmd.IsFor(route)).ToArray();
+                    var cmds = (Cache[tenantKey] as List<IRxnQuestion>).Where(cmd => cmd.IsFor(route)).ToArray();
                     //remove from cache
                     Cache.Remove(tenantKey);
 
@@ -91,7 +106,8 @@ namespace Rxns.Health.AppStatus
                 }
             }
 
-            return new RxnQuestion[] { };
+
+            return new IRxnQuestion[] { };
         }
 
         public string GetCommandKey(string tenant)
@@ -99,7 +115,7 @@ namespace Rxns.Health.AppStatus
             return String.Format("{0}{1}", CACHE_KEY_COMMANDS, tenant).AsRoute();
         }
 
-        public void Add(RxnQuestion cmd)
+        public void Add(IRxnQuestion cmd)
         {
             var tenantSplit = cmd.Destination.Split('\\');
             if (tenantSplit.Length < 2) throw new ArgumentException(@"Must be of the format route\destinationsystem", "cmd.Destination");
@@ -108,11 +124,11 @@ namespace Rxns.Health.AppStatus
 
             if (!Cache.ContainsKey(tenantKey))
             {
-                Cache.Add(tenantKey, new List<RxnQuestion>(new[] { cmd }));
+                Cache.Add(tenantKey, new List<IRxnQuestion>(new[] { cmd }));
             }
             else
             {
-                var current = Cache[tenantKey] as List<RxnQuestion>;
+                var current = Cache[tenantKey] as List<IRxnQuestion>;
                 current.Add(cmd);
             }
         }

@@ -68,6 +68,11 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<Stream> GetUpdate(string systemName, string version = null)
         {
+            if (!Directory.Exists("updates"))
+            {
+                Directory.CreateDirectory("updates");
+            }
+
             return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine("updates", GetUpdateName(systemName, version))))
                 .Catch<Stream, Exception>(e =>
                 {
@@ -98,7 +103,7 @@ namespace Rxns.Hosting.Updates
                     SystemName = withReactorName.Substring(0, withReactorName.IndexOf('-')),
                     Version = version
                 };
-            }).ToObservableSequence().ToArray().Catch<AppUpdateInfo[], Exception>(_ => Rxn.Empty<AppUpdateInfo[]>());
+            }).ToArray().ToObservable().Catch<AppUpdateInfo[], Exception>(_ => Rxn.Empty<AppUpdateInfo[]>());
         }
     }
 }

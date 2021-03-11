@@ -88,11 +88,11 @@ namespace Rxns.Health.AppStatus
             OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName, status.IpAddress);
             
             return _systemStatus.AddOrUpdate(status, meta)
-                .Do(isNew =>
+                .Do(isUpdate =>
                 {
-                    if (isNew)
+                    if (!isUpdate)
                     {
-                        _heartBeatHandlers.ForEach(h => h.OnNewAppDiscovered(this, status));
+                        _heartBeatHandlers.ForEach(h => h.OnNewAppDiscovered(this, status).Do(msg => _publish(msg)).Until());
                         if (IsSpareReactor(status))
                         {
                             _publish(new SpareReactorAvailible()
@@ -103,7 +103,7 @@ namespace Rxns.Health.AppStatus
                     }
                     else
                     {
-                        _heartBeatHandlers.ForEach(h => h.OnAppHeartBeat(this, status));
+                        _heartBeatHandlers.ForEach(h => h.OnAppHeartBeat(this, status).Do(msg => _publish(msg)).Until());
                     }
                 });
         }
@@ -121,13 +121,13 @@ namespace Rxns.Health.AppStatus
             });
         }
 
-        public IObservable<RxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, object meta)
+        public IObservable<IRxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, object meta)
         {
             return UpdateSystemStatus(status, meta)
-                .SelectMany(wasAdded => _appStatus.FlushCommands(appRoute).ToArray().ToObservable().Concat(UpdateSystemCommandIfOutofDate(status)));
+                .SelectMany(wasAdded => _appStatus.FlushCommands(appRoute).ToArray().ToObservable());//.Merge(UpdateSystemCommandIfOutofDate(status)));
         }
 
-        public IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
+        public IObservable<IRxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
         {
             return _updates.AllUpdates(status.SystemName.Split("[main")[0], 1)
                 .FirstOrDefaultAsync()
@@ -135,17 +135,17 @@ namespace Rxns.Health.AppStatus
                 .Select(e => e.FirstOrDefault())
                 .Select(currentVersion =>
                 {
-                    if (!status.KeepUpToDate)
+                    if (currentVersion == null || !status.KeepUpToDate)
                     {
-                        return new RxnQuestion[0];
+                        return new IRxnQuestion[0];
                     }
 
                     if (currentVersion.Version.Equals(status.Version, StringComparison.OrdinalIgnoreCase))
                     {
-                        return new RxnQuestion[0];
+                        return new IRxnQuestion[0];
                     }
 
-                    return new RxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion.Version, false, status.GetRoute())};
+                    return new IRxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion?.Version.IsNullOrWhiteSpace("Latest"), false, status.GetRoute())};
                 });
         }
 
@@ -170,8 +170,7 @@ namespace Rxns.Health.AppStatus
 
                 OnInformation("Uploading log '{2}' for '{0}:{1}'", tenantId, systemName, file.Name);
 
-
-                //_appStatus.SaveAsLog(tenantId, systemName, new FileMeta() { Fullname = file.Name, ContentType = "application/zip", LastWriteTime = DateTime.Now }, zip.BaseStream).Wait();
+                _appStatus.SaveLog(file.Contents, $"{systemName}_{file.Name}");
 
                 OnVerbose("'{0}' received for log '{1}''", zip.BaseStream.Length.ToFileSize(), file.Name);
             }

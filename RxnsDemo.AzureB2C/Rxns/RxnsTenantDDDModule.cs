@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Autofac;
+using Rxns.DDD.BoundedContext;
 using Rxns.Hosting;
+using RxnsDemo.AzureB2C.Rxns.Sql;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
@@ -19,16 +22,17 @@ namespace RxnsDemo.AzureB2C.Rxns
                     .CreatesOncePerApp<LocalRouteInfo>()
                     .CreatesOncePerApp<DefaultEmptyDatabaseConfiguration>()
                     .CreatesOncePerApp<LicenceRepositoryShim>()
+                    .CreatesOncePerApp(_ => new FullyEnabledCurrentTenantAndUserPollCfg())
+                    .CreatesOncePerApp<TemporaryDirectoryTenantFileStorage>()
                     .CreatesOncePerApp<Func<string, ITenantContext>>(c =>
                     {
                         var cc = c.Resolve<IComponentContext>();
 
-                        var matters = cc.Resolve<ICurrentUsersService>();
+                        var users = cc.Resolve<ICurrentUsersService>();
                         var dbFactory = cc.Resolve<ITenantDatabaseFactory>();
-                        var currentTenants = cc.Resolve<ICurrentTenantsService>();
                         var eventRepo = cc.Resolve<ITenantDiscardRepository>();
 
-                        return tenant => new TenantContext(tenant, dbFactory, matters, currentTenants, eventRepo);
+                        return tenant => new TenantContext(tenant, dbFactory, users, eventRepo);
                     })
                 ;
         }

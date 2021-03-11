@@ -1,4 +1,5 @@
 ﻿using System;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
@@ -11,10 +12,10 @@ namespace RxnsDemo.AzureB2C.Rxns
         public Func<string, ITenantContext> _tenantFactory { get; set; }
         private readonly IUserContextFactory _userContextFactory;
 
-        public TenantContextFactory(IUserContextFactory userContextFactory)
+        public TenantContextFactory(IUserContextFactory userContextFactory, Func<string, ITenantContext> tenantFactory)
         {
 
-            //_tenantFactory = tenantFactory;
+            _tenantFactory = tenantFactory;
             _userContextFactory = userContextFactory;
         }
 

@@ -18,19 +18,19 @@ namespace Rxns.Interfaces
 
     public class RxnDebugLogger : RxnLogger
     {
-        public RxnDebugLogger() : base(i =>
+        public RxnDebugLogger(string name = null) : base(i =>
         {
             if(Debugger.IsAttached)
-                Debug.WriteLine(i);
+                Debug.WriteLine($"{(name != null ? $"[{name}]" : "")}{i}");
             else
-                Console.WriteLine(i);
+                Console.WriteLine($"{(name != null ? $"[{name}]" : "")}{i}");
 
         }, e =>
         {
             if (Debugger.IsAttached)
-                Debug.WriteLine(e);
+                Debug.WriteLine($"{(name != null ? $"[{name}]" : "")}{e}");
             else
-                Console.WriteLine(e); 
+                Console.WriteLine($"{(name != null ? $"[{name}]" : "")}{e}");
         })
         {
 

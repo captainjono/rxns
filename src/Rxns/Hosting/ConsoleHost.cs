@@ -21,7 +21,7 @@ namespace Rxns.Hosting
 
         public IDisposable Start()
         {
-            return this.ReportToDebug();
+            return Disposable.Empty;
         }
 
         public void Restart(string version = null)

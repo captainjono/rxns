@@ -8,7 +8,7 @@ using Rxns.Hosting.Updates;
 using Rxns.Logging;
 using Rxns.Scheduling;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public interface ISystemInstaller : IDisposable
     {

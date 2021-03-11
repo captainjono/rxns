@@ -10,8 +10,9 @@ using Rxns;
 using Rxns.Collections;
 using Rxns.Interfaces;
 using Rxns.Scheduling;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Sql
 {
     [DataContract]
     public partial class TenantSqlTask

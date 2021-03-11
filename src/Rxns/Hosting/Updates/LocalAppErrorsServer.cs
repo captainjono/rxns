@@ -37,7 +37,7 @@ namespace Rxns.Hosting.Updates
             return new Unit().ToObservable();
         }
 
-        public virtual IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
+        public virtual IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             return _appStatusMgr.UpdateSystemStatusWithMeta(".", status, meta);
         }

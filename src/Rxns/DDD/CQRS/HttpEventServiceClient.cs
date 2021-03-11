@@ -65,6 +65,7 @@ namespace Rxns.DDD.CQRS
             }
             else
             {  
+                
                 OnInformation($"Log streaming started for {forHowLong}");
                 _stopStream = Rxn.MakeReliable(() => _app.Information.Select(i => i.ToRxn(_appInfo.Name))
                     .Merge(_app.Errors.Select(e => e.ToRxn(_appInfo.Name)))
@@ -83,7 +84,7 @@ namespace Rxns.DDD.CQRS
         {
             OnInformation($"Log streaming stopped");
 
-            _stopStream.Dispose();
+            _stopStream?.Dispose();
             _stopStream = null;
         }
 
@@ -99,7 +100,7 @@ namespace Rxns.DDD.CQRS
                     //should put a lock here so we dont miss any
                     var e = _eventsAsJsonMemPool.ToString();
                     _eventsAsJsonMemPool.Clear();;
-                    return c.PostAsync(WithBaseUrl("publish"), new StringContent(e));
+                    return c.PostAsync(WithBaseUrl("events/publish"), new StringContent(e));
                 }).Select(_ => new Unit()).Subscribe(o);
             });
         }

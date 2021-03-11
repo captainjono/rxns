@@ -17,13 +17,13 @@ namespace Rxns.Health.AppStatus
 
     public interface IAppStatusManager
     {
-        IObservable<RxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status);
+        IObservable<IRxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status);
         SystemStatusModel[] GetSystemStatus();
         IObservable<bool> UploadLogs(string tenantId, string systemName, IFileMeta file);
 
         IObservable<bool> UpdateSystemStatus(SystemStatusEvent status, params dynamic[] meta);
 
-        IObservable<RxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, dynamic meta);
+        IObservable<IRxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, dynamic meta);
         dynamic GetSystemLog();
     }
 }

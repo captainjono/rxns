@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using Microsoft.AspNetCore.Mvc;
 using Rxns.Interfaces;
@@ -7,7 +8,6 @@ using Rxns.Logging;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
-    [Route("events")]
     //[Authorize]
     public class EventController : DomainCommandApiController
     {
@@ -18,7 +18,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             _eventManager = eventManager;
         }
 
-        [Route("publish")]
+        [Route("events/publish")]
         [HttpPost]
         public IActionResult Publish(HttpRequestMessage cmd)
         {
@@ -26,7 +26,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             {
                 var eventCount = 0;
 
-                var receivedEvents = ParseAllAsEvents(cmd.Content.ReadAsStringAsync().WaitR());
+                var receivedEvents = ParseAllAsEvents(cmd?.Content?.ReadAsStringAsync().WaitR());
                 var ip = ClientIpAddress();
 
                 receivedEvents.ForEach(e =>
@@ -64,7 +64,9 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         private IEnumerable<IRxn> ParseAllAsEvents(string eventsAsJson)
         {
-            var events = eventsAsJson.Split(new string[] { "\r\n\r" }, StringSplitOptions.RemoveEmptyEntries);
+            if (eventsAsJson.IsNullOrWhitespace()) yield break;
+
+            var events = eventsAsJson.Split(new string[] {"\r\n\r"}, StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var e in events)
             {

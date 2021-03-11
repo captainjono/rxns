@@ -41,9 +41,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rxns.Azure", "Rxns.Azure\Rx
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rxns.Redis", "Rxns.Redis\Rxns.Redis.csproj", "{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rxns.Tests", "Rxns.Tests\Rxns.Tests.csproj", "{A9CE0D26-4D78-49B8-B808-E9334C6CD7EC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rxns.Tests", "Rxns.Tests\Rxns.Tests.csproj", "{A9CE0D26-4D78-49B8-B808-E9334C6CD7EC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxnsDemo.AzureB2C", "RxnsDemo.AzureB2C\RxnsDemo.AzureB2C.csproj", "{5D24D619-B312-4C67-9F8C-E93FECEED1E8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RxnsDemo.AzureB2C", "RxnsDemo.AzureB2C\RxnsDemo.AzureB2C.csproj", "{5D24D619-B312-4C67-9F8C-E93FECEED1E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -147,6 +147,7 @@ Global
 		{066D0304-5AB5-4314-9107-2F4F6C8D8827}.Release|x86.ActiveCfg = Release|Any CPU
 		{066D0304-5AB5-4314-9107-2F4F6C8D8827}.Release|x86.Build.0 = Release|Any CPU
 		{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}.Debug|x86.Build.0 = Debug|Any CPU
 		{A9D9EDE5-7DF9-4C51-812F-8D81C0FA7361}.Release|Any CPU.ActiveCfg = Release|Any CPU

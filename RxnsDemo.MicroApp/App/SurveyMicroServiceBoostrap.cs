@@ -120,7 +120,7 @@ namespace RxnsDemo.Micro.App
                     //any other app startup logic can go here
                     var evenBusToAzureFunc = new RxnManager<IRxn>(new AzureBackingChannel<IRxn>(new AzureCfg()
                     {
-                        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+                        StorageConnectionString = ""
                     }, c.Resolve<IComponentContext>().Resolve<IResolveTypes>(), publishOnlyMode: true));
 
                     TimeSpan.FromSeconds(10).Then(true).Do(_ =>

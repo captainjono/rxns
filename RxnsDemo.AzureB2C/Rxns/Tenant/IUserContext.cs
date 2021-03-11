@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Rxns.DDD.BoundedContext;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public interface IUserContext
     {

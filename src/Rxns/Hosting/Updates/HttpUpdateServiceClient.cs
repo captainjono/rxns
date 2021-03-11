@@ -18,7 +18,7 @@ namespace Rxns.Hosting.Updates
         public IObservable<bool> CreateUpdate(string systemName, string version, Stream appUpdate)
         {
             return Connection.Call(client => client.PostAsync(this.WithBaseUrl($"updates/{systemName}/{version}"), new MultipartFormDataContent()
-            {
+            {   
                 {
                     new StreamContent(appUpdate),
                     version,

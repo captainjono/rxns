@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Rxns.Azure\Rxns.Azure.csproj" />
+    <ProjectReference Include="..\Rxns.Redis\Rxns.Redis.csproj" />
     <ProjectReference Include="..\Rxns.WebApiNET5\Rxns.WebApiNET5.csproj" />
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
   </ItemGroup>
@@ -14,7 +15,12 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.78" />
     <PackageReference Include="Dapper.SqlBuilder" Version="2.0.78" />
+    <PackageReference Include="Microsoft.Azure.Functions.Extensions" Version="1.1.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="RxnApp\Events\" />
   </ItemGroup>
 
 </Project>

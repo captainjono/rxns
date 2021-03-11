@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using Janison.Micro;
 using Rxns.Collections;
 using Rxns.DDD;
 using Rxns.DDD.Commanding;
@@ -28,6 +26,7 @@ namespace Rxns.Hosting
 
                     
                     client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/zip"));
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                     client.Timeout = cfg.TotalTransferTimeout;
                     
@@ -82,12 +81,12 @@ namespace Rxns.Hosting
                 .CreatesOncePerApp<EventFactory>()
                 .CreatesOncePerApp<LocalRouteInfo>()
                 .CreatesOncePerApp<AlreadyLoggedInAsAdminAuthService>(true)
-                .CreatesOncePerApp<ClientAppStatusErrorChannel>()
+                //.CreatesOncePerApp<ClientAppStatusErrorChannel>()
                 .CreatesOncePerApp<DotNetFileSystemService>()
                 .CreatesOncePerApp<AppUpdateServiceClient>()
                 .CreatesOncePerApp<HttpUpdateServiceClient>()
                 .CreatesOncePerApp<LocalAppUpdateServer>()
-                .CreatesOncePerApp<CurrentDirectoryAppUpdateStore>()
+                .CreatesOncePerApp<CurrentDirectoryAppUpdateStore>(preserveExisting: true)
                 .CreatesOncePerApp<ZipService>()
                 .CreatesOncePerApp(() => new AppResourceCfg
                 {

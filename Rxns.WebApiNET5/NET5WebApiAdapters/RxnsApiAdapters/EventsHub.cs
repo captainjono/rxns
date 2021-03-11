@@ -59,7 +59,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         private IRxnAppInfo _systeminfo;
 
 
-        public Action<LogMessage<string>> Information => info =>
+        public new Action<LogMessage<string>> Information => info =>
         {
             EventReceived(new RemoteEventReceived()
             {
@@ -69,7 +69,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             });
         };
 
-        public Action<LogMessage<Exception>> Errors => error =>
+        public new Action<LogMessage<Exception>> Errors => error =>
         {
             EventReceived(new RemoteEventReceived
             {

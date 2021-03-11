@@ -12,7 +12,7 @@ using Rxns.Logging;
 
 namespace Rxns.Health.AppStatus
 {
-    public class ServiceCommandExecutor : ReportsStatus, IRxnProcessor<RxnQuestion>, IRxnProcessor<ServiceCommand> //this should probably be deprecated and replace by a IServiceCommandHandler
+    public class ServiceCommandExecutor : ReportsStatus, IRxnProcessor<IRxnQuestion>, IRxnProcessor<IServiceCommand> //this should probably be deprecated and replace by a IServiceCommandHandler
     {
         private readonly IServiceCommandFactory _cmdFactory;
         private readonly IResolveTypes _resolver;
@@ -41,7 +41,7 @@ namespace Rxns.Health.AppStatus
             return (IObservable<dynamic>)_cmds.Run(cmd);
         }
 
-        public IObservable<IRxn> Process(ServiceCommand @event)
+        public IObservable<IRxn> Process(IServiceCommand @event)
         {
             return Run(@event);
         }
@@ -53,7 +53,7 @@ namespace Rxns.Health.AppStatus
         /// </summary>
         /// <param name="command"></param>
         /// <returns></returns>
-        public IObservable<IRxn> Process(RxnQuestion command)
+        public IObservable<IRxn> Process(IRxnQuestion command)
         {
             OnVerbose("Saw: {0}", command.Options);
             if (!command.Destination.IsNullOrWhitespace() && command.Destination != _local.GetLocalBaseRoute())

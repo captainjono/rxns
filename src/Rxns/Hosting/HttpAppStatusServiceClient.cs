@@ -60,7 +60,7 @@ namespace Rxns.Hosting
             return Connection.Call(client => client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), uploadStream)).Select(_ => new Unit());
         }
 
-        public virtual IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
+        public virtual IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             OnVerbose($"Publishing System Status to {BaseUrl()}");
             return _eventFactory.ToCommands(Connection.Call(client => client.PostAsJsonAsync(WithBaseUrl("systemstatus/heartbeat-2/publish"), new AppHeatbeat(status, meta))));

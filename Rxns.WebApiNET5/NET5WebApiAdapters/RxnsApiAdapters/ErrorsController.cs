@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Rxns.Health.AppStatus;
 using Rxns.Logging;
 using Rxns.Metrics;
+using Rxns.NewtonsoftJson;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
@@ -52,6 +53,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         [HttpPost]
         public void InsertError([FromBody] BasicErrorReport error)
         {
+            //error.ToJson().LogDebug("SDADSDA");
             _errorMgr.InsertError(error);
         }
     }

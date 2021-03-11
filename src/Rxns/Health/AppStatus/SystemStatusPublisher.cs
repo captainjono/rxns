@@ -56,7 +56,12 @@ namespace Rxns.Health
                 //}
 
                 return _appStatus.PublishSystemStatus(status, finalMeta); //returns commands as responses
-            }).SelectMany(r => r);
+            }).SelectMany(r => r)
+                .Catch<IRxn, Exception>(e =>
+                {
+                    $"while publishing {e}".LogDebug();
+                    return Rxn.Empty();
+                });
 
         }
 

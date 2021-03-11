@@ -42,6 +42,16 @@ namespace Rxns.WebApiNET5
         }
     }
 
+    public interface IAspnetCoreCfg
+    {
+        Action<IApplicationBuilder> Cfg { get; }
+    }
+
+    public class AspnetCoreCfg : IAspnetCoreCfg
+    {
+        public Action<IApplicationBuilder> Cfg { get; set; }
+    }
+
     public abstract class ConfigureAndStartAspnetCore : IRxnAppDef
     {
         public abstract Func<string, Action<IRxnLifecycle>> App { get; }
@@ -130,6 +140,8 @@ namespace Rxns.WebApiNET5
         {
 
             var cfg = (IWebApiCfg)server.ApplicationServices.GetService(typeof(IWebApiCfg));
+            
+            var userCfg = (IAspnetCoreCfg)server.ApplicationServices.GetService(typeof(IAspnetCoreCfg));
             //env.WebRootPath = cfg.Html5Root;
             //env.WebRootFileProvider =
             if (env.IsDevelopment())
@@ -189,7 +201,7 @@ namespace Rxns.WebApiNET5
             //    .LogErrorsWith(container);
 
             server.UseStaticFiles();
-            var rxnsPortalRoot = new PhysicalFileProvider(cfg.Html5Root);
+            var rxnsPortalRoot = new PhysicalFileProvider(cfg.Html5Root.EnsureRooted());
             var rxnsPortal = new FileServerOptions
             {
                 EnableDefaultFiles = true,
@@ -213,6 +225,8 @@ namespace Rxns.WebApiNET5
 
             //webCfg.EnableCompression(); //handle gzip streams
             //via middleware
+
+            userCfg?.Cfg(server);
 
             //the order here is important, you must set it before using the webapi
             //otherwise the controllers wont recognise the tokens and [Authorize] will fail

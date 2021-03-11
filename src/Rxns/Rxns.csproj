@@ -15,6 +15,24 @@
     <PackageReference Include="System.Reactive" Version="4.0.0" />
     <PackageReference Include="Autofac" Version="3.5.0" />
   </ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <WebProject_DirectoryAccessLevelKey>0</WebProject_DirectoryAccessLevelKey>
+    <OutputType>Library</OutputType>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Rxns</PackageId>
+    <Authors>CaptainJono</Authors>
+    <Description>Build Cross-device Cloud-Native Reacive Micro Apps</Description>
+    <Product>Reactions</Product>
+    <Company>Reactions</Company>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
+    <PackageTags>webapi reactive rx event sourcing </PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Version>2.0.0</Version>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
 
   <ItemGroup>
   </ItemGroup>

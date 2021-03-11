@@ -5,8 +5,9 @@ using Autofac.Features.OwnedInstances;
 using Rxns;
 using Rxns.Logging;
 using Rxns.Scheduling;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Sql
 {
     public class SqlTenantDatabaseFactory : ITenantDatabaseFactory
     {

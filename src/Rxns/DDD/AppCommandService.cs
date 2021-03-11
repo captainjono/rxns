@@ -125,6 +125,7 @@ namespace Rxns.DDD
         public void SendClientCommand(string route, string command, string from = null)
         {
             OnVerbose("Client commands not implemented yet");
+            ExecuteCommand(route, command).Until();
 
             return;
         }

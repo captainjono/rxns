@@ -2,17 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using Rxns.DDD.Commanding;
-using Rxns.Health;
 using Rxns.Interfaces;
 using Rxns.Logging;
 
 namespace Rxns.Hosting.Cluster
 {
-
     public class ClusteringWorkflow
     {
         public Dictionary<string, IRxnAppContext> Apps = new Dictionary<string, IRxnAppContext>();

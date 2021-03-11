@@ -1,5 +1,7 @@
 ﻿using System;
 using Rxns.Interfaces.Reliability;
+using RxnsDemo.AzureB2C.Rxns.Sql;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {

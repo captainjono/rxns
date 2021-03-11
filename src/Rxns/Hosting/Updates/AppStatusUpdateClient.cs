@@ -46,9 +46,9 @@ namespace Rxns.Hosting.Updates
             {
                 if (version.IsNullOrWhiteSpace("Latest").BasicallyEquals("Latest"))
                 {
-                    return _updateService.ListUpdates(system).Select(a => a.FirstOrDefault()).Select(latest =>
+                    return _updateService.ListUpdates(system).Select(a => a?.FirstOrDefault()).Select(latest =>
                     {
-                        if (latest.Version.IsNullOrWhitespace())
+                        if (latest == null || latest.Version.IsNullOrWhitespace())
                         {
                             throw new Exception($"'{system}' not found on update server");
                         }
@@ -63,9 +63,7 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<string> KeepUpdated(string systemName, string version, string destinationFolderRoot, IRxnAppCfg cfg = null, bool overwrite = true)
         {
-            return TimeSpan.FromSeconds(30)
-                .Then()
-                .SelectMany(_ => Download(systemName, version, destinationFolderRoot, cfg, overwrite))
+            return Download(systemName, version, destinationFolderRoot, cfg, overwrite)
                 //untested - need to implement inside of tests also
                 ;
         }
@@ -88,6 +86,12 @@ namespace Rxns.Hosting.Updates
                     .SelectMany(content => content.CopyToAsync(ms).ToObservable())
                     .Select(_ =>
                     {
+                        if (ms.Length < 1)
+                        {
+                            "Update not found".LogDebug();
+                            return version;
+                        }
+
                         ms.Seek(0, SeekOrigin.Begin);
 
                         OnVerbose("Extracting update to '{0}'", targetPath);
@@ -125,7 +129,12 @@ namespace Rxns.Hosting.Updates
 
                 
                 var zippedUpdate = Zip(sourceFolder, "*.*");
-                return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).FinallyR(() =>
+                return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).Catch<Unit, Exception>(
+                    e =>
+                    {
+                        "Failed to upload {e}".LogDebug();
+                        return new Unit().ToObservable();
+                    }).FinallyR(() =>
                 {
                     OnVerbose($"Upload of {zippedUpdate.Length.ToFileSize()} complete");
                     zippedUpdate.Dispose();

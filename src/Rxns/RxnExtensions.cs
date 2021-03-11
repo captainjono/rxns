@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Dynamic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
@@ -425,8 +426,16 @@ namespace Rxns
         {
             task.Wait();
         }
-        
-        
+
+        public static string EnsureRooted(this string targetPath)
+        {
+            if (targetPath.Length < 1) return targetPath;
+
+            if (targetPath.StartsWith("/") || targetPath[1] == ':')
+                return targetPath;
+
+            return $"{Path.Combine(Environment.CurrentDirectory, targetPath)}";
+        }
     }
 
 }

@@ -1,10 +1,9 @@
 ﻿using System;
 using Rxns.DDD.BoundedContext;
-using Rxns.Interfaces;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
-    public class RvRole
+    public class UserRole
     {
         public Guid RoleId { get; set; }
         public string RoleName { get; set; }
@@ -17,6 +16,10 @@ namespace RxnsDemo.AzureB2C.Rxns
         public string LastName { get; set; }
         public string Email { get; set; }
         public string Role { get; set; }
+
+        public UserCreatedEvent() {}
+        public UserCreatedEvent(string tenant, string userName) : base(tenant, userName)
+        {}
     }
 
     public interface ITenantUserContext

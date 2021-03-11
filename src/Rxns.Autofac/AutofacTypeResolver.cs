@@ -6,6 +6,7 @@ using Autofac;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 
 namespace Rxns.Autofac
 {

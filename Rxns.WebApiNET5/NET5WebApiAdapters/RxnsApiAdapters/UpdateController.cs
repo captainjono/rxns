@@ -9,10 +9,30 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Rxns.Hosting;
 using Rxns.Hosting.Updates;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 {
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+    public class DisableAspnetCoreModelBinding : Attribute, IResourceFilter
+    {
+        public void OnResourceExecuting(ResourceExecutingContext context)
+        {
+            var factories = context.ValueProviderFactories;
+
+            factories.RemoveType<FormValueProviderFactory>();
+            factories.RemoveType<FormFileValueProviderFactory>();
+            factories.RemoveType<JQueryFormValueProviderFactory>();
+        }
+
+        public void OnResourceExecuted(ResourceExecutedContext context)
+        {
+        }
+    }
+
     //[Authorize]
     public class UpdatesController : ReportsStatusApiControllerWithUpload
     {
@@ -29,6 +49,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         //[ValidateMimeMultipartContentFilter]
         [Route("updates/{systemName}/{version}")]
         [HttpPost]
+        [DisableAspnetCoreModelBinding]
         public async Task<HttpResponseMessage> Upload(string systemName, string version)
         {
             return await GetUploadedFiles()
@@ -43,78 +64,71 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 });
         }
 
+        [Route("updates/{systemName}")]
+        [HttpGet]
+        public Task<IActionResult> GetUpdate(string systemName)
+        {
+            return GetUpdate(systemName, null);
+        }
+
         [Route("updates/{systemName}/{version}")]
         [HttpGet]
-        public async Task<HttpResponseMessage> GetUpdate(string systemName, string version)
+        public async Task<IActionResult> GetUpdate(string systemName, string version)
         {
             return await _updateManager.GetUpdate(systemName, version.IsNullOrWhiteSpace("Latest"))
                 .Select(update =>
                 {
-                    var versionResponse = new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StreamContent(update)
-                    };
-
-                    var fileName = String.Format("{0}-{1}.zip", systemName, version);
-                    versionResponse.Content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-                    versionResponse.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue(fileName)
-                    {
-                        FileName = fileName
-                    };
-
-                    return versionResponse;
+                    return File(update, "application/zip", String.Format("{0}-{1}.zip", systemName, version));
                 })
-                .Catch<HttpResponseMessage, FileNotFoundException>(e =>
+                .Catch<IActionResult, FileNotFoundException>(e =>
                 {
-                    return new HttpResponseMessage(HttpStatusCode.NotFound)
-                    {
-                        Content = new StringContent(e.Message)
-                    }.ToObservable();
+                    return NotFound(systemName).ToObservable();
+                  
                 })
-                .Catch<HttpResponseMessage, Exception>(e =>
+                .Catch<IActionResult, Exception>(e =>
                 {
                     OnError(e);
 
-                    return new HttpResponseMessage(HttpStatusCode.InternalServerError).ToObservable();
-                });
+                    return NotFound(systemName).ToObservable();
+                }).ToTask();
         }
 
         [Route("updates/{systemName}/{version}/get")]
         [HttpPost]
-        public async Task<HttpResponseMessage> GetUpdateWithPost(string systemName, string version)
+        public async Task<IActionResult> GetUpdateWithPost(string systemName, string version)
         {
             return await GetUpdate(systemName, version);
         }
 
         [Route("updates/{systemName}/latest")]
         [HttpGet]
-        public async Task<HttpResponseMessage> GetLatestUpdate(string systemName)
+        public async Task<IActionResult> GetLatestUpdate(string systemName)
         {
             return await GetUpdate(systemName, null);
         }
         [Route("updates/{systemName}/list")]
         [HttpGet]
-        public IObservable<IActionResult> AllUpdates(string systemName = null, int top = 3)
+        public async Task<IActionResult> AllUpdates(string systemName = null, int top = 3)
         {
             try
             {
                 if (systemName.IsNullOrWhiteSpace("all").BasicallyEquals("all"))
                     systemName = null;
 
-                return _updateManager.AllUpdates(systemName, top).Select(r => Ok(r));//hack to handle empty sequence;
+                var res = await _updateManager.AllUpdates(systemName, top).ToTask();//hack to handle empty sequence;
 
-                //return Ok(updates);
+                return Ok(res);
 
             }
             catch (FileNotFoundException e)
             {
-                return NotFound().ToObservable();
+                return NotFound();
             }
             catch (Exception e)
             {
                 OnError(e);
 
-                return InternalServerError(e).ToObservable();
+                return InternalServerError(e);
             }
         }
 

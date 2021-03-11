@@ -6,12 +6,14 @@ using Microsoft.CSharp.RuntimeBinder;
 using Rxns;
 using Rxns.Collections;
 using Rxns.DDD.BoundedContext;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 using Rxns.Interfaces.Reliability;
 using Rxns.NewtonsoftJson;
 using RxnsDemo.AzureB2C.Rxns;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
-namespace RxnsDemo.AzureB2C
+namespace RxnsDemo.AzureB2C.RxnApps
 {
     public class AzureB2CToLegacyDbProcessor : ReportsStatusBatchingViewProcessor,
                                            IRxnProcessor<UserCreatedEvent>,
@@ -63,21 +65,23 @@ namespace RxnsDemo.AzureB2C
                 var userDbForTenant = tenantFromEvent.DatabaseContext.GetUsersContext(tenantFromEvent.DatabaseContext.GetContext(@event.Tenant));
 
                 userDbForTenant.RegisterUser(@event);
+                TimeSpan.FromSeconds(1).Then().WaitR();
 
-                return Rxn.Empty();
+
+                return new UserImportSuccessResult(@event.Tenant, @event.UserName);
             });
         }
 
-
-        public string Reactor { get; } = "LegacyDbBridge";
+        public EventLoopScheduler _backgroundThread = new EventLoopScheduler();
+        public string Reactor => "ImportUsers";
         public IObservable<IRxn> ConfigureInput(IObservable<IRxn> pipeline)
         {
-            return pipeline;
+            return pipeline.ObserveOn(_backgroundThread).SubscribeOn(_backgroundThread);
         }
 
         public IDeliveryScheme<IRxn> InputDeliveryScheme { get; }
         public bool MonitorHealth { get; } = true;
-        public RxnMode Mode { get; } //cloud?
+        public RxnMode Mode { get; } = RxnMode.InProcess;
     }
   
 }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Rxns.DDD.BoundedContext;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
@@ -27,7 +29,7 @@ namespace RxnsDemo.AzureB2C.Rxns
         /// </summary>
         public IDictionary<string, Document> Documents { get; private set; }
         public MyOrganisation Org { get; private set; }
-        public TenantContext(string tenant, ITenantDatabaseFactory dbFactory, ICurrentUsersService users, ICurrentTenantsService currenTenants, ITenantDiscardRepository DiscardRepo)
+        public TenantContext(string tenant, ITenantDatabaseFactory dbFactory, ICurrentUsersService users, ITenantDiscardRepository DiscardRepo)
         {
             Tenant = tenant;
             DatabaseContext = dbFactory;

@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using RxnsDemo.AzureB2C.Rxns.Sql;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
@@ -14,3 +15,4 @@ namespace RxnsDemo.AzureB2C.Rxns
         }
     }
 }
+

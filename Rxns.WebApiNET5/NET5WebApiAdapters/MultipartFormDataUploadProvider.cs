@@ -36,6 +36,9 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             FsConfiguration = fsConfiguration;
             _fileSystem = fileSystem;
 
+            if (!Directory.Exists(FsConfiguration.TemporaryDirectory))
+                Directory.CreateDirectory(FsConfiguration.TemporaryDirectory);
+            
             DefaultScheduler = scheduler ?? Scheduler.Immediate;
         }
 
@@ -91,20 +94,23 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                             // For more information, see the topic that accompanies 
                             // this sample.
 
-                            return FileHelpers.ProcessStreamedFile(section, contentDisposition, ModelState, new[] {".zip"}, 1024 * 1 * 1000).ToObservable()
-                                .SelectMany(streamedFileContent =>
+                            return FileHelpers.ProcessStreamedFile(section, contentDisposition, ModelState, new[] {".zip"}, 3* 1024 * 1000).ToObservable()
+                                .Select(streamedFileContent =>
                                 {
-                                    var targetStream = _fileSystem.CreateWriteableFile(Path.Combine(FsConfiguration.TemporaryDirectory, trustedFileNameForFileStorage));
-
-                                    return targetStream.WriteAsync(streamedFileContent).ToObservable().Select(_ =>
+                                    using (var targetStream = _fileSystem.CreateWriteableFile(Path.Combine(FsConfiguration.TemporaryDirectory, trustedFileNameForFileStorage)))
                                     {
+                                        targetStream.Write(streamedFileContent);
+
+                                        targetStream.Flush();
                                         targetStream.Dispose();
 
-                                        var file = ReadAsFileMeta(request, contentDisposition);
+                                    }
+
+                                    var file = ReadAsFileMeta(request, contentDisposition);
 
                                         OnInformation("Files have been uploaded to disk, getting list of files now");
 
-                                        return new UploadedFile(file, _fileSystem.PathCombine(FsConfiguration.TemporaryDirectory, file.Fullname),
+                                        return new UploadedFile(file, _fileSystem.PathCombine(FsConfiguration.TemporaryDirectory, trustedFileNameForFileStorage),
                                             request.Headers.ContainsKey("Content-Encoding") && request.Headers["Content-Encoding"].Contains("gzip"));
 
 
@@ -112,9 +118,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                                         //    .LogDebug()
                                         //trustedFileNameForDisplay, _targetFilePath,
                                         //trustedFileNameForFileStorage);
-                                    });
-
-
 
                                 });
                         }

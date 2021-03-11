@@ -19,8 +19,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<RemoteReportStatusEcho>()
                 .CreatesOncePerApp<SystemMetricsReport>()
                 .CreatesOncePerApp<AspNetCoreWebApiAdapter>()
+                
                 //.CreatesOncePerApp<HostBuffer>()
 
+                
                 //.CreatesOncePerAppAs<NoOAuthAuthentication, OAuthAuthorizationServerProvider>()
 
                 .CreatesOncePerRequest<SystemStatusController>()
@@ -30,6 +32,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<StaticFileSystemConfiguration>()
                 .CreatesOncePerRequest<CommandWebApiController>()
                 .CreatesOncePerRequest<AnonymousCommandController>()
+                //.CreatesOncePerApp<AspnetCoreControllerLinkProvider>()
                 .CreatesOncePerApp<ResolverCommandFactory>()
                 .Includes<AppStatusServerModule>() //server modules always after client module
                 .Includes<DDDServerModule>()

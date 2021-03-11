@@ -49,7 +49,7 @@ namespace Rxns.Azure
             //var cb = new ContainerBuilder();
             //cb.Register(c => new AzureBackingChannel<IRxn>(new AzureCfg()
             //{
-            //    StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+         
             //}, c.Resolve<IComponentContext>().Resolve<IResolveTypes>()))
             //.AsImplementedInterfaces()
             //.SingleInstance();

@@ -1,14 +1,23 @@
 ﻿using System;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using Rxns;
+using Rxns.DDD;
+using Rxns.Health.AppStatus;
 using Rxns.Hosting;
+using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Metrics;
 using Rxns.NewtonsoftJson;
+using Rxns.Playback;
 using Rxns.Scheduling;
 using Rxns.WebApiNET5;
 using Rxns.WebApiNET5.NET5WebApiAdapters;
+using RxnsDemo.AzureB2C.RxnApps;
 using RxnsDemo.AzureB2C.Rxns;
+using RxnsDemo.AzureB2C.Rxns.Sql;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C
 {
@@ -32,6 +41,8 @@ namespace RxnsDemo.AzureB2C
                 .LastAsync()
                 .Select(_ => new Unit())
                 .Until();
+
+            Console.ReadLine();
         }
 
         public class AzureB2CWebApiAdapter : ConfigureAndStartAspnetCore
@@ -43,13 +54,30 @@ namespace RxnsDemo.AzureB2C
                 RxnExtensions.SerialiseImpl = (json) => JsonExtensions.ToJson(json);
 
                 return lifecycle => RxnApp.SpareReator(url)( 
-                    lifecycle
-                        .CreatesOncePerApp<AzureB2CToLegacyDbProcessor>()
-                        .CreatesOncePerApp<LegacyDbCfg>()
-                        .RunsTask<TenantSqlTask>()
-                        .RunsTask<SqlTask>()
-                        .CreatesOncePerApp<SqlDatabaseConnection>()
-                        .Includes<RxnsTenantDDDModule>()
+                        lifecycle
+                            .RunsTask<TenantSqlTask>()
+                            .RunsTask<SqlTask>()
+                            .CreatesOncePerApp<SqlDatabaseConnection>()
+                            .Includes<RxnsTenantDDDModule>()
+                            .CreatesOncePerApp(() => new AggViewCfg()
+                            {
+                                ReportDir = "reports"
+                            })
+                            .CreatesOncePerApp(() => new AppServiceRegistry()
+                            {
+                                AppStatusUrl = "http://localhost:888",
+                            })
+                            .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
+                            .Includes<AspNetCoreWebApiAdapterModule>()
+
+
+                            .Includes<ImportUserModule>()
+
+                            .CreatesOncePerApp<AzureB2CToLegacyDbProcessor>()
+                            .CreatesOncePerApp<LegacyDbCurrentTenantAndUserEventSourcedCache>()
+
+                            .CreatesOncePerApp<LegacyDbCfg>()
+                            .CreatesOncePerApp<UseDeserialiseCodec>()
                     );
             };
 
@@ -74,7 +102,7 @@ namespace RxnsDemo.AzureB2C
         {
             //cb.Register(c => new AzureBackingChannel<IRxn>(new AzureCfg()
             //{
-            //    StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+            
             //}, c.Resolve<IComponentContext>().Resolve<IResolveTypes>()))
         }
     }

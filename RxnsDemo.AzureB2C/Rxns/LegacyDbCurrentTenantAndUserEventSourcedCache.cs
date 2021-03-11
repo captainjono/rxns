@@ -14,6 +14,7 @@ using Rxns.Interfaces;
 using Rxns.Interfaces.Reliability;
 using Rxns.Logging;
 using Rxns.Reliability;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {

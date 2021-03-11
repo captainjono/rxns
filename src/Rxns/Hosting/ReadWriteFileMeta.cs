@@ -2,7 +2,7 @@
 using System.IO;
 using Rxns.Interfaces;
 
-namespace Janison.Micro
+namespace Rxns.Hosting
 {
     public class ReadWriteFileMeta : IFileMeta
     {

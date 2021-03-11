@@ -1,18 +1,17 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
 using Rxns.DDD.CQRS;
-using Rxns.Hosting;
 using Rxns.Hosting.Updates;
-using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Reliability;
 
-namespace RxnCreate
+namespace Rxns.Hosting
 {
     public static class RxnApps
     {
@@ -100,10 +99,10 @@ namespace RxnCreate
 
             var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl, null);
 
-            if (version.StartsWith("Latest-", StringComparison.OrdinalIgnoreCase))
+            if (version == null || version.StartsWith("Latest", StringComparison.OrdinalIgnoreCase))
             {
-                version = version.Split('-')[1];
-                version = $"{version}.{DateTime.Now.ToString("s").Replace(":", "")}";
+                version = version.IsNullOrWhiteSpace("")?.Split('-').Last();
+                version = $"{$"{version}" ?? ""}{DateTime.Now.ToString("s").Replace(":", "")}";
             }
             
             return client.Upload(appName, version, appLocation);

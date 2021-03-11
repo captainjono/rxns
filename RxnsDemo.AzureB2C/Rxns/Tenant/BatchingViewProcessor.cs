@@ -6,7 +6,7 @@ using System.Threading;
 using Rxns;
 using Rxns.Interfaces.Reliability;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public class BatchingViewProcessor
     {

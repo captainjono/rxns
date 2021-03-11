@@ -3,7 +3,7 @@ using Rxns.DDD.BoundedContext;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {
-    public class TenantModelFactory<T> : ITenantModelFactory<T> where T : IAggRoot, new()
+    public class TenantModelFactory<T> : Tenant.ITenantModelFactory<T> where T : IAggRoot, new()
     {
         public T Create(string tenant, string id, IEnumerable<IDomainEvent> fromEvents)
         {

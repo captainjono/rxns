@@ -212,7 +212,8 @@ namespace Rxns
 
                 p.Exited += (__, _) =>
                 {
-                    o.OnError(new Exception($"{pathToProcess} exited"));
+                    onInfo($"{pathToProcess} exited");
+                    o.OnCompleted();
                 };
 
                 p.KillOnExit();

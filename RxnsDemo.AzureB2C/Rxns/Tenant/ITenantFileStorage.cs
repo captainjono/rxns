@@ -8,7 +8,7 @@ using Rxns;
 using Rxns.Interfaces;
 using Rxns.Metrics;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public class TemporaryDirectoryTenantFileStorage : ITenantFileStorage
     {

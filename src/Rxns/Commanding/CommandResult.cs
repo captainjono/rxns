@@ -25,7 +25,7 @@ namespace Rxns.DDD.Commanding
     {
         public CmdResult Result { get; private set; }
         public string Message;
-        public string InResponseTo { get; private set; }
+        public string InResponseTo { get; private set; } = "";
 
         public static CommandResult Success()
         {

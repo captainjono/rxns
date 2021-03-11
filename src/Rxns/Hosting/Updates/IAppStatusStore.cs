@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -26,10 +27,10 @@ namespace Rxns.Hosting.Updates
         //this is SystemLogMeta but it doesnt appear part of this interface lib so its object
         //could be a generic i know, this is a work in progress though so im not fussed
         IEnumerable<object> GetLog();
+        public string SaveLog(Stream log, string file);
+        IEnumerable<IRxnQuestion> FlushCommands(string route);
 
-        IEnumerable<RxnQuestion> FlushCommands(string route);
-
-        void Add(RxnQuestion cmds);
+        void Add(IRxnQuestion cmds);
         void Add(LogMessage<string> message);
         void Add(LogMessage<Exception> message);
     }

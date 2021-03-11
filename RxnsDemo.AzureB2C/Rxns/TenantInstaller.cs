@@ -6,6 +6,8 @@ using System.Reactive.Concurrency;
 using Rxns.DDD.BoundedContext.Tenant;
 using Rxns.Hosting.Updates;
 using Rxns.Scheduling;
+using RxnsDemo.AzureB2C.Rxns.Sql;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.Rxns
 {

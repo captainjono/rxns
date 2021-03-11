@@ -33,10 +33,6 @@ namespace Rxns.Collections
         public IObservable<TStuff[]> View { get; private set; }
         public IObservable<bool> HasMoreStuff { get { return canContinue; } }
 
-        private readonly FutureSubject<ContinuationToken> continuation;
-        private readonly BehaviorSubject<bool> canContinue;
-        private ContinuationToken _continuationDefault;
-
         public LookupAutomator(IObservableQuery<Continuation<TStuff[]>, TFilter> queryStore)
         {
             _continuationDefault = queryStore.Continuation.Value();
@@ -51,6 +47,12 @@ namespace Rxns.Collections
                              })
                              .Select(q => q.Records);
         }
+
+
+
+        private readonly FutureSubject<ContinuationToken> continuation;
+        private readonly BehaviorSubject<bool> canContinue;
+        private ContinuationToken _continuationDefault;
 
         public void LoadMore()
         {

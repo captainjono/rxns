@@ -5,8 +5,10 @@ using System.Linq;
 using System.Reactive.Linq;
 using Dapper;
 using Rxns.Collections;
+using Rxns.Logging;
+using RxnsDemo.AzureB2C.Rxns.Tenant;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Sql
 {
 
 
@@ -127,9 +129,11 @@ namespace RxnsDemo.AzureB2C.Rxns
         {
             return _context.Run(r =>
             {
-                var userId = r.ExecuteScalar("insert into users(colA, colB) values (@a, @b);SELECT last_insert_id();",
-                    new[] { new { a = 1, b = 1 }, }
-                );
+                var userId = Guid.NewGuid();
+                $"MOCKED CREATING USER {newUser.UserName}".LogDebug();
+                //var userId = r.ExecuteScalar("insert into users(colA, colB) values (@a, @b);SELECT last_insert_id();",
+                //    new[] { new { a = 1, b = 1 }, }
+                //);
 
                 return Guid.Parse(userId.ToString());
             });

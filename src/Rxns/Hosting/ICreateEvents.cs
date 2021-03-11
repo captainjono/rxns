@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Net.Http;
+using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using Rxns.DDD.Commanding;
 
@@ -9,15 +10,15 @@ namespace Rxns.Hosting
     //todo: remove this interface
     public interface ICreateEvents
     {
-        IObservable<RxnQuestion[]> ToCommands(IObservable<HttpResponseMessage> response);
+        IObservable<IRxnQuestion[]> ToCommands(IObservable<HttpResponseMessage> response);
     }
 
     public class EventFactory : ICreateEvents
     {
 
-        public IObservable<RxnQuestion[]> ToCommands(IObservable<HttpResponseMessage> response)
+        public IObservable<IRxnQuestion[]> ToCommands(IObservable<HttpResponseMessage> response)
         {
-            return Rxn.Create<RxnQuestion[]>(o =>
+            return Rxn.Create<IRxnQuestion[]>(o =>
             {
                 return response.Subscribe(msg =>
                 {
@@ -25,9 +26,10 @@ namespace Rxns.Hosting
                         {
                             try
                             {
-                                if (String.IsNullOrWhiteSpace(result)) return;
+                                if (result.IsNullOrWhitespace() || result == "[]") return;
 
-                                    o.OnNext(ToCommands(result));
+                                var r = ToCommands(result);
+                                o.OnNext(r);
                             }
                             catch (Exception e)
                             {
@@ -41,11 +43,12 @@ namespace Rxns.Hosting
                         error => o.OnError(error));
 
                 }, error => o.OnError(error));
-            });
+            }).ToArray().SelectMany(r => r);
         }
 
         public RxnQuestion[] ToCommands(string json)
         {
+            if (json == "[]") return new RxnQuestion[0];
             //todo: fix why cmds are null on deserial
             return json.Deserialise<RxnQuestion[]>().Where(c => c != null).ToArray();
         }

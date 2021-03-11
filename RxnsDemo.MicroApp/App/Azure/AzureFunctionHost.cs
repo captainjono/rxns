@@ -9,6 +9,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using Rxns.Collections;
+using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.NewtonsoftJson;
@@ -38,7 +39,7 @@ namespace Rxns.Azure
         }
 
         [FunctionName("SurveyProgressViewFncRxnIntegration")]
-        public static async Task RunAsync([QueueTrigger("eventsink", Connection = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net")] string rxn, ILogger log)
+        public static async Task RunAsync([QueueTrigger("eventsink", Connection = "")] string rxn, ILogger log)
         {
             //need to work out a convention to dynmically generate this class ^^ and queue worker for a given reactor
             var microservice = new MicroServiceBoostrapperAspNetCore();
@@ -48,15 +49,15 @@ namespace Rxns.Azure
             var cb = new ContainerBuilder();
             cb.Register(c => new AzureBackingChannel<IRxn>(new AzureCfg()
             {
-                StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+                StorageConnectionString = ""
             }, c.Resolve<IComponentContext>().Resolve<IResolveTypes>()))
             .AsImplementedInterfaces()
             .SingleInstance();
 
-
+            var root = new ContainerBuilder();
             //run app
-            microservice
-                .CreateApp(new ContainerBuilder(), args: "reactor SurveyProgressView".Split(' ')).SelectMany(a =>
+            MicroServiceBoostrapperAspNetCore
+                .CreateApp(root, microservice).SelectMany(a =>
                 {                                          //// ^^^^^^^^^^^ this is my bright idea to reuse the args to create a targette reactor. need to implement "component" isolation, so we only startup a particular class! would also work for the "queueWorker" in process scaleout
                     return a.Run();
                 })

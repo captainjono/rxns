@@ -8,9 +8,23 @@ using Rxns.Logging;
 
 namespace Rxns.Hosting.Updates
 {
+    public class NestedInAppDirAppUpdateStore : CurrentDirectoryAppUpdateStore
+    {
+        public override IObservable<string> Run(GetAppDirectoryForAppUpdate command)
+        {
+            return Rxn.Create(() =>
+            {
+                if (command.Version.IsNullOrWhitespace() || command.Version.BasicallyContains("Latest"))
+                    return $"{Directory.GetCurrentDirectory()}\\{command.SystemName}";
+
+                return Path.Combine($"{Directory.GetCurrentDirectory()}\\{command.SystemName}", $"{command.SystemName}%%{command.Version}");
+            });
+        }
+    }
+
     public class CurrentDirectoryAppUpdateStore : IStoreAppUpdates
     {
-        public IObservable<string> Run(GetAppDirectoryForAppUpdate command)
+        public virtual IObservable<string> Run(GetAppDirectoryForAppUpdate command)
         {
             return Rxn.Create(() =>
             {

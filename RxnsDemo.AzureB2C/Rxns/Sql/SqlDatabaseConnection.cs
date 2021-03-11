@@ -4,11 +4,11 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reactive;
-using System.Text;
 using Autofac.Features.OwnedInstances;
 using Rxns.Interfaces.Reliability;
+using Rxns.Scheduling;
 
-namespace Rxns.Scheduling
+namespace RxnsDemo.AzureB2C.Rxns.Sql
 {
     public class TenantDataRecord : IDataRecordWithContext
     {

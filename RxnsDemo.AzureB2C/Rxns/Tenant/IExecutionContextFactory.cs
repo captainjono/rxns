@@ -1,6 +1,6 @@
 ﻿using Rxns.CQRS;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     public interface IExecutionContextFactory
     {

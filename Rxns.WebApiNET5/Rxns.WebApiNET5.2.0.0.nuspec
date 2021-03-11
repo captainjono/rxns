@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Rxns.WebApiNET5</id>
+    <version>2.0.0</version>
+    <authors>CaptainJono</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectUrl>https://github.com/captainjono/rxns</projectUrl>
+    <description>A CrossPlatform WebAPI host with optional real-time monitoring capabilities.</description>
+    <copyright>MIT</copyright>
+    <tags>#webapi #reactive #rx</tags>
+    <repository url="https://github.com/captainjono/rxns" />
+    <dependencies>
+      <group targetFramework=".NETCoreApp3.1">
+        <dependency id="Rxns.Autofac" version="2.0.0" exclude="Build,Analyzers" />
+        <dependency id="Rxns" version="2.0.0" exclude="Build,Analyzers" />
+        <dependency id="Autofac" version="3.5.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+    <frameworkReferences>
+      <group targetFramework=".NETCoreApp3.1">
+        <frameworkReference name="Microsoft.AspNetCore.App" />
+      </group>
+    </frameworkReferences>
+    <contentFiles>
+      <files include="any/netcoreapp3.1/appsettings.Development.json" buildAction="Content" />
+      <files include="any/netcoreapp3.1/appsettings.json" buildAction="Content" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="C:\jan\Rxns\Rxns.WebApiNET5\bin\Debug\netcoreapp3.1\Rxns.WebApiNET5.dll" target="lib\netcoreapp3.1\Rxns.WebApiNET5.dll" />
+    <file src="C:\jan\Rxns\Rxns.WebApiNET5\appsettings.Development.json" target="content\appsettings.Development.json" />
+    <file src="C:\jan\Rxns\Rxns.WebApiNET5\appsettings.Development.json" target="contentFiles\any\netcoreapp3.1\appsettings.Development.json" />
+    <file src="C:\jan\Rxns\Rxns.WebApiNET5\appsettings.json" target="content\appsettings.json" />
+    <file src="C:\jan\Rxns\Rxns.WebApiNET5\appsettings.json" target="contentFiles\any\netcoreapp3.1\appsettings.json" />
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\app.full.min.css" target=".\contentFiles\any\netcoreapp3.1\app.full.min.css" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\app.full.min.js" target=".\contentFiles\any\netcoreapp3.1\app.full.min.js" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\fontawesome-webfont.eot" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\fontawesome-webfont.eot" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\fontawesome-webfont.svg" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\fontawesome-webfont.svg" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\fontawesome-webfont.ttf" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\fontawesome-webfont.ttf" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\fontawesome-webfont.woff" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\fontawesome-webfont.woff" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\fontawesome-webfont.woff2" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\fontawesome-webfont.woff2" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\FontAwesome.otf" target=".\contentFiles\any\netcoreapp3.1\bower_components\font-awesome\fonts\FontAwesome.otf" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\index.html" target=".\contentFiles\any\netcoreapp3.1\index.html" buildAction="none"/>
+    <file src="C:\jan\Rxns\Rxns.AppSatus\Web\dist\shared_components\signalr.js" target=".\contentFiles\any\netcoreapp3.1\shared_components\signalr.js" buildAction="none"/>
+  </files>
+</package>

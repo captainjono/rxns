@@ -1,10 +1,10 @@
 ﻿using Rxns.CQRS;
 
-namespace RxnsDemo.AzureB2C.Rxns
+namespace RxnsDemo.AzureB2C.Rxns.Tenant
 {
     /// <summary>
     /// A lightweight factory class that can create execution contexts based on different 
-    /// perspectives of redview.
+    /// perspectives
     /// </summary>
     public class ExecutionContextFactory : IExecutionContextFactory
     {

@@ -44,7 +44,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         [Route("systemstatus/heartbeat-2/publish")]
         [HttpPost]
-        public async Task<RxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] AppHeatbeat status)
+        public async Task<IRxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] AppHeatbeat status)
         {
             try
             {
@@ -53,7 +53,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 if (status?.Status == null)
                 {
                     OnWarning("Unknown status received from {0}: {1}", clientIp, status);
-                    return new RxnQuestion[] { };
+                    return new IRxnQuestion[] { };
                 }
 
                 
@@ -61,11 +61,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
                 status.Status.IpAddress = clientIp;
 
-                return await _appStatus.UpdateSystemStatusWithMeta(appRoute, status.Status, status.Meta);
+                var res =  await _appStatus.UpdateSystemStatusWithMeta(appRoute, status.Status, status.Meta);
+
+                return res;
             }
             catch (Exception e)
             {
-                return new RxnQuestion[] {};
+                return new IRxnQuestion[] {};
             }
         }
 
@@ -79,6 +81,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         //[ValidateMimeMultipartContentFilter]
         [Route("systemstatus/logs/{tenantId}/{systemName}/publish")]
         [HttpPost]
+        [DisableAspnetCoreModelBinding]
         public IActionResult Upload(string tenantId, string systemName)
         {
             try

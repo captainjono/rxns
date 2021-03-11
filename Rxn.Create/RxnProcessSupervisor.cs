@@ -33,10 +33,7 @@ namespace RxnCreate
         }
         
         /// <summary>
-        /// janison@janmac2 netcoreapp3.1 % dotnet Rxn.Create.dll NewAppUpdate "ReplayMacOS" "Latest-1." "/Users/janison/replay/windows/JanisonReplay.macOS/bin/Debug/JanisonReplay.app" false "http://192.168.1.77:888/"
-        ///janison@janmac2 netcoreapp3.1 % dotnet rxn.create FromAppUpdate "ReplayMacOS" "Latest" "Contents/MacOS/JanisonReplay" "JanisonReplay.app" false "http://192.168.1.77:888/"
-        /// janison@janmac2 netcoreapp3.1 % dotnet rxn.create.dll ReactorFor "/Users/janison/replay/windows/JanisonReplay.macOS/bin/Debug/JanisonReplay.app/Contents/MacOS/JanisonReplay" "http://192.168.1.77:888/"
-        /// 
+        /// Creates a supervisor that will then allow you to spawn child processes and address them with a centalised rxnmanager.
         /// </summary>
         /// <param name="systemAppPath"></param>
         /// <param name="version"></param>

@@ -27,6 +27,12 @@ Domain Command | Async Commands and Querys for your [ddd aggregates](dddaggs.md)
 Service Command | Command your Apps micro-components, [reactors](reactors.md), to start and stop
 AppCommand | App console, [AppStatus](appstatus.md) | Parse and run commands from any string **NOTE: TRUSTED INPUT ONLY**
 
+### Service Commands
+
+These are light weight commands that are used to control the different internal services of your app.
+* They must support parsing from strings
+  * They must have constructors which accept all string params to init over the wire
+
 ## Command Execution
 
 > CAUTION: 

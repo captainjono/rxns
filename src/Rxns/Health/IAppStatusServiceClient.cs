@@ -26,7 +26,7 @@ namespace Rxns.Health
 
         IObservable<Unit> DeleteError(long id);
 
-        IObservable<RxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta);
+        IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta);
 
         IObservable<Unit> PublishLog(Stream zippedLog);
     }

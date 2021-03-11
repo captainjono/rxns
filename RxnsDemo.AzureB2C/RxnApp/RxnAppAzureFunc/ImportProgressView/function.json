@@ -1,0 +1,11 @@
+﻿{
+  "bindings": [
+    {
+      "name": "myQueueItem",
+      "type": "queueTrigger",
+      "direction": "in",
+      "queueName": "users-import-finished",
+      "connection": "rxnsfuncapps_STORAGE"
+    }
+  ]
+}

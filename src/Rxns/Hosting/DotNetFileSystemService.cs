@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive;
-using Janison.Micro;
 using Rxns.Interfaces;
 using Rxns.Windows;
 
