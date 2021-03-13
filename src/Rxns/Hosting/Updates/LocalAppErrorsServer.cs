@@ -2,12 +2,15 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reactive;
+using System.Reactive.Linq;
 using Ionic.Zip;
 using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health;
 using Rxns.Health.AppStatus;
+using Rxns.Interfaces;
 using Rxns.Logging;
 
 namespace Rxns.Hosting.Updates
@@ -16,11 +19,18 @@ namespace Rxns.Hosting.Updates
     {
         protected readonly IAppErrorManager _errorMgr;
         protected readonly IAppStatusManager _appStatusMgr;
+        private readonly IRxnManager<IRxn> _rxnmanager;
 
-        public LocalAppStatusServer(IAppErrorManager errorMgr, IAppStatusManager appStatusMgr)
+        public LocalAppStatusServer(IAppErrorManager errorMgr, IAppStatusManager appStatusMgr, IRxnManager<IRxn> rxnmanager)
         {
             _errorMgr = errorMgr;
             _appStatusMgr = appStatusMgr;
+            _rxnmanager = rxnmanager;
+        }
+
+        public IObservable<Unit> Publish(IEnumerable<IRxn> events)
+        {
+            return events.ToObservableSequence().SelectMany(e => _rxnmanager.Publish(e)).LastOrDefaultAsync();
         }
 
         public IObservable<Unit> PublishError(BasicErrorReport report)

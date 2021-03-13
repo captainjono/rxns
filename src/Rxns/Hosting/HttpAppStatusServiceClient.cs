@@ -1,13 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Text;
 using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health;
+using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Metrics;
+using Rxns.NewtonsoftJson;
 
 namespace Rxns.Hosting
 {
@@ -35,6 +39,19 @@ namespace Rxns.Hosting
         {
             OnVerbose("Publishing error");
             return Connection.Call(client => client.PostAsync(WithBaseUrl("errors/report/publish"), report.ToJsonContent())).Select(_ => new Unit());
+        }
+
+        StringBuilder eventsAsJson = new StringBuilder();
+
+        public IObservable<Unit> Publish(IEnumerable<IRxn> events)
+        {
+            eventsAsJson.Clear();
+            return Rxn.Create<Unit>(o =>
+            {
+                events.ForEach(e => eventsAsJson.AppendFormat("{0}\r\n\r", e.GetPropertyDef("T") != null ? e.ToJson() : e.ToJson().ResolveAs(e.GetType())));
+
+                return Connection.Call(c => c.PostAsync(WithBaseUrl("events/publish"), new StringContent(eventsAsJson.ToString(), Encoding.UTF8, "application/json"))).Select(_ => new Unit()).Subscribe(o);
+            });
         }
 
         public IObservable<Unit> PublishError(BasicErrorReport report)

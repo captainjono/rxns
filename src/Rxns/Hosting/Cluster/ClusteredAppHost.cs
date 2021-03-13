@@ -133,7 +133,7 @@ namespace Rxns.Hosting
         {
             _processFactory = processFactory;
             _hostEventLoop = hostEventLoop;
-            _router = router ?? new RoutableBackingChannel<IRxn>();
+            _router = router ?? new RoutableBackingChannel<IRxn>(new LocalOnlyRegistry(new RxnManager<IRxn>(new LocalBackingChannel<IRxn>())));
             _hostManager = hostManager;
 
             if(!cfg.Args.Any(a => a.Equals("reactor")))

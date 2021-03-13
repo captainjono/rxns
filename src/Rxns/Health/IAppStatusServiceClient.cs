@@ -18,10 +18,9 @@ using Rxns.Metrics;
 
 namespace Rxns.Health
 {
-
-
     public interface IAppStatusServiceClient
     {
+        IObservable<Unit> Publish(IEnumerable<IRxn> events);
         IObservable<Unit> PublishError(BasicErrorReport report);
 
         IObservable<Unit> DeleteError(long id);

@@ -72,7 +72,7 @@ namespace Rxns.Cloud
                 SsdpCommunicationsServer server = null;
                 SsdpDevicePublisher emitter = null;
 
-                $"http://{localIpAddress}:896/".LogDebug("Advertising");
+                $"http://{localIpAddress}:888/".LogDebug("Advertising");
 
                 server = new SsdpCommunicationsServer(new SocketFactory(localIpAddress));
                 emitter = new SsdpDevicePublisher();

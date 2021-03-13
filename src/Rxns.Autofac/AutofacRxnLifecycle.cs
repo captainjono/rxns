@@ -263,12 +263,15 @@ namespace Autofac
             return this;
         }
 
-        public IRxnLifecycle CreatesOncePerApp<T>(Func<IResolveTypes, T> factory, bool preserveExisting = false, string named = null)
+        public IRxnLifecycle CreatesOncePerApp<T>(Func<IResolveTypes, T> factory, bool preserveExisting = false, params string[] named)
         {
-            if (!preserveExisting)
-                _cb.Register<T>(_ => factory(new AutofacComponentContextResolver(_.Resolve<IComponentContext>()))).AsImplementedInterfaces().AsSelf().SingleInstance();
-            else
-                _cb.Register<T>(_ => factory(new AutofacComponentContextResolver(_.Resolve<IComponentContext>()))).AsImplementedInterfaces().AsSelf().SingleInstance().PreserveExistingDefaults();
+            var reg = _cb.Register<T>(_ => factory(new AutofacComponentContextResolver(_.Resolve<IComponentContext>()))).AsImplementedInterfaces().AsSelf().SingleInstance();
+
+            if(preserveExisting)
+                reg.PreserveExistingDefaults();
+            
+            foreach(var name in named)
+                reg.Named<T>(name);
 
             return this;
         }

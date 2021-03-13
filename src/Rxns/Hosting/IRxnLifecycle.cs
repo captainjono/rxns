@@ -30,7 +30,7 @@ namespace Rxns.Hosting
         IRxnLifecycle CreatesOncePerApp(Type type);
         IRxnLifecycle CreateGenericOncePerAppAs(Type type, Type asT);
         IRxnLifecycle CreatesOncePerApp<T>(Func<T> factory, bool preserveExisting = false, string named = null);
-        IRxnLifecycle CreatesOncePerApp<T>(Func<IResolveTypes, T> factory, bool preserveExisting = false, string named = null);
+        IRxnLifecycle CreatesOncePerApp<T>(Func<IResolveTypes, T> factory, bool preserveExisting = false, params string[] named);
 
         IRxnLifecycle RespondsToCmd<T>() where T : IDomainCommand;
         IRxnLifecycle RespondsToQry<T>() where T : IDomainQuery;

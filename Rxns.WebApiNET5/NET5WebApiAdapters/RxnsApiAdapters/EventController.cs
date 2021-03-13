@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -12,21 +13,26 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     public class EventController : DomainCommandApiController
     {
         private readonly IRxnManager<IRxn> _eventManager;
+        private readonly ICommandFactory _rxnFactory;
 
-        public EventController(IRxnManager<IRxn> eventManager)
+        public EventController(IRxnManager<IRxn> eventManager, ICommandFactory rxnFactory)
         {
             _eventManager = eventManager;
+            _rxnFactory = rxnFactory;
         }
 
         [Route("events/publish")]
         [HttpPost]
-        public IActionResult Publish(HttpRequestMessage cmd)
+        public async Task<IActionResult> Publish()
         {
             try
             {
                 var eventCount = 0;
 
-                var receivedEvents = ParseAllAsEvents(cmd?.Content?.ReadAsStringAsync().WaitR());
+                IEnumerable<IRxn> receivedEvents = null;
+                using (StreamReader reader = new StreamReader(Request.Body, Encoding.UTF8))
+                    receivedEvents = ParseAllAsEvents(await reader.ReadToEndAsync());
+
                 var ip = ClientIpAddress();
 
                 receivedEvents.ForEach(e =>
@@ -70,7 +76,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
             foreach (var e in events)
             {
-                var evt = e.Deserialise<RLM>();
+                var evt = _rxnFactory.FromString(e);
                 yield return evt;
             }
         }

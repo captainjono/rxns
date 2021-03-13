@@ -10,7 +10,19 @@ using Rxns.Logging;
 
 namespace Rxns
 {
-
+    public class LocalOnlyRegistry : IRxnManagerRegistry
+    {
+        public LocalOnlyRegistry(IRxnManager<IRxn> all)
+        {
+            RxnsCentral = all;
+            RxnsCentral = all;
+            RxnsCentralReliable = all;
+        }
+        public IRxnManager<IRxn> RxnsLocal { get; }
+        public IRxnManager<IRxn> RxnsCentralReliable { get; }
+        public IRxnManager<IRxn> RxnsCentral { get; }
+        public IDictionary<string, IRxnManager<IRxn>> ClientRoutes { get; }
+    }
 
 
     /// <summary>
@@ -27,7 +39,6 @@ namespace Rxns
     public class RoutableBackingChannel<T> : IRxnBackingChannel<T>
     {
         private readonly IRxnManagerRegistry _services;
-        public readonly IRxnBackingChannel<T> Local;
         private readonly IScheduler _routingScheduler;
         private readonly Subject<T> _routingPipeline = new Subject<T>();
         private IDisposable _setupResource;
@@ -40,13 +51,13 @@ namespace Rxns
         /// </summary>
         /// <param name="services">The route table</param>
         /// <param name="routingScheduler">The schedule used to perform routing</param>
-        public RoutableBackingChannel(IScheduler routingScheduler = null)
+        public RoutableBackingChannel(IRxnManagerRegistry registey, IScheduler routingScheduler = null)
         {
-            Local = new LocalBackingChannel<T>();
+            _services = registey;
             _routingScheduler = routingScheduler;
             Routes = new Dictionary<string, IRxnRouteCfg<T>>();
         }
-
+        
         public IDisposable ConfigureWith(string name, IRxnRouteCfg<T> cfg)
         {
             Routes.Add(name, cfg);
@@ -98,7 +109,7 @@ namespace Rxns
                 _setupResource = received.Do(RouteEvent).Until(ReportStatus.Log.OnError);
             }
 
-            return Local.Setup(scheme).FinallyR(() =>
+            return _services.RxnsLocal.CreateSubscription<T>().FinallyR(() =>
             {
                 _setupResource.Dispose();
                 _setupResource = null;

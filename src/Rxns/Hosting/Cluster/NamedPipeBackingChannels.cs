@@ -40,8 +40,8 @@ namespace Rxns.Hosting.Cluster
 
         public NamedPipesServerBackingChannel(int macConcurrentClients = 1)
         {
-            Router = new RoutableBackingChannel<IRxn>();
-            Router.ConfigureWith("local", RxnRouteCfg.OnReactionTo(typeof(IRxn)).PublishTo<IRxn>(m => Router.Local.Publish(m)));
+            Router = new RoutableBackingChannel<IRxn>(new LocalOnlyRegistry(new RxnManager<IRxn>(new LocalBackingChannel<IRxn>())));
+            Router.ConfigureWith("local", RxnRouteCfg.OnReactionTo(typeof(IRxn)).PublishTo<IRxn>(m => Router.Publish(m)));
             _macConcurrentClients = macConcurrentClients;
             ClientProcessArguments = $"reactor";
         }
