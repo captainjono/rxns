@@ -31,8 +31,10 @@ namespace Rxns.Cloud.Intelligence
         {
             Workers.Add(worker.Name, worker);
             WorkerConnected.OnNext(WorkerConnected.Value() + 1);
+
             $"Worker registered, pool size {Workers.Count}".LogDebug();
 
+            DoWorkfromOverflowIf(worker, DoWorkUntilDrained);
 
             return Disposable.Create(() =>
             {
@@ -52,25 +54,19 @@ namespace Rxns.Cloud.Intelligence
 
         public void Fanout(T cfg) //todo make generic
         {
-            WorkerConnected.Where(w => w > 0).FirstAsync().SelectMany(_ => Rxn.Create(() =>
+            var freeWorker = Workers.Values.FirstOrDefault(w => !w.IsBusy.Value());
+            
+            if (freeWorker != null)
             {
-                var freeWorker = Workers.FirstOrDefault(w => !w.Value.IsBusy.Value());
+                $"Sending work to {freeWorker.Name} @ {freeWorker.Route}".LogDebug();
 
-                if (freeWorker.Value != null)
-                {
-                    $"Sending work to {freeWorker.Value.Name} @ {freeWorker.Value.Route}".LogDebug();
-
-                    DoWorkUntilDrained(cfg, freeWorker.Value);
-                }
-                else
-                {
-                    "Adding work to overflow, all workers busy".LogDebug();
-                    AddToOverflow(cfg);
-                }
-
-                //todo: fix this fan out, should be decoupled from actual dowork
-
-            })).Until();
+                DoWorkUntilDrained(cfg, freeWorker);
+            }
+            else
+            {
+                "Adding work to overflow, all workers busy".LogDebug();
+                AddToOverflow(cfg);
+            }
         }
 
         private void AddToOverflow(T cfg)

@@ -193,6 +193,7 @@ namespace Rxns
                     StartInfo = reactorProcess,
                     EnableRaisingEvents = true,
                 };
+                var hasExited = false;
 
                 $"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
 
@@ -212,6 +213,9 @@ namespace Rxns
 
                 p.Exited += (__, _) =>
                 {
+                    if (hasExited) return;
+
+                    hasExited = true;
                     onInfo($"{pathToProcess} exited");
                     o.OnCompleted();
                 };
@@ -220,6 +224,9 @@ namespace Rxns
 
                 var exit = new DisposableAction(() =>
                 {
+                    if (hasExited) return;
+
+                    hasExited = true;
                     $"Stopping supervisor for {pathToProcess}".LogDebug();
                     p.Kill();
                     o.OnCompleted();

@@ -36,15 +36,17 @@ namespace Rxns.Health.AppStatus
         private readonly IAppStatusStore _appStatus;
         private readonly IAppUpdateManager _updates;
         private readonly IAppHeartBeatHandler[] _heartBeatHandlers;
+        private readonly IFileSystemService _fs;
         private Action<IRxn> _publish;
         private IDictionary<string, string> _keepUpToDateWithNewAppVersions = new ConcurrentDictionary<string, string>();
 
 
-        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates, IAppHeartBeatHandler[] heartBeatHandlers)
+        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates, IAppHeartBeatHandler[] heartBeatHandlers, IFileSystemService fs)
         {
             _appStatus = appStatus;
             _updates = updates;
             _heartBeatHandlers = heartBeatHandlers;
+            _fs = fs;
             _systemStatus = systemStatus;
         }
 
@@ -170,7 +172,7 @@ namespace Rxns.Health.AppStatus
 
                 OnInformation("Uploading log '{2}' for '{0}:{1}'", tenantId, systemName, file.Name);
 
-                _appStatus.SaveLog(file.Contents, $"{systemName}_{file.Name}");
+                _appStatus.SaveLog(tenantId, file.Contents, $"{systemName}_{file.Name}");
 
                 OnVerbose("'{0}' received for log '{1}''", zip.BaseStream.Length.ToFileSize(), file.Name);
             }

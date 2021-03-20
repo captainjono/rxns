@@ -68,7 +68,7 @@ namespace Rxns.Hosting
 
         public IObservable<Unit> PublishLog(Stream zippedLog)
         {
-            var fileName = $"{DateTime.Now:dd-MM-yy-hhmmss}_logfile";
+            var fileName = $"{DateTime.Now:dd-MM-yy-hhmmssfff}_logfile";
             OnVerbose("Publishing Log File : {0}", fileName);
 
             var uploadStream = new MultipartFormDataContent();

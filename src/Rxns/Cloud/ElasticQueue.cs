@@ -19,8 +19,8 @@ namespace Rxns.Cloud
         public readonly ISubject<T> _work = new ReplaySubject<T>(1000);
         public IClusterFanout<T, TR> Workflow { get; private set; }
         public IObservable<bool> IsWorking => _isWorking.DistinctUntilChanged();
-        private readonly BehaviorSubject<bool> _isWorking = new BehaviorSubject<bool>(false);
-        private Action<IRxn> _publish;
+        protected readonly BehaviorSubject<bool> _isWorking = new BehaviorSubject<bool>(false);
+        protected Action<IRxn> _publish;
         
         //todo: implement health monitoring
         public ElasticQueue(IClusterFanout<T, TR> fanoutStratergy = null)

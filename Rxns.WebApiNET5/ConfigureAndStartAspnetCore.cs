@@ -1,19 +1,15 @@
 ﻿using System;
 using System.Reactive.Linq;
-using System.Text.Json;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.AspNetCore.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Rxns.Autofac;
 using Rxns.Hosting;
 using Rxns.Logging;
-using Rxns.Microservices;
-using Rxns.WebApiNET5.NET5WebApiAdapters;
 using Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters;
 using Rxns.WebApiNET5.NET5WebApiAdapters.System.Web.Http;
 

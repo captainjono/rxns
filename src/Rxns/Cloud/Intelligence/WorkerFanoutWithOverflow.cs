@@ -33,7 +33,6 @@ namespace Rxns.Cloud.Intelligence
             WorkerConnected.OnNext(WorkerConnected.Value() + 1);
             $"Worker registered, pool size {Workers.Count}".LogDebug();
 
-
             return Disposable.Create(() =>
             {
                 Workers.Remove(worker.Name);
@@ -55,7 +54,7 @@ namespace Rxns.Cloud.Intelligence
 
         public abstract void Fanout(T cfg);
 
-        private void AddToOverflow(T cfg)
+        protected void AddToOverflow(T cfg)
         {
             _overflow.Push(cfg);
         }

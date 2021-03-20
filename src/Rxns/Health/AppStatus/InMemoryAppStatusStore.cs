@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Linq;
 using Rxns.Collections;
 using Rxns.DDD.Commanding;
@@ -13,6 +14,7 @@ namespace Rxns.Health.AppStatus
 {
     public class InMemoryAppStatusStore : IAppStatusStore
     {
+        private readonly IFileSystemService _fs;
         public const string CACHE_KEY_SYSTEM_STATUS = "SystemStatus";
         public const string CACHE_KEY_SYSTEM_LOG = "SystemLog";
         public const string CACHE_KEY_COMMANDS = "CMD_";
@@ -20,8 +22,9 @@ namespace Rxns.Health.AppStatus
         public IDictionary<object, object> Cache { get; private set; }
 
 
-        public InMemoryAppStatusStore()
+        public InMemoryAppStatusStore(IFileSystemService fs)
         {
+            _fs = fs;
             Clear();
         }
 
@@ -55,17 +58,51 @@ namespace Rxns.Health.AppStatus
             return (Cache[CACHE_KEY_SYSTEM_LOG] as CircularBuffer<object>).Contents();
         }
         
-        public string SaveLog(Stream log, string file)
+        public string SaveLog(string tenantId, Stream log, string file)
         {
             if (!Directory.Exists("TenantLogs"))
                 Directory.CreateDirectory("TenantLogs");
 
-            using (var nextLog = File.Create(Path.Combine("TenantLogs", file)))
+            using (var nextLog = File.Create(Path.Combine("TenantLogs", $"{tenantId}-{file}")))
             {
                 log.CopyTo(nextLog);
             }
 
             return file;
+        }
+
+        public IObservable<Stream> GetLogs(string tenantId, string file)
+        {
+            if (!Directory.Exists("TenantLogs"))
+            {
+                Directory.CreateDirectory("TenantLogs");
+            }
+
+            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine("TenantLogs", $"{tenantId}-{file}")))
+                .Catch<Stream, Exception>(e =>
+                {
+                    ReportStatus.Log.OnWarning($"While downloading update {e}");
+                    return Observable.Return(new MemoryStream());
+                });
+        }
+
+
+        public IObservable<AppLogInfo[]> ListLogs(string tenantId, int top = 3)
+        {
+            if (!_fs.ExistsDirectory(_fs.PathCombine("TenantLogs")))
+                return Rxn.Empty<AppLogInfo[]>();
+
+            return _fs.GetFiles("TenantLogs",
+                tenantId.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
+                    ? "*.zip"
+                    : $"{tenantId}-*.zip").OrderByDescending(f => f.LastWriteTime).Take(top).Select(f =>
+            {
+                
+                return new AppLogInfo()
+                { 
+                    Name = f.Name
+                };
+            }).ToArray().ToObservable().Catch<AppLogInfo[], Exception>(_ => Rxn.Empty<AppLogInfo[]>());
         }
 
         public void Add(LogMessage<string> message)
@@ -132,5 +169,10 @@ namespace Rxns.Health.AppStatus
                 current.Add(cmd);
             }
         }
+    }
+
+    public class AppLogInfo
+    {
+        public string Name { get; set; }
     }
 }

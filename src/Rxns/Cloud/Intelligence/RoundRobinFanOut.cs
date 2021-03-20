@@ -1,14 +1,6 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reactive;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using Rxns.Cloud.Intelligence;
-using Rxns.Collections;
 using Rxns.Interfaces;
 using Rxns.Logging;
 
@@ -20,6 +12,12 @@ namespace Rxns.Cloud
 
         public override void Fanout(T cfg) //todo make generic
         {
+            if (Workers.Count < 1)
+            {
+                AddToOverflow(cfg);
+                return;
+            }
+            
             var nextAgent = Workers.Skip(_lastWorkerIndex++ % Workers.Count).FirstOrDefault().Value;
 
             //todo: properly capture the worker lifecycle so we can monitor it and optimise workloads
