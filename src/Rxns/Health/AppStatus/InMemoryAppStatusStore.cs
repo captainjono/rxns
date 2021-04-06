@@ -12,9 +12,14 @@ using Rxns.Logging;
 
 namespace Rxns.Health.AppStatus
 {
+
     public class InMemoryAppStatusStore : IAppStatusStore
     {
         private readonly IFileSystemService _fs;
+        private readonly IAppStatusCfg _cfg;
+        private readonly IZipService _zipService;
+
+
         public const string CACHE_KEY_SYSTEM_STATUS = "SystemStatus";
         public const string CACHE_KEY_SYSTEM_LOG = "SystemLog";
         public const string CACHE_KEY_COMMANDS = "CMD_";
@@ -22,9 +27,11 @@ namespace Rxns.Health.AppStatus
         public IDictionary<object, object> Cache { get; private set; }
 
 
-        public InMemoryAppStatusStore(IFileSystemService fs)
+        public InMemoryAppStatusStore(IFileSystemService fs, IAppStatusCfg cfg, IZipService zipService)
         {
             _fs = fs;
+            _cfg = cfg;
+            _zipService = zipService;
             Clear();
         }
 
@@ -58,17 +65,41 @@ namespace Rxns.Health.AppStatus
             return (Cache[CACHE_KEY_SYSTEM_LOG] as CircularBuffer<object>).Contents();
         }
         
-        public string SaveLog(string tenantId, Stream log, string file)
+        public IObservable<string> SaveLog(string tenantId, Stream log, string file)
         {
             if (!Directory.Exists("TenantLogs"))
                 Directory.CreateDirectory("TenantLogs");
 
-            using (var nextLog = File.Create(Path.Combine("TenantLogs", $"{tenantId}-{file}")))
+            var logId = $"{tenantId}-{file}";
+            var destinationDir = Path.Combine("TenantLogs", logId);
+
+
+            if (_cfg.ShouldAutoUnzipLogs)
             {
-                log.CopyTo(nextLog);
+                destinationDir = destinationDir.Substring(0, destinationDir.Length - 4);
+
+                Directory.CreateDirectory(destinationDir);
+                return _zipService.GetFiles(log)
+                    .Do(f =>
+                {
+                    //todo: makeasync
+                    using (var fl = File.Open(Path.Combine(destinationDir, f.Name), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Delete))
+                    {
+                        f.Contents.CopyTo(fl);
+                    }
+                })
+                .LastOrDefaultAsync().Select(_ => file);
+            }
+            else
+            {
+                //todo: makeasync
+                using (var f = File.Open($"{destinationDir}", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Delete))
+                {
+                    log.CopyTo(f);
+                }
             }
 
-            return file;
+            return file.ToObservable();
         }
 
         public IObservable<Stream> GetLogs(string tenantId, string file)

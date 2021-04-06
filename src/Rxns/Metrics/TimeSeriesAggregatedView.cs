@@ -92,19 +92,18 @@ namespace Rxns.Metrics
         {
             return _stream;
         }
+                
 
         private IObservable<T> GetOrCreateUpdateStream()
         {
-            return Rxn.Create<T>(o =>
+            return Rxn.Create<T>(() =>
             {
                 if (_stream == null)
                 {
-                    var stream = new Subject<T>();
-                    _stream = stream.Publish().RefCount();
-                    GetOrCreateStream().Subscribe(stream);
+                    _stream = GetOrCreateStream().Publish().RefCount();
                 }
 
-                return _stream.Subscribe(o);
+                return _stream;
             });
         }
 

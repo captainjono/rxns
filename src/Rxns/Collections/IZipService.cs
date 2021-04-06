@@ -14,7 +14,8 @@ namespace Rxns.Collections
 
         Stream Zip(string directory, string searchPattern = "*.*");
 
-        IObservable<IFileMeta> GetFiles(string zipFile, string searchPattern = null);
+        IObservable<IFileMeta> GetFiles(Stream zipFile, string fileMask = null);
+        IObservable<IFileMeta> GetFiles(string zipFile, string fileMask = null);
     }
 
     public class NoZipService : IZipService
@@ -25,6 +26,11 @@ namespace Rxns.Collections
         }
 
         public Stream Zip(string directory, string searchPattern = "*.*")
+        {
+            throw new NotImplementedException();
+        }
+
+        public IObservable<IFileMeta> GetFiles(Stream zipFile, string fileMask = null)
         {
             throw new NotImplementedException();
         }
@@ -67,17 +73,48 @@ namespace Rxns.Collections
             return (Stream) memoryStream;
         }
 
-        public IObservable<IFileMeta> GetFiles(string zipFile, string fileMask = null)
+        public IObservable<IFileMeta> GetFiles(Stream zipFile, string fileMask = null)
         {
-            var getFilesFrom = ZipFile.Read(this._fileSystem.GetReadableFile(zipFile));
-            return (fileMask != null ? 
-                getFilesFrom.Where(f => f.FileName.Contains(fileMask, StringComparison.OrdinalIgnoreCase)) : 
-                getFilesFrom.Entries).Select(f => new InMemoryFile()
+            var getFilesFrom = ZipFile.Read(zipFile);
+            return (fileMask != null ?
+                getFilesFrom.Where(f => f.FileName.Contains(fileMask, StringComparison.OrdinalIgnoreCase)) :
+                getFilesFrom.Entries).Where(f => !f.FileName.IsNullOrWhitespace()).Select(f => new JitFile()
+            {
+                Fullname = f.FileName,
+                GetContents =  () =>
                 {
-                    Fullname = f.FileName,
-                    Contents = (Stream) f.OpenReader(),
-                    LastWriteTime = f.LastModified
+                    var s = new MemoryStream();
+                    f.Extract(s);
+                    s.Position = 0;
+                    return s;
+                },
+                LastWriteTime = f.LastModified,
+                Name = new FileInfo(f.FileName).Name
                 }).ToObservable();
         }
+
+
+        public IObservable<IFileMeta> GetFiles(string zipFile, string fileMask = null)
+        {
+            return GetFiles(this._fileSystem.GetReadableFile(zipFile), fileMask);
+        }
+    }
+
+    public class JitFile : IFileMeta
+    {
+        public Stream Contents
+        {
+            get => GetContents();
+            set => throw new NotImplementedException();
+        }
+
+        public string ContentType { get; set; }
+        public string Fullname { get; set; }
+        public string Hash { get; set; }
+        public DateTime LastWriteTime { get; set; }
+        public long Length { get; set; }
+        public string Name { get; set;  }
+
+        public Func<Stream> GetContents { get; set; }
     }
 }

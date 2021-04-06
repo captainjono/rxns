@@ -8,6 +8,7 @@ namespace Rxns.Health
         public float MemUsage { get; set; }
         public long Handles { get; set; }
         public long Threads { get; set; }
+        public float CpuUsage { get; set; }
     }
 
     /// <summary>

@@ -41,6 +41,7 @@ namespace Rxns.Health.AppStatus
                 //for diagnostic portal
                 .CreatesOncePerApp<FileSystemTapeRepository>(true)
                 .CreatesOncePerApp<InMemoryAppStatusStore>()
+                .CreatesOncePerApp<AppStatusCfg>(true)
                 .CreatesOncePerApp<ErrorsTapeRepository>()
                 //reporting
                 .CreatesOncePerApp<TimeSeriesNotificationManager>()

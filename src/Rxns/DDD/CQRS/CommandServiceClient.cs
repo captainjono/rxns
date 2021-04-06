@@ -50,7 +50,7 @@ namespace Rxns.DDD.CQRS
 
         public IObservable<object> Run(IServiceCommand cmd)
         {
-            return Connection.Call((c, cancel) => c.PostAsync(WithBaseUrl("svcCmd/{0}"), new StringContent(cmd.Serialise().ResolveAs(cmd.GetType()), Encoding.UTF8, "text/json"), cancel))
+            return Connection.Call((c, cancel) => c.PostAsync(WithBaseUrl("cmd/{0}").FormatWith("na"), new StringContent(cmd.Serialise().ResolveAs(cmd.GetType()), Encoding.UTF8, "text/json"), cancel))
                                   .SelectMany(r => r.Content.ReadAsStringAsync())
                                   .Select(r => r.Deserialise<CommandResult>());
         }

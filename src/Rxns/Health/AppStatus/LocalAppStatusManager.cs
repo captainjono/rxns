@@ -29,7 +29,7 @@ namespace Rxns.Health.AppStatus
         public SystemStatusEvent System { get; set; }
         public object[] Meta { get; set; }
     }
-    
+
     public class LocalAppStatusManager : ReportsStatus, IAppStatusManager, IRxnPublisher<IRxn>
     {
         private readonly ISystemStatusStore _systemStatus;
@@ -61,16 +61,16 @@ namespace Rxns.Health.AppStatus
                 if (all.AnyItems())
                 {
                     //find all the tenants
-                    var res =  all.Distinct(new TenantOnlyStatusComparer()).Select(x => new SystemStatusModel()
+                    var res = all.Distinct(new TenantOnlyStatusComparer()).Select(x => new SystemStatusModel()
                     {
                         Tenant = x.Key.Tenant,
                         Systems = all.Keys.Where(k => k.Tenant == x.Key.Tenant)
-                            .OrderBy(o => o.SystemName)
-                            .Select(y => new AppStatusModel()
-                            {
-                                System = y,
-                                Meta = all[y]
-                            }).ToArray()
+                           .OrderBy(o => o.SystemName)
+                           .Select(y => new AppStatusModel()
+                           {
+                               System = y,
+                               Meta = all[y]
+                           }).ToArray()
                     }).ToArray();
 
                     return res;
@@ -88,7 +88,7 @@ namespace Rxns.Health.AppStatus
         private IObservable<bool> AddOrUpdateStatus(SystemStatusEvent status, object[] meta)
         {
             OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName, status.IpAddress);
-            
+
             return _systemStatus.AddOrUpdate(status, meta)
                 .Do(isUpdate =>
                 {
@@ -147,7 +147,7 @@ namespace Rxns.Health.AppStatus
                         return new IRxnQuestion[0];
                     }
 
-                    return new IRxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion?.Version.IsNullOrWhiteSpace("Latest"), false, status.GetRoute())};
+                    return new IRxnQuestion[] { new UpdateSystemCommand(status.SystemName, currentVersion?.Version.IsNullOrWhiteSpace("Latest"), false, status.GetRoute()) };
                 });
         }
 
@@ -165,19 +165,18 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<bool> UploadLogs(string tenantId, string systemName, IFileMeta file)
         {
-            using (var zip = new StreamReader(file.Contents))
-            {
-                if (!file.Name.ToLower().Contains("zip"))
-                    throw new ArgumentException("Update packages must be a zip file");
+            if (!file.Name.ToLower().Contains("zip"))
+                throw new ArgumentException("Update packages must be a zip file");
 
-                OnInformation("Uploading log '{2}' for '{0}:{1}'", tenantId, systemName, file.Name);
+            OnInformation("Uploading log '{2}' for '{0}:{1}'", tenantId, systemName, file.Name);
 
-                _appStatus.SaveLog(tenantId, file.Contents, $"{systemName}_{file.Name}");
-
-                OnVerbose("'{0}' received for log '{1}''", zip.BaseStream.Length.ToFileSize(), file.Name);
-            }
-
-            return true.ToObservable();
+            return _appStatus.SaveLog(tenantId, file.Contents, $"{systemName}_{file.Name}")
+                .Select(_ => true)
+                .FinallyR(
+                () =>
+                {
+                    OnVerbose("'{0}' received for log '{1}''", file.Length.ToFileSize(), file.Name);
+                });
         }
 
         public void ConfigiurePublishFunc(Action<IRxn> publish)
@@ -185,6 +184,7 @@ namespace Rxns.Health.AppStatus
             _publish = publish;
         }
     }
+
     public class TenantOnlyStatusComparer : IEqualityComparer<KeyValuePair<SystemStatusEvent, object[]>>
     {
         public bool Equals(KeyValuePair<SystemStatusEvent, object[]> x, KeyValuePair<SystemStatusEvent, object[]> y)

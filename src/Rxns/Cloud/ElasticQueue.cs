@@ -14,12 +14,12 @@ namespace Rxns.Cloud
     ///
     /// Workers can be dynamically added to the queue in order to drain it at a sufficent pace. These workers may be in process, out of process, or in the cloud.
     /// </summary>
-    public class ElasticQueue<T, TR> : ReportStatusService, IRxnPublisher<IRxn>, IRxnProcessor<WorkerDiscovered<T, TR>>, IRxnProcessor<T> where TR : IRxn
+    public class ElasticQueue<T, TR> : ReportStatusService, IRxnPublisher<IRxn>, IRxnProcessor<WorkerDiscovered<T, TR>> where TR : IRxn
     {
         public readonly ISubject<T> _work = new ReplaySubject<T>(1000);
         public IClusterFanout<T, TR> Workflow { get; private set; }
         public IObservable<bool> IsWorking => _isWorking.DistinctUntilChanged();
-        protected readonly BehaviorSubject<bool> _isWorking = new BehaviorSubject<bool>(false);
+        protected readonly BehaviorSubject<bool> _isWorking = new BehaviorSubject<bool>(false); 
         protected Action<IRxn> _publish;
         
         //todo: implement health monitoring
@@ -41,8 +41,6 @@ namespace Rxns.Cloud
             });
         }
         
-
-
         public IObservable<IRxn> Process(T @event)
         {
             return Rxn.Create<IRxn>(() => Queue(@event));

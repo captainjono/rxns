@@ -78,7 +78,12 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             return _appStatus.GetSystemLog();
         }
 
-        //[ValidateMimeMultipartContentFilter]
+
+        //need to hookup testLogs client to API
+        //dont the rest
+        //ListLogs & GetLogs(file)
+        //also check the urls and the appstatus angular listing
+
         [Route("systemstatus/logs/{tenantId}/{systemName}/publish")]
         [HttpPost]
         [DisableAspnetCoreModelBinding]
@@ -87,11 +92,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             try
             {
                 //todo: fix wait issue
-                GetUploadedFiles().Do(file =>
-                {
-                   _appStatus.UploadLogs(tenantId, systemName, file);
-
-                }).Wait();
+                GetUploadedFiles().SelectMany(file => _appStatus.UploadLogs(tenantId, systemName, file)).Wait();
             }
             catch (ArgumentException) //occours when uploaded file is not .zip
             {

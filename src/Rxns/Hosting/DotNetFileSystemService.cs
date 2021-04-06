@@ -66,7 +66,7 @@ namespace Rxns.Hosting
         {
             return File.Exists(file);
         }
-
+        
         public bool ExistsDirectory(string path)
         {
             return Directory.Exists(path);

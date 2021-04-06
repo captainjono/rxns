@@ -134,10 +134,8 @@ namespace Rxns.WebApiNET5
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder server, IWebHostEnvironment env)
         {
-
             var cfg = (IWebApiCfg)server.ApplicationServices.GetService(typeof(IWebApiCfg));
-            
-            var userCfg = (IAspnetCoreCfg)server.ApplicationServices.GetService(typeof(IAspnetCoreCfg));
+            var userCfg = (IAspnetCoreCfg[])server.ApplicationServices.GetService(typeof(IAspnetCoreCfg[]));
             //env.WebRootPath = cfg.Html5Root;
             //env.WebRootFileProvider =
             if (env.IsDevelopment())
@@ -222,7 +220,8 @@ namespace Rxns.WebApiNET5
             //webCfg.EnableCompression(); //handle gzip streams
             //via middleware
 
-            userCfg?.Cfg(server);
+            foreach(var c in userCfg)
+                c?.Cfg(server);
 
             //the order here is important, you must set it before using the webapi
             //otherwise the controllers wont recognise the tokens and [Authorize] will fail
