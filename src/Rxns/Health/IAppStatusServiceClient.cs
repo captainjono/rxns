@@ -27,7 +27,7 @@ namespace Rxns.Health
 
         IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta);
 
-        IObservable<Unit> PublishLog(Stream zippedLog);
+        IObservable<string> PublishLog(Stream zippedLog);
     }
 
     public interface IAppStatusServiceClientCfg

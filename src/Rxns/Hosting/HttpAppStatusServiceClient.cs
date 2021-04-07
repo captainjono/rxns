@@ -66,15 +66,15 @@ namespace Rxns.Hosting
             return Connection.Call(client => client.DeleteAsync(WithBaseUrl($"errors/{id}"))).Select(_ => new Unit());
         }
 
-        public IObservable<Unit> PublishLog(Stream zippedLog)
+        public IObservable<string> PublishLog(Stream zippedLog)
         {
-            var fileName = $"{DateTime.Now:dd-MM-yy-hhmmssfff}_logfile";
+            var fileName = $"{DateTime.Now:dd-MM-yy-hhmmssfff}";
             OnVerbose("Publishing Log File : {0}", fileName);
 
             var uploadStream = new MultipartFormDataContent();
             uploadStream.Add(new StreamContent(zippedLog), fileName, fileName + ".zip");
 
-            return Connection.Call(client => client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), uploadStream)).Select(_ => new Unit());
+            return Connection.Call(client => client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), uploadStream)).Select(_ => $"{_credentials.Tenant}/{_systemInfo.Name}_{fileName}");
         }
 
         public virtual IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)

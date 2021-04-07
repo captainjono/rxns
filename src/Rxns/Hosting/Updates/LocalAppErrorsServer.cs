@@ -52,14 +52,17 @@ namespace Rxns.Hosting.Updates
             return _appStatusMgr.UpdateSystemStatusWithMeta(".", status, meta);
         }
 
-        public IObservable<Unit> PublishLog(Stream zippedLog)
+        public IObservable<string> PublishLog(Stream zippedLog)
         {
+            var fileName = $"{Guid.NewGuid()}.zip";
             return Rxn.Create(() =>
             {
                 using (var contents = ZipFile.Read(zippedLog))
                 {
-                    contents.ExtractAll(Path.Combine("appstatus", "logs", $"{Guid.NewGuid()}.zip"));
+                    contents.ExtractAll(Path.Combine("appstatus", "logs", fileName));
                 }
+
+                return fileName;
             });
         }
     }

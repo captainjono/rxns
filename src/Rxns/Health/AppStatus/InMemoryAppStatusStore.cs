@@ -70,7 +70,7 @@ namespace Rxns.Health.AppStatus
             if (!Directory.Exists("TenantLogs"))
                 Directory.CreateDirectory("TenantLogs");
 
-            var logId = $"{tenantId}-{file}";
+            var logId = $"{tenantId}/{file}";
             var destinationDir = Path.Combine("TenantLogs", logId);
 
 
