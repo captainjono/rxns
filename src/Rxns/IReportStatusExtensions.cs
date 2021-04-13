@@ -30,10 +30,10 @@ namespace System.Reactive.Linq
             var infoStream = reporter?.Information;
 
             if (errors != null)
-                errorStream?.Do(e => errors(e)).Finally(() => { "LOG CRASHED".LogDebug();}).Until().DisposedBy(subs);
+                errorStream?.Do(e => errors(e)).Until().DisposedBy(subs);
 
             if (information != null)
-                infoStream?.Do(e => information(e)).Finally(() => { "LOG CRASHED".LogDebug();}).Until().DisposedBy(subs);
+                infoStream?.Do(e => information(e)).Until().DisposedBy(subs);
 
             return subs;
         }

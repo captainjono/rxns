@@ -200,16 +200,16 @@ namespace Rxns
                 var nameOfProcess = new FileInfo(pathToProcess).Name;
 
                 p.Start();
-
+                
                 Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardOutput.ReadLineAsync())).Do(msg =>
                 {
                     onInfo(msg);
-                }).DoWhile(() => !p.HasExited).Until(o.OnError);
+                }).DoWhile(() => !p.StandardOutput.EndOfStream).FinallyR(() => o.OnCompleted()).Until(o.OnError);
 
                 Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardError.ReadLineAsync())).Do(msg =>
                 {
                     onError(msg);
-                }).DoWhile(() => !p.HasExited).Until(o.OnError);
+                }).DoWhile(() => !p.StandardError.EndOfStream).Until(o.OnError);
 
                 p.Exited += (__, _) =>
                 {
@@ -217,7 +217,6 @@ namespace Rxns
 
                     hasExited = true;
                     onInfo($"{pathToProcess} exited");
-                    o.OnCompleted();
                 };
 
                 p.KillOnExit();
