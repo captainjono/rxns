@@ -15,25 +15,28 @@ namespace Rxns.Hosting.Updates
     {
         private readonly AppUpdateCfg _cfg;
         private readonly IFileSystemService _fs;
+        private readonly IAppStatusCfg _appCfg;
+        public string UpdateDir { get; set; }
 
-        public FileSystemAppUpdateRepo(IFileSystemService fs)
+        public FileSystemAppUpdateRepo(IFileSystemService fs, IAppStatusCfg appCfg)
         {
             _cfg = new AppUpdateCfg() {NumberOfRollingAppUpdates = 3};
             _fs = fs;
+            _appCfg = appCfg;
+            
+            UpdateDir = Path.Combine(_appCfg.AppRoot, "updates");
         }
 
         public IObservable<bool> CreateUpdate(string systemName, string version, Stream update)
         {
             return Rxn.Create(() =>
                 {
-                    var path = _fs.PathCombine("updates");
-
-                    if (!_fs.ExistsDirectory(path))
-                        _fs.CreateDirectory(path);
+                    if (!_fs.ExistsDirectory(UpdateDir))
+                        _fs.CreateDirectory(UpdateDir);
 
                     update.Seek(0, SeekOrigin.Begin);
                     using (var file =
-                        _fs.CreateWriteableFile(_fs.PathCombine(path, GetUpdateName(systemName, version))))
+                        _fs.CreateWriteableFile(_fs.PathCombine(UpdateDir, GetUpdateName(systemName, version))))
                         update.CopyTo(file);
 
                     return true;
@@ -57,7 +60,7 @@ namespace Rxns.Hosting.Updates
 
         private void DeleteUpdate(string systemName, string version)
         {
-            _fs.DeleteFile(_fs.PathCombine("updates", $"{systemName}-{version}.zip"));
+            _fs.DeleteFile(_fs.PathCombine(_appCfg.AppRoot, "updates", $"{systemName}-{version}.zip"));
         }
 
 
@@ -68,12 +71,12 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<Stream> GetUpdate(string systemName, string version = null)
         {
-            if (!Directory.Exists("updates"))
+            if (!Directory.Exists(UpdateDir))
             {
-                Directory.CreateDirectory("updates");
+                Directory.CreateDirectory(UpdateDir);
             }
 
-            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine("updates", GetUpdateName(systemName, version))))
+            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine(UpdateDir, GetUpdateName(systemName, version))))
                 .Catch<Stream, Exception>(e =>
                 {
                     ReportStatus.Log.OnWarning($"While downloading update {e}");
@@ -85,10 +88,10 @@ namespace Rxns.Hosting.Updates
 
         public IObservable<AppUpdateInfo[]> ListUpdates(string systemName, int top = 3)
         {
-            if (!_fs.ExistsDirectory(_fs.PathCombine("updates")))
+            if (!_fs.ExistsDirectory(UpdateDir))
                 return Rxn.Empty<AppUpdateInfo[]>();
 
-            return _fs.GetFiles("updates",
+            return _fs.GetFiles(UpdateDir,
                 systemName.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
                     ? "*.zip"
                     : $"{systemName}-*.zip").OrderByDescending(f => f.LastWriteTime).Take(top).Select(f =>

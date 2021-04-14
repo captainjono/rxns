@@ -27,7 +27,7 @@ namespace Rxns.Hosting
 
             var currentAppCfg = RxnAppCfg.LoadCfg(appLocation);
 
-            var client = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(new DotNetFileSystemService()), new DotNetFileSystemService(), new CurrentDirectoryAppUpdateStore(), currentAppCfg);
+            var client = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(new DotNetFileSystemService(), new AppStatusCfg()), new DotNetFileSystemService(),  new CurrentDirectoryAppUpdateStore(), currentAppCfg);
             client.ReportToDebug();
 
             return client.Download(appName, version, appLocation, new RxnAppCfg()
@@ -64,7 +64,7 @@ namespace Rxns.Hosting
 
             var currentAppCfg = RxnAppCfg.LoadCfg(appLocation);
 
-            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl, currentAppCfg);
+            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl, null, currentAppCfg);
             return client.Download(appName, version, appLocation,new RxnAppCfg()
             {
                 SystemName = appName,
@@ -87,7 +87,7 @@ namespace Rxns.Hosting
             });
         }
 
-        public static IObservable<Unit> CreateAppUpdate(string appName, string version, string appLocation, bool isLocal, string appStatusUrl = "http://localhost:888")
+        public static IObservable<Unit> CreateAppUpdate(string appName, string version, string appLocation, bool isLocal, IAppStatusCfg cfg, string appStatusUrl = "http://localhost:888")
         {
             if (appLocation.StartsWith("."))
                 appLocation = Environment.CurrentDirectory;
@@ -97,7 +97,7 @@ namespace Rxns.Hosting
             $"Version: {version}".LogDebug();
             $"Location: {appLocation}".LogDebug();
 
-            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl, null);
+            var client = AutoSelectUpdateServerClient(isLocal, appStatusUrl, cfg, null);
 
             if (version == null || version.StartsWith("Latest", StringComparison.OrdinalIgnoreCase))
             {
@@ -108,7 +108,7 @@ namespace Rxns.Hosting
             return client.Upload(appName, version, appLocation);
         }
 
-        private static IUpdateServiceClient AutoSelectUpdateServerClient(bool isLocal, string appStatusUrl, IRxnAppCfg destCfg = null)
+        private static IUpdateServiceClient AutoSelectUpdateServerClient(bool isLocal, string appStatusUrl, IAppStatusCfg cfg, IRxnAppCfg destCfg = null)
         {
             var fs = new DotNetFileSystemService();
             
@@ -138,7 +138,7 @@ namespace Rxns.Hosting
             {
                 "Saving update locally".LogDebug();
 
-                var c = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(fs), fs, new CurrentDirectoryAppUpdateStore(), destCfg);
+                var c = new AppUpdateServiceClient(new FileSystemAppUpdateRepo(fs, cfg ?? new AppStatusCfg()), fs, new CurrentDirectoryAppUpdateStore(), destCfg);
                 c.ReportToDebug();
                 return c;
             }

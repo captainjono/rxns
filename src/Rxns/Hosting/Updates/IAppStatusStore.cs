@@ -12,11 +12,13 @@ namespace Rxns.Hosting.Updates
     public interface IAppStatusCfg
     {
         bool ShouldAutoUnzipLogs { get; }
+        string AppRoot { get; set; }
     }
 
     public class AppStatusCfg : IAppStatusCfg
     {
         public bool ShouldAutoUnzipLogs { get; set; }
+        public string AppRoot { get; set; }
     }
 
     public interface IAppStatusStore

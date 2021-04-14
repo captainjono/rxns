@@ -33,6 +33,8 @@ namespace Rxns.Health.AppStatus
             _cfg = cfg;
             _zipService = zipService;
             Clear();
+
+            LogDir = Path.Combine(_cfg.AppRoot, "TenantLogs");
         }
 
         public IDictionary<string, Dictionary<SystemStatusEvent, object[]>> GetSystemStatus()
@@ -64,14 +66,16 @@ namespace Rxns.Health.AppStatus
         {
             return (Cache[CACHE_KEY_SYSTEM_LOG] as CircularBuffer<object>).Contents();
         }
+
+        public string LogDir { get; set; }
         
         public IObservable<string> SaveLog(string tenantId, Stream log, string file)
         {
-            if (!Directory.Exists("TenantLogs"))
-                Directory.CreateDirectory("TenantLogs");
+            if (!Directory.Exists(LogDir))
+                Directory.CreateDirectory(LogDir);
 
             var logId = $"{tenantId}/{file}";
-            var destinationDir = Path.Combine("TenantLogs", logId);
+            var destinationDir = Path.Combine(LogDir, logId);
 
 
             if (_cfg.ShouldAutoUnzipLogs)
@@ -104,12 +108,12 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<Stream> GetLogs(string tenantId, string file)
         {
-            if (!Directory.Exists("TenantLogs"))
+            if (!Directory.Exists(LogDir))
             {
-                Directory.CreateDirectory("TenantLogs");
+                Directory.CreateDirectory(LogDir);
             }
 
-            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine("TenantLogs", $"{tenantId}-{file}")))
+            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine(LogDir, $"{ tenantId}-{file}")))
                 .Catch<Stream, Exception>(e =>
                 {
                     ReportStatus.Log.OnWarning($"While downloading update {e}");
@@ -120,10 +124,10 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<AppLogInfo[]> ListLogs(string tenantId, int top = 3)
         {
-            if (!_fs.ExistsDirectory(_fs.PathCombine("TenantLogs")))
+            if (!_fs.ExistsDirectory(_fs.PathCombine(LogDir)))
                 return Rxn.Empty<AppLogInfo[]>();
 
-            return _fs.GetFiles("TenantLogs",
+            return _fs.GetFiles(LogDir,
                 tenantId.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
                     ? "*.zip"
                     : $"{tenantId}-*.zip").OrderByDescending(f => f.LastWriteTime).Take(top).Select(f =>

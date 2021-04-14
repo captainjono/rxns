@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 
 namespace Rxns.Playback
@@ -8,12 +10,14 @@ namespace Rxns.Playback
     public class FileSystemTapeRepository : ITapeRepository
     {
         private readonly IFileSystemService _fileSystem;
+        private readonly IAppStatusCfg _cfg;
         private readonly IStringCodec _defaultCodec;
 
-        public FileSystemTapeRepository(IFileSystemService fileSystem, IStringCodec codec)
+        public FileSystemTapeRepository(IFileSystemService fileSystem, IAppStatusCfg cfg, IStringCodec codec)
         {
             _defaultCodec = codec;
             _fileSystem = fileSystem;
+            _cfg = cfg;
         }
 
         public void Delete(string name)
@@ -23,18 +27,21 @@ namespace Rxns.Playback
 
         public ITapeStuff GetOrCreate(string fulleName, IStringCodec codec = null)
         {
-            var directory = _fileSystem.GetDirectoryPart(fulleName);
+            var fileToGet = Path.Combine(_cfg.AppRoot, fulleName);
+            var directory = _fileSystem.GetDirectoryPart(fileToGet);
             if (!directory.IsNullOrWhitespace() && !_fileSystem.ExistsDirectory(directory)) _fileSystem.CreateDirectory(directory);
 
-            return RxnTape.FromSource(fulleName, new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(fulleName), codec ?? _defaultCodec));
+            return RxnTape.FromSource(fileToGet, new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(fileToGet), codec ?? _defaultCodec));
         }
 
         public IEnumerable<ITapeStuff> GetAll(string directory = @".\", string mask = "*.*", IStringCodec codec = null)
         {
-            if (!directory.IsNullOrWhitespace() && !_fileSystem.ExistsDirectory(directory)) _fileSystem.CreateDirectory(directory);
+            var rootedDir = Path.Combine(_cfg.AppRoot, directory);
 
-            return _fileSystem.GetFiles(directory, mask, true)
-                            .Select(f => RxnTape.FromSource(_fileSystem.PathCombine(directory, f.Name), new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(f.Fullname), codec ?? _defaultCodec)));
+            if (!directory.IsNullOrWhitespace() && !_fileSystem.ExistsDirectory(rootedDir)) _fileSystem.CreateDirectory(rootedDir);
+
+            return _fileSystem.GetFiles(rootedDir, mask, true)
+                            .Select(f => RxnTape.FromSource(_fileSystem.PathCombine(rootedDir, f.Name), new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(f.Fullname), codec ?? _defaultCodec)));
         }
     }
 }

@@ -1,12 +1,14 @@
-﻿using Rxns.Metrics;
+﻿using System.IO;
+using Rxns.Hosting.Updates;
+using Rxns.Metrics;
 
 namespace Rxns.Hosting
 {
     public class StaticFileSystemConfiguration : IFileSystemConfiguration
     {
-        public StaticFileSystemConfiguration(string temptDir = "temp")
+        public StaticFileSystemConfiguration(IAppStatusCfg cfg)
         {
-            TemporaryDirectory = temptDir;
+            TemporaryDirectory = Path.Combine(cfg.AppRoot, ".temp");
         }
         public string TemporaryDirectory { get; private set; }
     }

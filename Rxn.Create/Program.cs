@@ -56,7 +56,7 @@ namespace RxnCreate
                         KeepUpdated = true,
                     }.Save(appLocation);
                 
-                RxnApps.CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhiteSpace(true.ToString())), appStatusUrl).Catch<Unit, Exception>(
+                RxnApps.CreateAppUpdate(name, version, appLocation, bool.Parse(isLocal.IsNullOrWhiteSpace(true.ToString())), null, appStatusUrl).Catch<Unit, Exception>(
                     e =>
                     {
                         ReportStatus.Log.OnError("Push failed", e);

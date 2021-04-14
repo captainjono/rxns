@@ -82,13 +82,14 @@ namespace Rxns.Hosting.Updates
         private readonly IFileSystemService _fileSystem;
         private readonly IZipService _zipService;
         private readonly IAppStatusServiceClient _appStatus;
+        private readonly IAppStatusCfg _cfg;
         private readonly IRxnHostableApp _bootstrap;
         private readonly IUpdateStorageClient _client;
         private readonly BehaviorSubject<AppUpdateStatus> _onStateChanged = new BehaviorSubject<AppUpdateStatus>(AppUpdateStatus.Idle);
         private readonly IUpdateServiceClient _updateService;
         private Action<IRxn> _pubish;
 
-        public LocalAppUpdateServer(IUpdateStorageClient client, IUpdateServiceClient updateService, ICommandService cmdHub, IRxnAppInfo systemInfo, IFileSystemService fileSystem, IZipService zipService, IAppStatusServiceClient appStatus, IRxnHostableApp bootstrap)
+        public LocalAppUpdateServer(IUpdateStorageClient client, IUpdateServiceClient updateService, ICommandService cmdHub, IRxnAppInfo systemInfo, IFileSystemService fileSystem, IZipService zipService, IAppStatusServiceClient appStatus, IAppStatusCfg cfg, IRxnHostableApp bootstrap)
         {
             _client = client;
             _updateService = updateService;
@@ -97,6 +98,7 @@ namespace Rxns.Hosting.Updates
             _fileSystem = fileSystem;
             _zipService = zipService;
             _appStatus = appStatus;
+            _cfg = cfg;
             _bootstrap = bootstrap;
         }
 
