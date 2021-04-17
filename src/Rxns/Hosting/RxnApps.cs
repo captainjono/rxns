@@ -87,7 +87,7 @@ namespace Rxns.Hosting
             });
         }
 
-        public static IObservable<Unit> CreateAppUpdate(string appName, string version, string appLocation, bool isLocal, IAppStatusCfg cfg, string appStatusUrl = "http://localhost:888")
+        public static IObservable<Unit> CreateAppUpdate(string appName, string version, string appLocation, bool isLocal, IAppStatusCfg cfg, string appStatusUrl = "http://localhost:888", string[] exclusions = default(string[]))
         {
             if (appLocation.StartsWith("."))
                 appLocation = Environment.CurrentDirectory;
@@ -105,7 +105,7 @@ namespace Rxns.Hosting
                 version = $"{$"{version}" ?? ""}{DateTime.Now.ToString("s").Replace(":", "")}";
             }
             
-            return client.Upload(appName, version, appLocation);
+            return client.Upload(appName, version, appLocation, exclusions);
         }
 
         private static IUpdateServiceClient AutoSelectUpdateServerClient(bool isLocal, string appStatusUrl, IAppStatusCfg cfg, IRxnAppCfg destCfg = null)

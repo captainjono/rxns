@@ -121,14 +121,14 @@ namespace Rxns.Hosting.Updates
             }));
         }
 
-        public IObservable<Unit> Upload(string system, string version, string sourceFolder)
+        public IObservable<Unit> Upload(string system, string version, string sourceFolder, string[] exclusions)
         {
             return Rxn.Create(() =>
             {
                 OnVerbose("Uploading update for: {1} ({2} - '{0}')", sourceFolder, system, version);
 
                 
-                var zippedUpdate = Zip(sourceFolder, "*.*");
+                var zippedUpdate = Zip(sourceFolder, "*.*", exclusions);
                 return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).Catch<Unit, Exception>(
                     e =>
                     {
@@ -143,7 +143,7 @@ namespace Rxns.Hosting.Updates
         }
 
 
-        public Stream Zip(string dir, string searchPattern = "*.*")
+        public Stream Zip(string dir, string searchPattern, string[] exclusions)
         {
             if (dir == ".")
             {
@@ -155,6 +155,8 @@ namespace Rxns.Hosting.Updates
             //use folder as index in .zip if no slash
             var shouldNest = !(dir.EndsWith("/") || !dir.EndsWith("\\"));
 
+            exclusions = exclusions.Concat(new [] {"%%"}).ToArray();
+
             using (var zipFile = new ZipFile())
             {
                 foreach (string pathToFile in _fileSystem.GetFiles(dir.TrimEnd('/', '\\'), searchPattern, true)
@@ -163,7 +165,7 @@ namespace Rxns.Hosting.Updates
                     var absolute = _fileSystem.GetDirectoryPart(pathToFile);
                     
                     var relative = absolute.Replace(dir.TrimEnd('/', '\\'), "").LogDebug(pathToFile);
-                    if (relative.Equals("updates", StringComparison.OrdinalIgnoreCase) || relative.BasicallyContains("%%"))
+                    if (exclusions.Any(e => relative.BasicallyContains(e)))
                     {
                         //todo make detection more formal/optional
                         "detected nested update, skipping".LogDebug();

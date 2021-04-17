@@ -55,14 +55,16 @@ namespace Rxns.Hosting.Updates
         /// <param name="overwrite"></param>
         /// <returns></returns>
         IObservable<string> Download(string system, string version, string destinationFolder = null, IRxnAppCfg cfg = null, bool overwrite = true);
+
         /// <summary>
         /// Uploads a new verison of the App for later download or use in scaling
         /// </summary>
         /// <param name="system"></param>
         /// <param name="version"></param>
         /// <param name="sourceFolder"></param>
+        /// <param name="exclusionsInSourceFolder"></param>
         /// <returns></returns>
-        IObservable<Unit> Upload(string system, string version, string sourceFolder);
+        IObservable<Unit> Upload(string system, string version, string sourceFolder, string[] exclusionsInSourceFolder);
         /// <summary>
         /// Keeps a given folder updated with the latest version of an app, alerting to the new version when it is ready to run
         /// </summary>

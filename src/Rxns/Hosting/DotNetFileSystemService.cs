@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive;
+using System.Reactive.Linq;
 using Rxns.Interfaces;
 using Rxns.Windows;
 
@@ -103,7 +104,7 @@ namespace Rxns.Hosting
         {
             return Rxn.DfrCreate(() => Rxn.Create<Unit>(o =>
             {
-                var watcher = Files.WatchForChanges(path, pattern, () => o.OnNext(new Unit()));
+                var watcher = Files.WatchForChanges(path, pattern).Select(_ => new Unit()).Subscribe(o);
 
                 //if we have an existing file, alert on it straight away
                 //as the filewatcher doesnt until its changed
