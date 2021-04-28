@@ -25,8 +25,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{0A
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RxnsDemo.Micro", "RxnsDemo.MicroApp\RxnsDemo.Micro.csproj", "{8487FB60-D94B-46B5-B751-183CE72A7106}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RxnsDemo.Simulator", "RxnsDemo.MicroApp.Simulator\RxnsDemo.Simulator.csproj", "{B0C6FC93-E912-402E-8EB3-CD26C60494B1}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rxns.Windows", "Rxns.Windows\Rxns.Windows.csproj", "{D4F6E13B-8DCB-41A3-B6AD-125742186A58}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rxns.AppStatus", "Rxns.AppSatus\Web\Rxns.AppStatus.csproj", "{F7E04854-1F13-4856-A257-38FE7E8C0116}"
@@ -90,14 +88,6 @@ Global
 		{8487FB60-D94B-46B5-B751-183CE72A7106}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8487FB60-D94B-46B5-B751-183CE72A7106}.Release|x86.ActiveCfg = Release|Any CPU
 		{8487FB60-D94B-46B5-B751-183CE72A7106}.Release|x86.Build.0 = Release|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Debug|x86.Build.0 = Debug|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Release|x86.ActiveCfg = Release|Any CPU
-		{B0C6FC93-E912-402E-8EB3-CD26C60494B1}.Release|x86.Build.0 = Release|Any CPU
 		{D4F6E13B-8DCB-41A3-B6AD-125742186A58}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D4F6E13B-8DCB-41A3-B6AD-125742186A58}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4F6E13B-8DCB-41A3-B6AD-125742186A58}.Debug|x86.ActiveCfg = Debug|Any CPU

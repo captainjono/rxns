@@ -102,6 +102,7 @@ namespace Rxns.Windows
 
                 return startMonitor();
             })
+            //https://stackoverflow.com/questions/1764809/filesystemwatcher-changed-event-is-raised-twice/55100612
             .BufferFirstLast(TimeSpan.FromSeconds(1), true, false);
         }
 

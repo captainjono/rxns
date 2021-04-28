@@ -114,7 +114,7 @@ namespace Rxns.Hosting
             
             if (!isLocal)
             {
-                appStatusUrl ??= "http://localhost:888";
+                appStatusUrl = appStatusUrl ?? "http://localhost:888";
                 $"Using AppStatus URL: {appStatusUrl}".LogDebug();
 
                 var c = new AppUpdateServiceClient(

@@ -36,7 +36,7 @@ namespace Rxns.DDD.Commanding
         /// <returns></returns>
         public static IServiceCommand Parse(string command, IServiceCommandFactory resolver)
         {
-            var cmdTokens = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var cmdTokens = command.Split(new char[' '], StringSplitOptions.RemoveEmptyEntries);
             var cmdType = cmdTokens[0];
 
             try

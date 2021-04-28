@@ -24,8 +24,14 @@ namespace Rxns.DDD.CQRS
             _services = services;
             _anonConnection = anonConnection;
             _defaultCredentials = defaultCredentials;
+        }
 
-            //_jsonSettings.NullValueHandling = NullValueHandling.Ignore;
+
+        public IObservable<object> Run(IServiceCommand cmd)
+        {
+            return Connection.Call((httpClient, cancel) => httpClient.PostAsync(WithBaseUrl("cmd/{0}").FormatWith("na"), new StringContent(cmd.Serialise().ResolveAs(cmd.GetType()), Encoding.UTF8, "text/json"), cancel))
+                          .SelectMany(r => r.Content.ReadAsStringAsync())
+                          .Select(r => r.Deserialise<CommandResult>());
         }
 
         public IObservable<DomainQueryResult<T>> Run<T>(IDomainQuery<T> query)
@@ -44,16 +50,10 @@ namespace Rxns.DDD.CQRS
         private IObservable<TR> Run<T, TR>(string tenant, T cmd)
         {
             return Connection.Call((c, cancel) => c.PostAsync(WithBaseUrl("cmd/{0}".FormatWith(tenant)), new StringContent(cmd.Serialise().ResolveAs(cmd.GetType()), Encoding.UTF8, "text/json"), cancel))
-                             .SelectMany(r => r.Content.ReadAsStringAsync())
-                             .Select(c => (TR)c.Deserialise(typeof(TR)));
+                .SelectMany(r => r.Content.ReadAsStringAsync())
+                .Select(c => (TR)c.Deserialise(typeof(TR)));
         }
 
-        public IObservable<object> Run(IServiceCommand cmd)
-        {
-            return Connection.Call((c, cancel) => c.PostAsync(WithBaseUrl("cmd/{0}").FormatWith("na"), new StringContent(cmd.Serialise().ResolveAs(cmd.GetType()), Encoding.UTF8, "text/json"), cancel))
-                                  .SelectMany(r => r.Content.ReadAsStringAsync())
-                                  .Select(r => r.Deserialise<CommandResult>());
-        }
 
         public IObservable<ICommandResult> Run(string cmd)
         {

@@ -94,7 +94,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                             // For more information, see the topic that accompanies 
                             // this sample.
 
-                            return FileHelpers.ProcessStreamedFile(section, contentDisposition, ModelState, new[] {".zip"}, 3* 1024 * 1000).ToObservable()
+                            return FileHelpers.ProcessStreamedFile(section, contentDisposition, ModelState, new[] {".zip"}, 3* 1024 * 1024 * 10).ToObservable()
                                 .Select(streamedFileContent =>
                                 {
                                     using (var targetStream = _fileSystem.CreateWriteableFile(Path.Combine(FsConfiguration.TemporaryDirectory, trustedFileNameForFileStorage)))

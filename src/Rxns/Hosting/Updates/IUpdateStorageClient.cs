@@ -74,6 +74,6 @@ namespace Rxns.Hosting.Updates
         /// <param name="cfg"></param>
         /// <param name="overwrite"></param>
         /// <returns></returns>
-        public IObservable<string> KeepUpdated(string systemName, string version, string destinationFolder, IRxnAppCfg cfg = null, bool overwrite = true);
+        IObservable<string> KeepUpdated(string systemName, string version, string destinationFolder, IRxnAppCfg cfg = null, bool overwrite = true);
     }
 }

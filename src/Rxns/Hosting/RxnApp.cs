@@ -55,7 +55,7 @@ namespace Rxns.Hosting
             Definition.UpdateWith(l =>
             {
                 l.CreatesOncePerApp(_ => this);
-                l.CreatesOncePerApp(_ => new DynamicStartupTask((_, __) => inline.Until()));
+                l.CreatesOncePerApp(_ => new DynamicStartupTask((___, __) => inline.Until()));
             });
         }
 
@@ -151,7 +151,7 @@ namespace Rxns.Hosting
 
         public static Func<string, Action<IRxnLifecycle>> SpareReator = appStatusUrl => spareReactor =>
         {
-            appStatusUrl ??= "http://localhost:888";
+            appStatusUrl = appStatusUrl ?? "http://localhost:888";
 
             spareReactor
                 .Includes<AppStatusClientModule>()
