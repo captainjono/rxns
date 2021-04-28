@@ -131,7 +131,7 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<IRxnQuestion[]> UpdateSystemCommandIfOutofDate(SystemStatusEvent status)
         {
-            return _updates.AllUpdates(status.SystemName.Replace("[main", ";").Split(new char[] {';'})[0], 1)
+            return _updates.AllUpdates(status.SystemName.Replace("[main", ";").Split(new [] {";"}, StringSplitOptions.RemoveEmptyEntries)[0], 1)
                 .FirstOrDefaultAsync()
                 .Where(e => e != null)
                 .Select(e => e.FirstOrDefault())

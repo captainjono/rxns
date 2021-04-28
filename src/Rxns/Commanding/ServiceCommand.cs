@@ -36,12 +36,12 @@ namespace Rxns.DDD.Commanding
         /// <returns></returns>
         public static IServiceCommand Parse(string command, IServiceCommandFactory resolver)
         {
-            var cmdTokens = command.Split(new char[' '], StringSplitOptions.RemoveEmptyEntries);
-            var cmdType = cmdTokens[0];
+            var cmdTokens = command.Split(new[]{" "}, StringSplitOptions.RemoveEmptyEntries);
+            var cmdType = cmdTokens[0].Trim();
 
             try
             {
-                return resolver.Get(cmdType, cmdTokens.Skip(1).ToArray());
+                return resolver.Get(cmdType, cmdTokens.Skip(1).Select(v => v.Trim()).ToArray());
             }
             catch (Exception e)
             {
