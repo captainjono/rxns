@@ -197,8 +197,6 @@ namespace Rxns
 
                 $"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
 
-                var nameOfProcess = new FileInfo(pathToProcess).Name;
-
                 p.Start();
                 
                 Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardOutput.ReadLineAsync())).Do(msg =>
@@ -206,7 +204,7 @@ namespace Rxns
                     onInfo(msg);
                 }).DoWhile(() => !p.StandardOutput.EndOfStream).FinallyR(() => o.OnCompleted()).Until(o.OnError);
 
-                Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardError.ReadLineAsync())).Do(msg =>
+                Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardError.ReadLineAsync())).Where(e => !e.IsNullOrWhitespace()).Do(msg =>
                 {
                     onError(msg);
                 }).DoWhile(() => !p.StandardError.EndOfStream).Until(o.OnError);
@@ -226,7 +224,6 @@ namespace Rxns
                     if (hasExited) return;
 
                     hasExited = true;
-                    $"Stopping supervisor for {pathToProcess}".LogDebug();
                     p.Kill();
                     o.OnCompleted();
                 });

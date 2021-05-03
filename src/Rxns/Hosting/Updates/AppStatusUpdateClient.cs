@@ -132,7 +132,7 @@ namespace Rxns.Hosting.Updates
                 return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).Catch<Unit, Exception>(
                     e =>
                     {
-                        "Failed to upload {e}".LogDebug();
+                        $"Failed to upload {e}".LogDebug();
                         return new Unit().ToObservable();
                     }).FinallyR(() =>
                 {

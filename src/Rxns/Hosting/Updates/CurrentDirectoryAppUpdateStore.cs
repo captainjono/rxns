@@ -15,9 +15,9 @@ namespace Rxns.Hosting.Updates
             return Rxn.Create(() =>
             {
                 if (command.Version.IsNullOrWhitespace() || command.Version.BasicallyContains("Latest"))
-                    return $"{Directory.GetCurrentDirectory()}\\{command.SystemName}";
+                    return Path.Combine(Directory.GetCurrentDirectory(), command.SystemName);
 
-                return Path.Combine($"{Directory.GetCurrentDirectory()}\\{command.SystemName}", $"{command.SystemName}%%{command.Version}");
+                return Path.Combine(Directory.GetCurrentDirectory(), command.SystemName, $"{command.SystemName}%%{command.Version}");
             });
         }
     }

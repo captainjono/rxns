@@ -9,6 +9,16 @@ namespace Rxns.Health
         public long Handles { get; set; }
         public long Threads { get; set; }
         public float CpuUsage { get; set; }
+        public string Host { get; set; }
+        public string Name { get; set; }
+
+        public AppResourceInfo ForHost(string host, string name)
+        {
+            Host = host;
+            Name = name;
+
+            return this;
+        }
     }
 
     /// <summary>

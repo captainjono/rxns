@@ -1,4 +1,6 @@
-﻿using Rxns.Interfaces;
+﻿using System;
+using System.Reactive;
+using Rxns.Interfaces;
 
 namespace Rxns.Health
 {
@@ -15,12 +17,15 @@ namespace Rxns.Health
             _configuration = configuration;
         }
 
-        public void Run(IReportStatus logger, IResolveTypes container)
+        public IObservable<Unit> Run(IReportStatus logger, IResolveTypes container)
         {
-            var poolSize = _configuration.ThreadPoolSize > 0 ? _configuration.ThreadPoolSize : 8;
-            logger.OnVerbose("Configuring RxnSchedulers.TaskPool thread pool size to: {0}", poolSize);
+            return Rxn.Create(() =>
+            {
+                var poolSize = _configuration.ThreadPoolSize > 0 ? _configuration.ThreadPoolSize : 8;
+                logger.OnVerbose("Configuring RxnSchedulers.TaskPool thread pool size to: {0}", poolSize);
 
-            RxnSchedulers.ThreadPoolSize = poolSize;
+                RxnSchedulers.ThreadPoolSize = poolSize;
+            });
         }
     }
 }

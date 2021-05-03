@@ -13,7 +13,6 @@ using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Metrics;
-using Rxns.WebApi.AppStatus;
 
 namespace Rxns.Health.AppStatus
 {

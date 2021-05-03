@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Rxns.Health.AppStatus;
 using Rxns.Logging;
-using Rxns.WebApi.AppStatus;
 
 namespace Rxns.Metrics
 {

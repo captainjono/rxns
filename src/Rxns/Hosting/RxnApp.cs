@@ -24,9 +24,12 @@ namespace Rxns.Hosting
             _toRun = toRunOnStartup;
         }
 
-        public void Run(IReportStatus logger, IResolveTypes container)
+        public IObservable<Unit> Run(IReportStatus logger, IResolveTypes container)
         {
-            _toRun(logger, container);
+            return Rxn.Create(() =>
+            {
+                _toRun(logger, container);
+            });
         }
     }
 
@@ -70,27 +73,37 @@ namespace Rxns.Hosting
         {
             var finalContainer = container ?? Definition.Container;
             var app = _rxnFactory.Create(this, finalContainer, finalContainer, RxnSchedulers.TaskPool);
-            
-            return app.Start(startRxns, container).Do(appContext=>
-            {
-                if (startRxns)
+            IRxnAppContext appContext = null;
+            return app.Start(startRxns, finalContainer)
+                .SelectMany(a =>
                 {
-                    var preStartupServices = appContext.Resolver.Resolve<IContainerPostBuildService[]>();
-                    preStartupServices.ForEach(s =>
+                    appContext = a;
+                    return appContext.Resolver.Resolve<IContainerPostBuildService[]>();
+                })
+                .SelectMany(
+                s =>
+                {
+                    if (startRxns)
                     {
+
                         try
                         {
-                            s.Run(finalContainer, app.Resolver);
+                            return s.Run(finalContainer, app.Resolver);
                         }
                         catch (Exception e)
                         {
-                            container.OnError(e);
+                            finalContainer.OnError(e);
                         }
-                    });
-                }
+                    }
 
-                _onStart.OnNext(new Unit());
-            });
+                    return new Unit().ToObservable();
+                })
+                .LastAsync()
+                .Select(_ => appContext)
+                .FinallyR(() =>
+                {
+                    _onStart.OnNext(new Unit());
+                });
         }
 
         /// <summary>

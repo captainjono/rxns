@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using Rxns.Autofac;
 using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;

@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
-using Rxns.Logging;
 
 namespace Rxns.Hosting
 {
@@ -22,11 +19,12 @@ namespace Rxns.Hosting
         {
             try
             {
-                KillOnExitt.Process(p);
+                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    KillOnExitt.Process(p);
             }
             catch (Exception)
             {
-                "Kill on exit not supported on this platform".LogDebug();
+                
             }
 
             return p;

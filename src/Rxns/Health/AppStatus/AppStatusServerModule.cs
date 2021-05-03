@@ -7,7 +7,6 @@ using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Metrics;
 using Rxns.Playback;
-using Rxns.WebApi.AppStatus;
 
 namespace Rxns.Health.AppStatus
 {

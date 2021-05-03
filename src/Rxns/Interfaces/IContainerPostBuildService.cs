@@ -1,7 +1,10 @@
-﻿namespace Rxns.Interfaces
+﻿using System;
+using System.Reactive;
+
+namespace Rxns.Interfaces
 {
     public interface IContainerPostBuildService
     {
-        void Run(IReportStatus logger, IResolveTypes container);
+        IObservable<Unit> Run(IReportStatus logger, IResolveTypes container);
     }
 }

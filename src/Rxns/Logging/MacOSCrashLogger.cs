@@ -27,23 +27,26 @@ namespace Rxns.Logging
         {
             _appInfo = system;
         }
-        
-        public void Run(IReportStatus logger, IResolveTypes container)
+
+        public IObservable<Unit> Run(IReportStatus logger, IResolveTypes container)
         {
-            if (!Directory.Exists("/Library/Logs/DiagnosticReports/"))
+            return Rxn.Create(() =>
             {
-                "Cannot detect logs directory, disabling".LogDebug();
-                return;
-            }
-            
-            _watcher = TimeSpan.FromSeconds(10).Then().Do(_ => MonitorForCrashesOnMacos(_appInfo.Name, container.Resolve<ReporterErrorLogger>())).Until();
+                if (!Directory.Exists("/Library/Logs/DiagnosticReports/"))
+                {
+                    "Cannot detect logs directory, disabling".LogDebug();
+                    return;
+                }
+
+                _watcher = TimeSpan.FromSeconds(10).Then().Do(_ => MonitorForCrashesOnMacos(_appInfo.Name, container.Resolve<ReporterErrorLogger>())).Until();
+            });
         }
 
         private static void MonitorForCrashesOnMacos(string programName, ReporterErrorLogger logger)
         {
             var allErrors = Directory.GetFiles($"/Library/Logs/DiagnosticReports/", $"{programName}*.*");
             allErrors.ForEach(e =>
-            {   
+            {
                 $"Detected crash report: {e}".LogDebug(programName);
 
                 //log the actual crash, then delete it
@@ -63,5 +66,5 @@ namespace Rxns.Logging
             _watcher?.Dispose();
         }
     }
-    
+
 }

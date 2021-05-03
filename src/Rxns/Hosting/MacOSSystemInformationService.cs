@@ -1,20 +1,19 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
-using Rxns.Hosting;
+using Rxns.Health;
 using Rxns.Logging;
-using Rxns.Scheduling;
 
-namespace Rxns.Health
+namespace Rxns.Hosting
 {
     /// <summary>
     /// A service that provides facilitates gathering operating system specific information on an 
     /// applications runtime environment, and manipulating this environment.
     /// </summary>
-    public class WindowsSystemInformationService : ISystemResourceService
+    public class MacOSSystemInformationService : ISystemResourceService
     {
         public IScheduler DefaultScheduler { get; set; }
 
@@ -24,12 +23,11 @@ namespace Rxns.Health
 
         public IObservable<AppResourceInfo> AppUsage { get; }
 
-        private readonly PerformanceCounter _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-        private readonly decimal _systemTotalMemory = PerformanceInfo.GetTotalMemoryInMiB();
-        private readonly IOperationSystemServices _systemServices;
-        
 
-        public WindowsSystemInformationService(IOperationSystemServices systemServices, IScheduler scheduler = null)
+        private readonly IOperationSystemServices _systemServices;
+
+
+        public MacOSSystemInformationService(IOperationSystemServices systemServices, IScheduler scheduler = null)
         {
             _systemServices = systemServices;
             DefaultScheduler = scheduler ?? System.Reactive.Concurrency.DefaultScheduler.Instance;
@@ -37,36 +35,91 @@ namespace Rxns.Health
             //this can stay here because refcount doesnt activate the hot observable until
             //it is subscribed too. otherwise its not advised to have activation logic automatically
             //set here because of race-conditions when reporting - nothing will see the messages!
-            CpuUsage = Rxn.CreatePulse(TimeSpan.FromSeconds(1), () => _cpuCounter.NextValue(), DefaultScheduler).Publish().RefCount();
-            MemoryUsage = Rxn.CreatePulse(TimeSpan.FromSeconds(1), () => GetMemoryUtilisation()).Publish().RefCount();
 
-            float c = 0;
-            CpuUsage.Do(cpu =>
-            {
-                c = cpu;
 
-            }).Subscribe();
-            AppUsage = Rxn.CreatePulse(TimeSpan.FromSeconds(1), () =>
+            AppUsage = GetUsage().Select(info =>
             {
                 var p = Process.GetCurrentProcess();
 
                 return new AppResourceInfo()
                 {
                     Threads = p.Threads.Count,
-                    Handles = p.HandleCount,    
+                    Handles = p.HandleCount,
 
 
-                    CpuUsage = c,
-                    MemUsage = (float)Process.GetCurrentProcess().VirtualMemorySize64 / (int)Math.Pow(1024, 3)
+                    CpuUsage = info.CPU,
+                    MemUsage = info.MEM
                 };
             }).Publish().RefCount();
+
+            CpuUsage = AppUsage.Select(a => a.CpuUsage);
+            MemoryUsage = AppUsage.Select(a => a.MemUsage);
         }
 
-        public float GetMemoryUtilisation()
+        public class MacInfo
         {
-            var ratio = (PerformanceInfo.GetPhysicalAvailableMemoryInMiB() / _systemTotalMemory) * 100;
+            public float CPU { get; set; }
+            public float MEM { get; set; }
+        }
 
-            return (float)(100 - ratio);
+        public IObservable<MacInfo> GetUsage()
+        {
+            return Rxn.Create<MacInfo>(o =>
+            {
+                float cpu = 0;
+                float mem = 0;
+                var foundAllInfo = false;
+
+                return Rxn.CreatePulse(TimeSpan.FromSeconds(1), () =>
+                {
+                    Rxn.Create("top", "-l 1", i =>
+                    {
+                        if (foundAllInfo) return;
+
+                        if(i.StartsWith("CPU"))
+                            cpu = ParseCpu(i);
+
+                        if(i.StartsWith("Phys"))
+                        { 
+                            mem = ParseMem(i);
+
+                            o.OnNext(new MacInfo()
+                            {
+                                CPU = cpu,
+                                MEM = mem
+                            });
+
+                            foundAllInfo = true;
+                        }
+
+                    }, e => { e.LogDebug("TOP ERROR"); }).FinallyR(() => { }).Until(o.OnError);
+
+                    return false;
+
+                }).Until();
+            });
+        }
+
+        public float ParseCpu(string topCpuInfo)
+        {
+            if (topCpuInfo.IsNullOrWhitespace()) return 0;
+
+            var tokens = topCpuInfo.Split(new[] {  " " }, StringSplitOptions.RemoveEmptyEntries).Where(s => s.EndsWith("%")).Select(s => s.Substring(0, s.Length-1)).ToArray();
+            var used = (tokens.FirstOrDefault().IsNullOrWhiteSpace("0").AsFloat() + tokens.Skip(1).FirstOrDefault().IsNullOrWhiteSpace("0").AsFloat());
+
+            return used;
+        }
+          
+        //var memInfo = "PhysMem: 5807M used (1458M wired), 10G unused.";
+        public float ParseMem(string topMemInfo)
+        {
+            if (topMemInfo.IsNullOrWhitespace()) return 0;
+
+            var tokens = topMemInfo.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("M", "").Replace("G", "000")).ToArray();
+            var used = tokens[1].IsNullOrWhiteSpace("0").AsFloat();
+            var unused = tokens[5].IsNullOrWhiteSpace("0").AsFloat();
+
+            return unused / (used + unused);
         }
 
         public void SetProcessPriority(int priority)
@@ -111,54 +164,6 @@ namespace Rxns.Health
                 systemMax = systemMax >> 1;
 
             return systemMax;
-        }
-    }
-
-    public static class PerformanceInfo
-    {
-        [DllImport("psapi.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool GetPerformanceInfo([Out] out PerformanceInformation PerformanceInformation, [In] int Size);
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct PerformanceInformation
-        {
-            public int Size;
-            public IntPtr CommitTotal;
-            public IntPtr CommitLimit;
-            public IntPtr CommitPeak;
-            public IntPtr PhysicalTotal;
-            public IntPtr PhysicalAvailable;
-            public IntPtr SystemCache;
-            public IntPtr KernelTotal;
-            public IntPtr KernelPaged;
-            public IntPtr KernelNonPaged;
-            public IntPtr PageSize;
-            public int HandlesCount;
-            public int ProcessCount;
-            public int ThreadCount;
-        }
-
-        public static Int64 GetPhysicalAvailableMemoryInMiB()
-        {
-            var pi = new PerformanceInformation();
-            if (GetPerformanceInfo(out pi, Marshal.SizeOf(pi)))
-            {
-                return Convert.ToInt64((pi.PhysicalAvailable.ToInt64() * pi.PageSize.ToInt64() / 1048576));
-            }
-
-            return -1;
-        }
-
-        public static Int64 GetTotalMemoryInMiB()
-        {
-            var pi = new PerformanceInformation();
-            if (GetPerformanceInfo(out pi, Marshal.SizeOf(pi)))
-            {
-                return Convert.ToInt64((pi.PhysicalTotal.ToInt64() * pi.PageSize.ToInt64() / 1048576));
-            }
-
-            return -1;
         }
     }
 }
