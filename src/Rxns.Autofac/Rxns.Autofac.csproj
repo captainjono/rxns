@@ -3,13 +3,16 @@
     <Platforms>x86;AnyCPU</Platforms>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <GenerateResourceUsePreserializedResources>True</GenerateResourceUsePreserializedResources>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Autofac" Version="3.5.0" />
+    <PackageReference Include="System.Reactive" Version="4.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rxns\Rxns.csproj" />
+    <Reference Include="Rxns">
+      <HintPath>..\Rxns\bin\Debug\netstandard2.0\Rxns.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <PropertyGroup>

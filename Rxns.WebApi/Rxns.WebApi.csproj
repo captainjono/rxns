@@ -13,6 +13,20 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Rxns.WebApiNET5</PackageId>
+    <Authors>CaptainJono</Authors>
+    <Description>A CrossPlatform WebAPI host with optional real-time monitoring capabilities.</Description>
+    <Product>Reactions WebAPI</Product>
+    <Company>Reactions</Company>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
+    <PackageTags>#webapi #reactive #rx</PackageTags>
+    <PackageReleaseNotes>
+    </PackageReleaseNotes>
+    <Version>2.0.0</Version>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -82,6 +96,9 @@
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL" />
     <Reference Include="Owin, Version=1.0.0.0, Culture=neutral, PublicKeyToken=f0ebd12fd5e55cc5, processorArchitecture=MSIL">
       <HintPath>..\packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Rxns">
+      <HintPath>..\src\Rxns\bin\Debug\netstandard2.0\Rxns.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Collections.Concurrent" />
@@ -163,16 +180,5 @@
     <Content Include="Scripts\jquery.signalR-2.2.3.js" />
     <Content Include="Scripts\jquery.signalR-2.2.3.min.js" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj">
-      <Project>{1c0938a0-7a3e-4063-8f92-c17d42d47664}</Project>
-      <Name>Rxns.Autofac</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\src\Rxns\Rxns.csproj">
-      <Project>{96734D71-3223-4E4B-830C-5498783C162F}</Project>
-      <Name>Rxns</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

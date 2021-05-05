@@ -85,17 +85,12 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine($"App terminated unexpectedly with: {e}");
+                    Console.Error.WriteLine($"App terminated unexpectedly with: {e}".LogDebug("WS FATAL"));
                     Environment.Exit(1969);
 
                     return Disposable.Empty;
                 }
             });
-        }
-
-        public void Use(IAppContainer container)
-        {
-            _app.Use(container);
         }
     }
 }

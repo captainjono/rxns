@@ -18,8 +18,15 @@ namespace Rxns.Cloud.Intelligence
         void Attach(Action<IRxn> workCompletedHandler);
         IDisposable RegisterWorker(IClusterWorker<T, TR> worker);
         void Fanout(T cfg);
-        IDictionary<string, IClusterWorker<T, TR>> Workers { get; }
+        IDictionary<string, WorkerConnection<T, TR>> Workers { get; }
     }
+
+    public class WorkerConnection<T, TR>
+    {
+        public IClusterWorker<T, TR> Worker { get; set; }
+        public IDisposable DoWork { get; set; }
+    }
+
 
     public class WorkerDiscovered<T, TR> : IRxn
     {

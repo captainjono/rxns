@@ -27,7 +27,7 @@ namespace Rxns.Cloud
         {
             Workflow = fanoutStratergy ?? new CompeteFanout<T, TR>();
         }
-
+        
         public void Queue(T item)
         {
             Workflow.Fanout(item);

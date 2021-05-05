@@ -8,29 +8,12 @@ using Microsoft.Owin.Security.Infrastructure;
 using Microsoft.Owin.Security.OAuth;
 using Microsoft.Owin.StaticFiles;
 using Owin;
+using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.WebApi.System.Web.Http;
 
 namespace Rxns.WebApi.MsWebApiAdapters
 {
-
-    public interface IWebApiCfg
-    {
-        string Html5Root { get; }
-        string Html5IndexHtml { get; }
-        string Port { get; }
-        string BindingUrl { get; }
-    }
-
-    public class WebApiCfg : IWebApiCfg
-    {
-        public string Html5Root { get; set;  }
-        public string Html5IndexHtml { get; set;  }
-        public string Port { get; set;  }
-        public string BindingUrl { get; set; }
-    }
-
-    //todo: refactor our owin hard refs with adapter interfaces and migrate to hosting
     public interface IWebApiAdapter
     {
         /// <summary>
@@ -83,7 +66,7 @@ namespace Rxns.WebApi.MsWebApiAdapters
             }
             catch (Exception e)
             {
-                reporter?.OnError(e, "Webservices cannot be started");
+                reporter?.OnError(e);
                 return null;
             }
         }

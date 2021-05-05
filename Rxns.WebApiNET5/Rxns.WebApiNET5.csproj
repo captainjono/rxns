@@ -42,5 +42,10 @@
   <ItemGroup>
     <File Include="ConfigureAndStartAspnetCore.cs" />
   </ItemGroup>
+ 
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy $(TargetDir)*rxns*.dll C:\jan\learningmain\Bootstrappers\packagesNET5&#xD;&#xA;copy $(TargetDir)*rxns*.pdb C:\jan\learningmain\Bootstrappers\packagesNET5&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;copy C:\jan\Rxns\src\Rxns\bin\Debug\netstandard2.0\*rxns*.dll C:\jan\learningmain\Bootstrappers\packagesNET5&#xD;&#xA;copy C:\jan\Rxns\src\Rxns\bin\Debug\netstandard2.0\*rxns*.pdb C:\jan\learningmain\Bootstrappers\packagesNET5&#xD;&#xA;" />
+  </Target>
 
 </Project>

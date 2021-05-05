@@ -48,7 +48,7 @@ namespace Rxns.Hosting.Updates
         [HttpGet]
         public async Task<HttpResponseMessage> GetUpdate(string systemName, string version)
         {
-            return await _updateManager.GetUpdate(systemName, version.IsNullOrWhitespace("Latest"))
+            return await _updateManager.GetUpdate(systemName, version.IsNullOrWhiteSpace("Latest"))
                 .Select(update =>
                 {
                     var versionResponse = new HttpResponseMessage(HttpStatusCode.OK)
@@ -99,7 +99,7 @@ namespace Rxns.Hosting.Updates
         {
             try
             {
-                if (systemName.IsNullOrWhitespace("all").Equals("all", StringComparison.OrdinalIgnoreCase))
+                if (systemName.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase))
                     systemName = null;
 
                 var updates = await _updateManager.AllUpdates(systemName, top);

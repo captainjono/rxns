@@ -180,32 +180,30 @@ namespace Rxns.WebApiNET5
                         HttpTransportType.LongPolling;
                 });
             });
-
-
-            //var webCfg = new HttpConfiguration();
-            //if(_requestCfg != null)
-            //{
-            //    webCfg = _requestCfg(webCfg);
-            //}
-            //.RequireSsl()
-
+            
 
             //webCfg = webCfg.UseAttributeRouting()
             //    .ResolveControllersWith(container)
             //    .LogErrorsWith(container);
 
-            server.UseStaticFiles();
-            var rxnsPortalRoot = new PhysicalFileProvider(cfg.Html5Root.EnsureRooted());
-            var rxnsPortal = new FileServerOptions
+            if (!cfg.Html5Root.IsNullOrWhitespace())
             {
-                EnableDefaultFiles = true,
-                EnableDirectoryBrowsing = false,
-                FileProvider = rxnsPortalRoot,
-                StaticFileOptions = { FileProvider = rxnsPortalRoot, ServeUnknownFileTypes = true },
-                DefaultFilesOptions = { DefaultFileNames = new[] { "index.html", } }
-            };
+                $"Enabling http file server @ {cfg.Html5Root}".LogDebug();
 
+                var rxnsPortalRoot = new PhysicalFileProvider(cfg.Html5Root.EnsureRooted());
+                var rxnsPortal = new FileServerOptions
+                {
+                    EnableDefaultFiles = true,
+                    EnableDirectoryBrowsing = false,
+                    FileProvider = rxnsPortalRoot,
+                    StaticFileOptions = { FileProvider = rxnsPortalRoot, ServeUnknownFileTypes = true },
+                    DefaultFilesOptions = { DefaultFileNames = new[] { "index.html", } }
+                };
 
+                server
+                    .UseStaticFiles()
+                    .UseFileServer(rxnsPortal);
+            }
 
             //  .AllowCrossDomain()
             // .Use<TokenInQueryStringToAuthorizationHeaderMiddleware>()
@@ -220,18 +218,18 @@ namespace Rxns.WebApiNET5
             //webCfg.EnableCompression(); //handle gzip streams
             //via middleware
 
-            foreach(var c in userCfg)
+            foreach (var c in userCfg)
                 c?.Cfg(server);
 
             //the order here is important, you must set it before using the webapi
             //otherwise the controllers wont recognise the tokens and [Authorize] will fail
             server
-                .AllowCrossDomain()
-                //.WithAuthentication(authProvider, refreshProvider, encryptionKey)
+                .AllowCrossDomain();
 
-                .UseFileServer(rxnsPortal);
-
+            //.WithAuthentication(authProvider, refreshProvider, encryptionKey)
             //.MapSignalRWithCrossDomain(hubConfig, authProvider, refreshProvider, encryptionKey);
+            //.RequireSsl()
+
         }
     }
 }

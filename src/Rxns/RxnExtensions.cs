@@ -434,7 +434,10 @@ namespace Rxns
             if (targetPath.StartsWith("/") || targetPath[1] == ':')
                 return targetPath;
 
-            return $"{Path.Combine(Environment.CurrentDirectory, targetPath)}";
+            if(targetPath.StartsWith("..")) 
+                return new DirectoryInfo(targetPath).FullName.AsCrossPlatformPath();
+
+            return $"{Path.Combine(Environment.CurrentDirectory, targetPath)}".AsCrossPlatformPath();
         }
     }
 

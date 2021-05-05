@@ -7,15 +7,18 @@ using Rxns.DDD;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting;
 using Rxns.Logging;
+using Rxns.Microservices;
 using Rxns.WebApi.MsWebApiAdapters;
 using Rxns.WebApi.OwinWebApiAdapters;
 
 namespace Rxns.WebApi
 {
-    public class WebApiHost : ReportsStatus, IRxnHost
+    public class WebApiHost : ReportsStatus, IRxnHost, IRxnHostReadyToRun
     {
         private readonly IWebApiAdapter _webApiImpl;
         private readonly IWebApiCfg _cfg;
+        private IRxnHostableApp _app;
+        private IRxnAppCfg _rxnCfg;
 
         public WebApiHost(IWebApiCfg cfg, IWebApiAdapter webApiImpl)
         {
@@ -37,19 +40,18 @@ namespace Rxns.WebApi
         {
             return new Unit().ToObservable();
         }
+
         public void Restart()
         {
             "MigrateTo not implemented".LogDebug();
         }
 
-        public IObservable<IRxnAppContext> Run(IRxnHostableApp app, IRxnAppCfg cfg)
+        public IObservable<IRxnHostReadyToRun> Stage(IRxnHostableApp app, IRxnAppCfg cfg)
         {
-            return Observable.Create<IRxnAppContext>(o =>
+            return Rxn.Create<IRxnHostReadyToRun>(() =>
             {
                 try
                 {
-                    IDisposable endWs = Disposable.Empty;
-
                     app.Definition.UpdateWith(lifecycle =>
                     {
                         lifecycle
@@ -60,34 +62,41 @@ namespace Rxns.WebApi
                             .Includes<DDDServerModule>()
                             //so adapters can be swapped out
                             .Includes<OwinWebApiAdapterModule>()
-                            .CreatesOncePerApp(_ => cfg)
+                            .CreatesOncePerApp(_ => cfg ?? RxnAppCfg.Detect(new string[0]))
                             .CreatesOncePerApp(_ => app)
                             .CreatesOncePerApp(_ => _cfg);
                     });
 
                     app.Definition.Build();
 
-                    return app.Start().Select(context =>
-                    {
-                        endWs = _webApiImpl.StartWebServices(_cfg, app.Container, app.Resolver.Resolve<OAuthAuthorizationServerProvider>(), null, true, reporter: app.Container);
+                    _app = app;
 
-                        return context;
-                    })
-                    .FinallyR(() =>
-                    {
-                        endWs.Dispose();
-                    }).Subscribe(o);
+                    return this;
                 }
                 catch (Exception e)
                 {
+                    ReportStatus.Log.OnError($"App terminated unexpectedly", e);
                     Console.Error.WriteLine($"App terminated unexpectedly with: {e}");
                     Environment.Exit(1969);
 
-                    return Disposable.Empty;
+                    return null;
                 }
             });
         }
 
         public string Name { get; set; } = "WebApi2";
+        public IObservable<IRxnAppContext> Run(IAppContainer container = null)
+        {
+            IDisposable endWs = Disposable.Empty;
+
+            var finalContainer = container ?? _app.Container;
+
+            return _app.Start().Select(context =>
+                {
+                    _webApiImpl.StartWebServices(_cfg, finalContainer, finalContainer.Resolve<OAuthAuthorizationServerProvider>(), null, true, reporter: finalContainer).DisposedBy(context);
+
+                    return context;
+                });
+        }
     }
 }

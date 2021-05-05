@@ -3,7 +3,6 @@ using Rxns.Hosting;
 using Rxns.Hosting.Updates;
 using Rxns.Logging;
 using Rxns.Metrics;
-using Rxns.NewtonsoftJson;
 using Rxns.WebApi.AppStatus;
 using Rxns.WebApi.AppStatus.Server;
 using Rxns.WebApi.MsWebApiAdapters.RxnsApiAdapters;
@@ -26,9 +25,7 @@ namespace Rxns.WebApi.OwinWebApiAdapters
                 .CreatesOncePerApp<SystemMetricsReport>()
                 .CreatesOncePerApp<MsWebApiRxnExceptionLogger>()
                 .CreatesOncePerApp<HostBuffer>()
-
-                .CreatesOncePerAppAs<NoOAuthAuthentication, OAuthAuthorizationServerProvider>()
-
+                .CreatesOncePerAppAs<NoOAuthAuthentication, OAuthAuthorizationServerProvider>(true)
                 .CreatesOncePerRequest<SystemStatusController>()
                 .CreatesOncePerRequest<ErrorsController>()
                 .CreatesOncePerRequest<UpdatesController>()

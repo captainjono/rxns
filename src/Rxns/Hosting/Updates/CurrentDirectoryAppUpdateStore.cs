@@ -31,7 +31,7 @@ namespace Rxns.Hosting.Updates
                 if (command.Version.IsNullOrWhitespace() || command.Version.BasicallyContains("Latest"))
                     return Directory.GetCurrentDirectory();
 
-                return Path.Combine(Directory.GetCurrentDirectory(), $"{command.SystemName}%%{command.Version}");
+                return Path.Combine(Directory.GetCurrentDirectory(), $"{command.SystemName}%%{command.Version}").AsCrossPlatformPath();
             });
         }
 

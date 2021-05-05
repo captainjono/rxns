@@ -195,7 +195,7 @@ namespace Rxns
                 };
                 var hasExited = false;
 
-                $"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
+                //$"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
 
                 p.Start();
                 

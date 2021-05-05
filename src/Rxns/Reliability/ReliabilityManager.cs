@@ -33,7 +33,7 @@ namespace Rxns.Reliability
     /// The reliability manager is used to to make connections to extenal sources. The manager will automatically
     /// retry the connection attempt if an exception is received that it deems as "transient".
     /// 
-    /// Convience methods are availible to chain to the result of "call" functions.
+    /// Methods are availible to chain to the result of "call" functions.
     /// - OnSuccess() 
     /// - OnFailure() 
     /// - OnlyIfSuccessful()

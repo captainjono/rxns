@@ -15,7 +15,7 @@ namespace System
         
         public static string IsNullOrWhiteSpace(this string str, string returnThis = null)
         {
-            return string.IsNullOrWhiteSpace(str) ? returnThis : str;
+            return String.IsNullOrWhiteSpace(str) ? returnThis : str;
         }
 
         public static IEnumerable<T> EmptyIfNull<T>(this IEnumerable<T> context)
@@ -29,7 +29,7 @@ namespace System
 
         public static string FormatWith(this string source, params object[] args)
         {
-            return string.Format(source, args);
+            return String.Format(source, args);
         }
 
 
@@ -92,6 +92,17 @@ namespace System
         public static string Sanatise(this string input)
         {
             return _passwordExpression.Replace(input, "(sanatised)");
+        }
+
+
+        public static string AsCrossPlatformPath(this string path)
+        {
+            return path.Replace("\\", "/");
+        }
+
+        public static string CrossPathCombine(this string path, params string[] dirs)
+        {
+            return Path.Combine(new[] {path}.Concat(dirs).ToArray()).AsCrossPlatformPath();
         }
     }
 }

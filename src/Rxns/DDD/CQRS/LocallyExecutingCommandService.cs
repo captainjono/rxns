@@ -45,11 +45,11 @@ namespace Rxns.DDD.CQRS
                         .MakeGenericMethod(domainCmdType)
                         .Invoke(_cmdMediator, new object[] { cmd }) as IObservable<DomainCommandResult<T>>;
 
-                    if (cmdAction == null) throw new DomainCommandException(cmd, "Something went wrong while trying to invoke the command: {0}", cmd.GetType());
+                    if (cmdAction == null) throw new DomainCommandException(cmd, "Something went wrong while trying to invoke the command: {0}".FormatWith(cmd.GetType()));
 
                     return cmdAction.Select(result =>
                     {
-                        if (result == null) throw new DomainCommandException(cmd, "Something went wrong while invoking the command: {0}", cmd.GetType());
+                        if (result == null) throw new DomainCommandException(cmd, "Something went wrong while invoking the command: {0}".FormatWith(cmd.GetType()));
 
                         return result;
                     })

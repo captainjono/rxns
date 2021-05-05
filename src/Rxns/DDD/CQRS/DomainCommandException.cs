@@ -10,15 +10,14 @@ namespace Rxns.DDD.CQRS
 
 
 
-        public DomainCommandException(IDomainCommand command, string message, params object[] args) : base("{0}: {1}".FormatWith(command.GetType().Name, message.FormatWith(args)))
+        public DomainCommandException(IDomainCommand command, string message) : base($"{command.Id} : {message}")
         {
-            DomainMessage = message.FormatWith(args);
+            DomainMessage = message;
         }
 
-        public DomainCommandException(string message, params object[] args)
-            : base(message.FormatWith(args))
+        public DomainCommandException(string message)
+            : this(null, message)
         {
-            DomainMessage = message.FormatWith(args);
         }
     }
 }

@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Reactive;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Autofac;
-using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Microservices;

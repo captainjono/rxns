@@ -21,9 +21,9 @@ namespace Rxns.Cloud
             var nextAgent = Workers.Skip(_lastWorkerIndex++ % Workers.Count).FirstOrDefault().Value;
 
             //todo: properly capture the worker lifecycle so we can monitor it and optimise workloads
-            $"Sending work to {nextAgent.Name} @ {nextAgent.Route}".LogDebug();
+            $"Sending work to {nextAgent.Worker.Name} @ {nextAgent.Worker.Route}".LogDebug();
 
-            nextAgent.DoWork(cfg).Do(r => _publish(r)).Until();
+            nextAgent.DoWork = nextAgent.Worker.DoWork(cfg).Do(r => _publish(r)).Until();
         }
     }
 }

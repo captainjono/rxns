@@ -15,7 +15,7 @@ namespace Rxns.Cloud.Intelligence
 {
     public class CompeteFanout<T, TR> : IClusterFanout<T, TR> where TR : IRxn
     {
-        public IDictionary<string, IClusterWorker<T, TR>> Workers { get; private set; } = new UseConcurrentReliableOpsWhenCastToIDictionary<string, IClusterWorker<T, TR>>(new ConcurrentDictionary<string, IClusterWorker<T, TR>>());
+        public IDictionary<string, WorkerConnection<T, TR>> Workers { get; private set; } = new UseConcurrentReliableOpsWhenCastToIDictionary<string, WorkerConnection<T, TR>>(new ConcurrentDictionary<string, WorkerConnection<T, TR>>());
         private readonly ISubject<int> WorkerConnected = new BehaviorSubject<int>(0);
 
         private readonly Stack<T> _overflow = new Stack<T>(0);
@@ -29,12 +29,13 @@ namespace Rxns.Cloud.Intelligence
 
         public IDisposable RegisterWorker(IClusterWorker<T, TR> worker)
         {
-            Workers.Add(worker.Name, worker);
+            Workers.Add(worker.Name, new WorkerConnection<T, TR>()
+            {
+                Worker = worker
+            });
             WorkerConnected.OnNext(WorkerConnected.Value() + 1);
 
             $"Worker registered, pool size {Workers.Count}".LogDebug();
-
-            DoWorkfromOverflowIf(worker, DoWorkUntilDrained);
 
             return Disposable.Create(() =>
             {
@@ -42,25 +43,29 @@ namespace Rxns.Cloud.Intelligence
             });
         }
 
-        private void DoWorkUntilDrained(T c, IClusterWorker<T, TR> freeWorker)
+        private IObservable<TR> DoWorkUntilDrained(T c, IClusterWorker<T, TR> freeWorker)
         {
-            freeWorker.DoWork(c).Do(r =>
+            return freeWorker.DoWork(c).Do(r =>
             {
                 "Competing for overflow".LogDebug();
                 _publish(r);
-                CurrentThreadScheduler.Instance.Run(() => DoWorkfromOverflowIf(freeWorker, DoWorkUntilDrained));
-            }).Until();
+            })
+            .ObserveOn(CurrentThreadScheduler.Instance)
+            .SelectMany(_ =>
+            {
+                return DoWorkfromOverflowIf(freeWorker, DoWorkUntilDrained);
+            });
         }
 
         public void Fanout(T cfg) //todo make generic
         {
-            var freeWorker = Workers.Values.FirstOrDefault(w => !w.IsBusy.Value());
+            var freeWorker = Workers.Values.FirstOrDefault(w => !w.Worker.IsBusy.Value());
             
             if (freeWorker != null)
             {
-                $"Sending work to {freeWorker.Name} @ {freeWorker.Route}".LogDebug();
+                $"Sending work to {freeWorker.Worker.Name} @ {freeWorker.Worker.Route}".LogDebug();
 
-                DoWorkUntilDrained(cfg, freeWorker);
+                freeWorker.DoWork = DoWorkUntilDrained(cfg, freeWorker.Worker).Until();
             }
             else
             {
@@ -74,10 +79,12 @@ namespace Rxns.Cloud.Intelligence
             _overflow.Push(cfg);
         }
 
-        private void DoWorkfromOverflowIf(in IClusterWorker<T, TR> freeWorker, Action<T, IClusterWorker<T, TR>> worker)
+        private IObservable<TR> DoWorkfromOverflowIf(in IClusterWorker<T, TR> freeWorker, Func<T, IClusterWorker<T, TR>, IObservable<TR>> worker)
         {
             if (_overflow.Count > 0)
-                worker(_overflow.Pop(), freeWorker);
+                return worker(_overflow.Pop(), freeWorker);
+
+            return Rxn.Empty<TR>();
         }
     }
 }

@@ -12,16 +12,11 @@ namespace Rxns
         private readonly IRxnApp _app;
         private IRxnAppContext _context;
         public IRxnAppInfo AppInfo { get; }
-        public IAppContainer Container { get; set; }
+        public IAppContainer Container => _app.Definition.Container;
         public IResolveTypes Resolver => (Container ?? _context?.Resolver ?? _app.Definition.Container); //todo: seriously, wtf?? is that nullable statement
 
         public string AppPath { get; set; }
-        public void Use(IAppContainer container)
-        {
-            Container = container;
-            //_app.Use(container)
-        }
-
+        
         public string AppBinary { get; } = "Rxn.Create.exe";
 
         public IRxnDef Definition => _app.Definition;
@@ -33,7 +28,7 @@ namespace Rxns
             AppInfo = appInfo;
             app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => appInfo));
 
-            AppPath = Assembly.GetEntryAssembly().Location;
+            AppPath = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).Location;
 
             if(AppPath.EndsWith(".dll"))
                 AppPath = $"dotnet {AppPath}";

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using Microsoft.Owin;
 using Newtonsoft.Json.Linq;
+using Rxns.Cloud;
 using Rxns.DDD.Commanding;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting.Updates;
@@ -30,13 +31,6 @@ namespace Rxns.WebApi.AppStatus
             _appStatus = appStatus;
         }
 
-        [Route("systemstatus/heartbeats")]
-        [HttpGet]
-        public dynamic GetSystemStatus()
-        {
-            return _appStatus.GetSystemStatus();
-        }
-        
 
         [Route("systemstatus/heartbeats/publish")]
         [HttpPost]
@@ -46,7 +40,7 @@ namespace Rxns.WebApi.AppStatus
             {
                 OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName);
 
-                status.IpAddress = ((OwinContext)Request.Properties["MS_OwinContext"]).Request.RemoteIpAddress;
+                status.IpAddress = ClientIpAddress();
 
                 _appStatus.UpdateSystemStatus(status);
             });
@@ -54,29 +48,30 @@ namespace Rxns.WebApi.AppStatus
 
         [Route("systemstatus/heartbeat-2/publish")]
         [HttpPost]
-        public async Task<RxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] JObject statusJson)
+        public async Task<IRxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] AppHeatbeat status)
         {
             try
             {
                 var clientIp = ClientIpAddress();
 
-                if (statusJson?["Status"] == null)
+                if (status?.Status == null)
                 {
-                    OnWarning("Unknown status received from {0}: {1}", clientIp, statusJson.ToString());
-                    return new RxnQuestion[] { };
+                    OnWarning("Unknown status received from {0}: {1}", clientIp, status);
+                    return new IRxnQuestion[] { };
                 }
 
-                var status = statusJson["Status"].ToObject<SystemStatusEvent>();
-                var meta = statusJson["Meta"].ToObject<JToken[]>();
-                var appRoute = status.GetRoute();
 
-                status.IpAddress = clientIp;
+                var appRoute = status.Status.GetRoute();
 
-                return await _appStatus.UpdateSystemStatusWithMeta(appRoute, status, meta);
+                status.Status.IpAddress = clientIp;
+
+                var res = await _appStatus.UpdateSystemStatusWithMeta(appRoute, status.Status, status.Meta);
+
+                return res;
             }
             catch (Exception e)
             {
-                return new RxnQuestion[] {};
+                return new IRxnQuestion[] { };
             }
         }
 
