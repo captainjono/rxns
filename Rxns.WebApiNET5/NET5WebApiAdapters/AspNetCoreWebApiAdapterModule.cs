@@ -19,10 +19,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<RemoteReportStatusEcho>()
                 .CreatesOncePerApp<SystemMetricsReport>()
                 .CreatesOncePerApp<AspNetCoreWebApiAdapter>()
-                
+                .CreatesOncePerApp<AspnetCoreOnReadyHandler>()
+
                 //.CreatesOncePerApp<HostBuffer>()
 
-                
+
                 //.CreatesOncePerAppAs<NoOAuthAuthentication, OAuthAuthorizationServerProvider>()
 
                 .CreatesOncePerRequest<SystemStatusController>()
@@ -36,6 +37,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<ResolverCommandFactory>()
                 .Includes<AppStatusServerModule>() //server modules always after client module
                 .Includes<DDDServerModule>()
+                
                 //so adapters can be swapped out
                  ;
 

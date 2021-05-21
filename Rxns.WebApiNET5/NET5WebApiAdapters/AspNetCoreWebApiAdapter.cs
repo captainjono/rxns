@@ -1,18 +1,28 @@
 ﻿using System;
-using System.Linq;
+using System.Reactive;
 using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Rxns.Hosting;
+using Rxns.Interfaces;
 using Rxns.Logging;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+using Rxns.Microservices;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters
 {
+
+    public class AspnetCoreOnReadyHandler : IContainerPostBuildService
+    {
+        public IObservable<Unit> Run(IReportStatus logger, IResolveTypes container)
+        {
+            return Rxn.Create(() =>
+            {
+                container.Resolve<IAspnetCoreCfg>()?.OnReady(container.Resolve<IAppContainer>());
+            });
+        }
+    }
+
     public class AspNetCoreWebApiAdapter
     {
         public AspNetCoreWebApiAdapter()
@@ -38,7 +48,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 var host = Host.CreateDefaultBuilder(args)
                     .UseEnvironment("Development")
                     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
-                    .ConfigureLogging((a, l) => l.AddConsole().AddDebug().SetMinimumLevel(LogLevel.Trace))
+                    //.ConfigureLogging((a, l) => l.AddConsole())//.AddDebug().SetMinimumLevel(LogLevel.Trace))
                     .ConfigureWebHostDefaults(webHostBuilder =>
                     {
                         webHostBuilder
@@ -56,11 +66,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                                 //opts.ListenLocalhost(5005, opts => opts.UseHttps());
                             })
                             .UseStartup<T>();
-                    })
-                    .Build();
+                    }).Build();
 
                 await host.RunAsync();
-
+                
                 stopServer = () =>
                 {
                     "Stopping api on purpose".LogDebug();

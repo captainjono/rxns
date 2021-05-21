@@ -8,13 +8,13 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Rxns.WebApi</RootNamespace>
     <AssemblyName>Rxns.WebApi</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersions>v4.6.1</TargetFrameworkVersions>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId>Rxns.WebApiNET5</PackageId>
+    <PackageId>Rxns.WebApiFF</PackageId>
     <Authors>CaptainJono</Authors>
     <Description>A CrossPlatform WebAPI host with optional real-time monitoring capabilities.</Description>
     <Product>Reactions WebAPI</Product>

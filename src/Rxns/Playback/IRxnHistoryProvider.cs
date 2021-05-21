@@ -11,6 +11,7 @@ namespace Rxns.Playback
     public class EventHistory : IAggRoot
     {
         public string Tenant { get; set; }
+        public string AggId { get; }
         public string UnqiueId { get; set; }
 
         public int Version { get; set; }
@@ -20,8 +21,6 @@ namespace Rxns.Playback
         }
 
         public string Data { get; private set; }
-
-        private readonly string _filenumber;
 
         private const string GuidFormatForTimePortion = "yyyyMMdd-HHmm-ssff";
 
@@ -40,10 +39,10 @@ namespace Rxns.Playback
             _newEvents = new List<IDomainEvent>();
         }
 
-        public EventHistory(string tenant, string fileNumber) : this()
+        public EventHistory(string tenant, string aggId) : this()
         {
             Tenant = tenant;
-            _filenumber = fileNumber;
+            AggId = aggId;
 
             // Get sequential id to achieve unique, sortable, timebased Id generation
             UnqiueId = GetTimeBasedGuid().ToString();

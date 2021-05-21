@@ -51,7 +51,7 @@ namespace Rxns.Hosting
                     var cfg = cc.Resolve<IAppServiceRegistry>();
 
                     return new CommandServiceClient(cfg, authedConnection, anonConnection, credentials);
-                })
+                }, true)
                 .CreatesOncePerApp<AppSystemStatusPublisher>()
                 .CreatesOncePerApp<LocalAppStatusServer>()
                 

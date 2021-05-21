@@ -65,7 +65,7 @@ namespace Rxns.Health.AppStatus
                 return null;
             };
 
-            var cmdToRun = ServiceCommand.Parse(command.Options, _cmdFactory);
+            var cmdToRun = ServiceCommand.Parse(command.Options, _cmdFactory).FirstOrDefault();
             cmdToRun.Id = command.Id;//use original msg id
 
             return Run(cmdToRun);

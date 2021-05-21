@@ -24,9 +24,7 @@ namespace RxnsDemo.AzureB2C.Rxns
         public ITenantDiscardRepository DiscardContext { get; private set; }
         public ICurrentUsersService Users { get; set; }
 
-        /// <summary>
-        /// <filnumber, Matter> dictionary
-        /// </summary>
+        
         public IDictionary<string, Document> Documents { get; private set; }
         public MyOrganisation Org { get; private set; }
         public TenantContext(string tenant, ITenantDatabaseFactory dbFactory, ICurrentUsersService users, ITenantDiscardRepository DiscardRepo)

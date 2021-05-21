@@ -10,7 +10,7 @@ using Rxns.Logging;
 namespace Rxns.DDD.CQRS
 {
 
-    public class LocallyExecutingCommandService : ICommandService, IRxnProcessor<IServiceCommand>, IRxnProcessor<IDomainQuery>, IRxnProcessor<IDomainCommand>
+    public class LocallyExecutingCommandService : ICommandService, IRxnProcessor<IDomainQuery>, IRxnProcessor<IDomainCommand>
     {
         private readonly IDomainCommandMediator _cmdMediator;
         private readonly IDomainQueryMediator _qryMediator;
@@ -104,13 +104,6 @@ namespace Rxns.DDD.CQRS
             });
         }
 
-
-        public IObservable<IRxn> Process(IServiceCommand @event)
-        {
-            return Run(@event).OfType<IRxn>();
-        }
-
-
         public IObservable<object> Run(IServiceCommand cmd)
         {
             return Rxn.DfrCreate<object>(o =>
@@ -127,7 +120,7 @@ namespace Rxns.DDD.CQRS
                                             
                                             .Subscribe(o);
 
-                _eventManager.Publish(cmd.AsQuestion());
+                _eventManager.Publish(cmd).Until();
 
                 return cmdResultResource;
             })

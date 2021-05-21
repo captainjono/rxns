@@ -15,12 +15,17 @@ namespace Rxns.Cloud.Intelligence
 {
     public class CompeteFanout<T, TR> : IClusterFanout<T, TR> where TR : IRxn
     {
+        private readonly Func<WorkerConnection<T, TR>, T, bool> _shouldFanOutToWorker;
         public IDictionary<string, WorkerConnection<T, TR>> Workers { get; private set; } = new UseConcurrentReliableOpsWhenCastToIDictionary<string, WorkerConnection<T, TR>>(new ConcurrentDictionary<string, WorkerConnection<T, TR>>());
         private readonly ISubject<int> WorkerConnected = new BehaviorSubject<int>(0);
 
         private readonly Stack<T> _overflow = new Stack<T>(0);
         private Action<IRxn> _publish;
-
+        
+        public CompeteFanout(Func<WorkerConnection<T, TR>, T, bool> shouldFanOutToWorker)
+        {
+            _shouldFanOutToWorker = shouldFanOutToWorker;
+        }
 
         public void Attach(Action<IRxn> workCompletedHandler)
         {
@@ -36,6 +41,11 @@ namespace Rxns.Cloud.Intelligence
             WorkerConnected.OnNext(WorkerConnected.Value() + 1);
 
             $"Worker registered, pool size {Workers.Count}".LogDebug();
+
+            if (_overflow.Any())
+            {
+                DoWorkUntilDrained(_overflow.Pop(), worker).Until(); //todo: work out how to deal with this resource
+            }
 
             return Disposable.Create(() =>
             {
@@ -57,20 +67,20 @@ namespace Rxns.Cloud.Intelligence
             });
         }
 
-        public void Fanout(T cfg) //todo make generic
+        public void Fanout(T work) //todo make generic
         {
-            var freeWorker = Workers.Values.FirstOrDefault(w => !w.Worker.IsBusy.Value());
+            var freeWorker = Workers.Values.FirstOrDefault(w => _shouldFanOutToWorker(w, work));
             
             if (freeWorker != null)
             {
                 $"Sending work to {freeWorker.Worker.Name} @ {freeWorker.Worker.Route}".LogDebug();
 
-                freeWorker.DoWork = DoWorkUntilDrained(cfg, freeWorker.Worker).Until();
+                freeWorker.DoWork = DoWorkUntilDrained(work, freeWorker.Worker).Until();
             }
             else
             {
                 "Adding work to overflow, all workers busy".LogDebug();
-                AddToOverflow(cfg);
+                AddToOverflow(work);
             }
         }
 

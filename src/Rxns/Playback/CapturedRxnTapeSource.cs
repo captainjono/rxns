@@ -217,14 +217,17 @@ namespace Rxns.Playback
     public class CapturedRxnTapeSource : IFileTapeSource
     {
         private readonly IStringCodec _codec;
+        private readonly IObservable<bool> _recordOrNot;
         private readonly bool _skipErrors;
         public TimeSpan Duration { get; private set; }
-        public IFileMeta File { get; private set; }
-        public IObservable<ICapturedRxn> Contents { get { return ReadTo(); } }
+        public IFileMeta File { get; }
+        public IObservable<ICapturedRxn> Contents => ReadTo();
 
-        public CapturedRxnTapeSource(TimeSpan duration, IFileMeta file, IStringCodec codec)
+
+        public CapturedRxnTapeSource(TimeSpan duration, IFileMeta file, IStringCodec codec, IObservable<bool> recordOrNot = null)
         {
             _codec = codec;
+            _recordOrNot = recordOrNot;
             _skipErrors = codec.SkipErrors;
 
             File = file;
@@ -232,10 +235,10 @@ namespace Rxns.Playback
         }
 
         public IRecording StartRecording()
-        {//is there something here with the access voilation? i should unit test this all to find out. use a different IFileMeta? IReadWriteFileMeta to stop the confusion..?
+        {
             var store = File.Contents;
             store.Seek(0, SeekOrigin.End);
-            return new ForwardOnlyFileRecorder(store, _codec, onStop: r => Duration = r.Duration);
+            return new ForwardOnlyFileRecorder(store, _codec, onStop: r => Duration = r.Duration, shouldRecord: _recordOrNot);
         }
 
         private IObservable<ICapturedRxn> ReadTo(Func<IRxn, bool> selector = null)

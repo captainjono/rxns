@@ -39,6 +39,8 @@ namespace Rxns.Health.AppStatus
                 .CreatesOncePerApp(c => new RealtimeReportStream(c.ResolveTag<ITimeSeriesView>("system"), c.Resolve<IReportConnectionManager>()))
                 //for diagnostic portal
                 .CreatesOncePerApp<FileSystemTapeRepository>(true)
+                .RespondsToSvcCmds<StopRecording>()
+                .RespondsToSvcCmds<StartRecording>()
                 .CreatesOncePerApp<InMemoryAppStatusStore>()
                 //.CreatesOncePerApp<AppStatusCfg>(true)
                 .CreatesOncePerApp<ErrorsTapeRepository>()

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Security.Principal;
 using System.Threading.Tasks;
@@ -168,7 +169,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             return base.OnDisconnectedAsync(exception);
         }
         
-        public void SendCommand(string route, string command)
+        public IDisposable SendCommand(string route, string command)
         {
             try
             {
@@ -181,10 +182,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 if (String.IsNullOrWhiteSpace(command))
                 {
                     OnWarning("How am I supposed to execute an empty command buddy?");
-                    return;
+                    return Disposable.Empty;
                 }
 
-                _cmdService.ExecuteCommand(route, command).Do(result =>
+                return _cmdService.ExecuteCommand(route, command).Do(result =>
                 {
                     OnInformation("{0}", result);
                 })
@@ -192,7 +193,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 {
                     OnWarning("x {0}", e.Message);
                     return new object().ToObservable();
-                });
+                }).Until();
             }
             catch (ArgumentException e)
             {
@@ -202,6 +203,8 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             {
                 OnError(e);
             }
+
+            return Disposable.Empty;
         }
 
         //public void RegisterAsService(string route)

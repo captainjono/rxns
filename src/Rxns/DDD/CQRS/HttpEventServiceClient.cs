@@ -10,23 +10,37 @@ using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Microservices;
 
+
+
 namespace Rxns.DDD.CQRS
 {
     public class StreamLogs : ServiceCommand
     {
-        public TimeSpan? Duration { get; set; }
+        public TimeSpan? Duration { get; set; } = TimeSpan.FromMinutes(5);
 
-        public StreamLogs() : this(TimeSpan.FromMinutes(5))
+        public StreamLogs()
         {
         }
 
-        public StreamLogs(string durationInMins) : this(TimeSpan.FromMinutes(Int32.Parse(durationInMins)))
+        public StreamLogs(string durationInMins)
         {
-        }
+            try
+            {
+                Duration = TimeSpan.FromMinutes(Int32.Parse(durationInMins));
+            }
+            catch (Exception e)
+            {
+                
+            }
 
-        public StreamLogs(TimeSpan duration)
-        {
-            Duration = duration;
+            try
+            {
+                Duration = TimeSpan.Parse(durationInMins);
+            }
+            catch (Exception e)
+            {
+
+            }
         }
     }
 

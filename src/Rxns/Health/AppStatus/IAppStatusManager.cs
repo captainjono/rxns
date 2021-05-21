@@ -1,5 +1,4 @@
 ﻿using System;
-using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
 namespace Rxns.Health.AppStatus
@@ -11,8 +10,8 @@ namespace Rxns.Health.AppStatus
 
     public interface IAppHeartBeatHandler
     {
-        IObservable<IRxn> OnNewAppDiscovered(IAppStatusManager appStatus, SystemStatusEvent app);
-        IObservable<IRxn> OnAppHeartBeat(IAppStatusManager appStatus,  SystemStatusEvent app);
+        IObservable<IRxn> OnNewAppDiscovered(IAppStatusManager appStatus, SystemStatusEvent app, object[] meta);
+        IObservable<IRxn> OnAppHeartBeat(IAppStatusManager appStatus,  SystemStatusEvent app, object[] meta);
     }
 
     public interface IAppStatusManager

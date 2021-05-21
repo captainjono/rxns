@@ -73,7 +73,6 @@ namespace Rxns.WebApi.MsWebApiAdapters
 
         private void CreateWebApi(IWebApiCfg cfg, string encryptionKey, IOAuthAuthorizationServerProvider authProvider, IAuthenticationTokenProvider refreshProvider, IAppBuilder server, IResolveTypes container, bool allowErrors = false)
         {
-
             var webCfg = new HttpConfiguration();
             if(_requestCfg != null)
             {

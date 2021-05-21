@@ -40,6 +40,9 @@ namespace Rxns.Hosting.Updates
 
         public PrepareForAppUpdate(string systemName, string version, bool overwriteExisting, string root = null)
         {
+            SystemName = systemName;
+            Version = version;
+            SystemRootPath = root;
             OverwriteExisting = overwriteExisting;
         }
 

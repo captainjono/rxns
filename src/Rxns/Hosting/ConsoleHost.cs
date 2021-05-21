@@ -11,6 +11,7 @@ using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Microservices;
+using Rxns.NewtonsoftJson;
 
 namespace Rxns.Hosting
 {
@@ -130,12 +131,10 @@ namespace Rxns.Hosting
                 {
                     return;
                 }
-
-                var c = new LookupReactorCountQry();
                 
                 context.ExecuteCommand("",cmd).Do(r =>
                 {
-                    Console.WriteLine($"-->\r\b\n{r.ToString()}\r\n-->");
+                    Console.WriteLine($"-->\r\b\n{r.ToJson()}\r\n-->");
                 }).Until(e => Console.Error.WriteLine(e.Message));
             }
         }

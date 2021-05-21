@@ -57,10 +57,6 @@ namespace RxnsDemo.AzureB2C.RxnApps
                 OnInformation("[{0}] Processing import of {1} users into '{2}''", cmd.Id, cmd.Users.Length, cmd.Tenant);
                 _publish(new ImportOfUsersIntoTenantStartedEvent(cmd.Tenant, cmd.Id));
             })
-            .SelectMany(Rxn.Create(() =>
-            {
-                return true;
-            }))
             .Select(_ => new ImportOfUsersIntoTenantStagedEvent(cmd.Tenant, cmd.Id))
             .Finally(() =>
             {

@@ -51,7 +51,7 @@ namespace System.Collections.Generic
             return false;
         }
 
-        public static List<To> AddOrReplace<To>(this List<To> list, To obj)
+        public static IList<To> AddOrReplace<To>(this IList<To> list, To obj)
         {
             if (list.Contains(obj))
                 list.Remove(obj);
@@ -61,7 +61,7 @@ namespace System.Collections.Generic
             return list;
         }
 
-        public static List<To> RemoveIfExists<To>(this List<To> list, To obj)
+        public static IList<To> RemoveIfExists<To>(this IList<To> list, To obj)
         {
             if (list.Contains(obj))
                 list.Remove(obj);

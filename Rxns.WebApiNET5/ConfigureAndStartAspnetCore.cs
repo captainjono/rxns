@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Rxns.Autofac;
 using Rxns.Hosting;
 using Rxns.Logging;
+using Rxns.Microservices;
 using Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters;
 using Rxns.WebApiNET5.NET5WebApiAdapters.System.Web.Http;
 
@@ -41,11 +42,13 @@ namespace Rxns.WebApiNET5
     public interface IAspnetCoreCfg
     {
         Action<IApplicationBuilder> Cfg { get; }
+        Action<IAppContainer> OnReady { get; set; }
     }
 
     public class AspnetCoreCfg : IAspnetCoreCfg
     {
         public Action<IApplicationBuilder> Cfg { get; set; }
+        public Action<IAppContainer> OnReady { get; set; } = a => { };
     }
 
     public abstract class ConfigureAndStartAspnetCore : IRxnAppDef
@@ -219,7 +222,7 @@ namespace Rxns.WebApiNET5
             //via middleware
 
             foreach (var c in userCfg)
-                c?.Cfg(server);
+                c?.Cfg?.Invoke(server);
 
             //the order here is important, you must set it before using the webapi
             //otherwise the controllers wont recognise the tokens and [Authorize] will fail

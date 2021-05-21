@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive.Linq;
 using Rxns;
 using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
@@ -24,12 +25,16 @@ namespace RxnsDemo.AzureB2C.RxnApps
                 _publish(new ImportOfUsersIntoTenantQueuedEvent(cmd.Tenant, cmd.Id));
                 _publish(new ImportOfUsersIntoTenantStartedEvent(cmd.Tenant, cmd.Id));
 
-                foreach (var user in cmd.Users)
+                cmd.Users.ToObservable().Buffer(500).Do(users =>
                 {
-                    _publish(user);
-                }
+                    foreach (var u in users)
+                        _publish(u);
+                }).Finally(() =>
+                {
+                    _publish(new ImportOfUsersIntoTenantStagedEvent(cmd.Tenant, cmd.Id) { ResultCount = cmd.Users.Length });
+                })
+                .Until();
 
-                _publish(new ImportOfUsersIntoTenantStagedEvent(cmd.Tenant, cmd.Id) { ResultCount = cmd.Users.Length });
 
                 OnVerbose("<{0}> Finished processing import of {1} into '{2}''".FormatWith(cmd.Id, "users", cmd.Tenant));
 

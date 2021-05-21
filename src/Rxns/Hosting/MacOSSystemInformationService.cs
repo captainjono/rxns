@@ -72,9 +72,11 @@ namespace Rxns.Hosting
 
                 return Rxn.CreatePulse(TimeSpan.FromSeconds(1), () =>
                 {
+                    foundAllInfo = false;
+
                     Rxn.Create("top", "-l 1", i =>
                     {
-                        if (foundAllInfo) return;
+                        if (foundAllInfo) return; //return as soon as we found the stuff we are after
 
                         if(i.StartsWith("CPU"))
                             cpu = ParseCpu(i);

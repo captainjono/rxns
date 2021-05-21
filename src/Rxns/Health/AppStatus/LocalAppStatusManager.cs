@@ -93,7 +93,7 @@ namespace Rxns.Health.AppStatus
                 {
                     if (!isUpdate)
                     {
-                        _heartBeatHandlers.ForEach(h => h.OnNewAppDiscovered(this, status).Do(msg => _publish(msg)).Until());
+                        _heartBeatHandlers.ForEach(h => h.OnNewAppDiscovered(this, status, meta).Do(msg => _publish(msg)).Until());
                         if (IsSpareReactor(status))
                         {
                             _publish(new SpareReactorAvailible()
@@ -104,7 +104,7 @@ namespace Rxns.Health.AppStatus
                     }
                     else
                     {
-                        _heartBeatHandlers.ForEach(h => h.OnAppHeartBeat(this, status).Do(msg => _publish(msg)).Until());
+                        _heartBeatHandlers.ForEach(h => h.OnAppHeartBeat(this, status, meta).Do(msg => _publish(msg)).Until());
                     }
                 });
         }

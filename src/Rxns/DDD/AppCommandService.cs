@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text;
 using Rxns.CQRS;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
+using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
 
@@ -57,7 +59,7 @@ namespace Rxns.DDD
 
         public IObservable<object> ExecuteCommand(string route, string command)
         {
-            return Rxn.DfrCreate(() => Run(ServiceCommand.Parse(command, _srvCcmdFactory)));
+            return Rxn.DfrCreate(() => ServiceCommand.Parse(command, _srvCcmdFactory)).SelectMany(c => c).SelectMany(c => Run(c));
         }
     }
 
@@ -67,15 +69,17 @@ namespace Rxns.DDD
         private readonly ICommandService _cmdService;
         private readonly IServiceCommandFactory _serviceCommands;
         private readonly IRxnManager<IRxn> _eventmanager;
+        private readonly IAppStatusStore _appStatus;
         private Action<IRxn> _publish;
         private readonly IDictionary<string, string> _routes = new Dictionary<string, string>();
 
-        public AppCommandService(IResolveTypes resolver, ICommandService cmdService, IServiceCommandFactory serviceCommands, IRxnManager<IRxn> eventmanager)
+        public AppCommandService(IResolveTypes resolver, ICommandService cmdService, IServiceCommandFactory serviceCommands, IRxnManager<IRxn> eventmanager, IAppStatusStore appStatus)
         {
             _resolver = resolver;
             _cmdService = cmdService;
             _serviceCommands = serviceCommands;
             _eventmanager = eventmanager;
+            _appStatus = appStatus;
         }
 
         public IObservable<object> ExecuteCommand(string route, string command)
@@ -84,9 +88,8 @@ namespace Rxns.DDD
             if (route.IsNullOrWhitespace() || !route.Contains("\\"))
                 return ExecuteCommand(command); //a command to be executed by us
             else
-                SendClientCommand(route, command); //a command for a client
+                return SendClientCommand(route, command); //a command for a client
 
-            return CommandResult.Success("Queued '{0}' to '{1}'".FormatWith(route, command)).ToObservable();
         }
 
         /// <summary>
@@ -98,7 +101,7 @@ namespace Rxns.DDD
         {
             try
             {
-                return _cmdService.Run(ServiceCommand.Parse(command, _serviceCommands));
+                return Rxn.DfrCreate(() => ServiceCommand.Parse(command, _serviceCommands)).SelectMany(c => c).SelectMany(c =>_cmdService.Run(c));
             }
             catch(ServiceCommandNotFound e)
             {
@@ -122,12 +125,11 @@ namespace Rxns.DDD
         }
 
 
-        public void SendClientCommand(string route, string command, string from = null)
+        public IObservable<CommandResult> SendClientCommand(string route, string command, string from = null)
         {
-            OnVerbose("Client commands not implemented yet");
-            ExecuteCommand(route, command).Until();
+            ServiceCommand.Parse(command, _serviceCommands).Select(c => c.AsQuestion(route)).ForEach(q => _appStatus.Add(q));
 
-            return;
+            return CommandResult.Success().ToObservable();
         }
 
         public void ConfigiurePublishFunc(Action<IRxn> publish)

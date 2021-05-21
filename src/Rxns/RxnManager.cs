@@ -68,8 +68,10 @@ namespace Rxns
 
                     _queueSub = _channel.Setup(_postman).Subscribe(this, message =>
                         {
-                            if(typeof(RLM) != message.GetType())
-                                OnVerbose("Message received: {0}", message.GetType().Name);
+                            //todo: make more scalable solution. this floods the console
+                            //something that aggregates after a certain flood maybe
+                            //if(typeof(RLM) != message.GetType())
+                               //OnVerbose("Message received: {0}", message.GetType().Name);
 
                             _inChannel.OnNext(message);
                         });

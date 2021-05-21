@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive;
 
 namespace Rxns.Hosting
 {
@@ -10,6 +11,7 @@ namespace Rxns.Hosting
     public interface IAppServiceDiscovery
     {
         IObservable<ApiHeartbeat> Discover();
+        IObservable<Unit> Advertise(string system, string apiName, string apiUrl);
     }
     
     public class ApiHeartbeat

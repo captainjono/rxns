@@ -88,7 +88,6 @@ namespace RxnsDemo.AzureB2C.RxnApps.Events
     /// </summary>
     public class ImportOfUsersIntoTenantStagedEvent : ImportOfUsersIntoTenantEvent
     {
-        public string FileNumber { get; private set; }
         public Exception Error { get; set; }
         public int ResultCount { get; set; }
 
