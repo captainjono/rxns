@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reactive;
+using System.Reactive.Subjects;
 using Rxns.Collections;
 using Rxns.DDD;
 using Rxns.DDD.Commanding;
@@ -14,6 +16,32 @@ using Rxns.WebApi.Compression;
 
 namespace Rxns.Hosting
 {
+
+    public class InsecureApiNoAuthRequired : ReportStatus, IAuthenticationService<AccessToken, ITenantCredentials>
+    {
+        public ITenantCredentials Credentials { get; set; }
+        public bool RequiresSSL { get; set; }
+        public IObservable<AccessToken> Tokens { get; } = _noToken;
+        public IObservable<bool> IsAuthenticated { get; } = _alwaysAuthed;
+
+        private static ISubject<bool> _alwaysAuthed = new BehaviorSubject<bool>(true);
+        private static ISubject<AccessToken> _noToken = new BehaviorSubject<AccessToken>(new AccessToken());
+        public IObservable<AccessToken> Refresh()
+        {
+            return new AccessToken().ToObservable();
+        }
+
+        public IObservable<AccessToken> Login(ITenantCredentials credentials)
+        {
+            return Refresh();
+        }
+
+        public IObservable<AccessToken> GetToken(ITenantCredentials credentials)
+        {
+            return Refresh();
+        }
+    }
+
     public class AppStatusClientModule : IAppModule
     {
         public IRxnLifecycle Load(IRxnLifecycle lifecycle)
@@ -59,6 +87,7 @@ namespace Rxns.Hosting
                 .CreatesOncePerApp<ReporterErrorLogger>()
                 .CreatesOncePerApp<SystemStatusPublisher>()
                 .RespondsToSvcCmds<StreamLogs>()
+                .CreatesOncePerApp<InsecureApiNoAuthRequired>()
                 .CreatesOncePerApp<HttpEventsServiceClient>()
                 .CreatesOncePerApp<HttpAppStatusServiceClient>()
                 .CreatesOncePerApp<HttpUpdateServiceClient>()

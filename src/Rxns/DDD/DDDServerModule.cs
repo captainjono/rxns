@@ -1,6 +1,7 @@
 ﻿using Rxns.DDD.BoundedContext;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
+using Rxns.DDD.Tenant;
 using Rxns.Hosting;
 using Rxns.Playback;
 

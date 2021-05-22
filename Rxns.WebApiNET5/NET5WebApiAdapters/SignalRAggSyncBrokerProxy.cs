@@ -114,14 +114,15 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .DisposedBy(local.ConnectionResources);
         }
 
-        public void Sync(string[] aggIds, AggregateType type, AggSyncLevel level, string lastEventId = null)
+        public void Sync(string[] aggIds, string type, string level, string lastEventId = null)
         {
             OnVerbose("sync request received");
             var local = Connections[Context.ConnectionId];
 
             if (local.Controls == null) throw new Exception("Need to register before trying this operation");
+            //issue: lasteventid not sent
             local.Controls.Sync(aggIds, type, level, lastEventId == null ? (Guid?)null : Guid.Parse(lastEventId));
-            //not transfering the lastEventId over for sdome reason!... ther is another comment in another window 2
+            
         }
 
         private void ConnectLocalControlsToRemoteClient(BrokerConnection context, string connectionId)

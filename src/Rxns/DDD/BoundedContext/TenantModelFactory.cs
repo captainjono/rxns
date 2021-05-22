@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Rxns.DDD.Tenant;
 
 namespace Rxns.DDD.BoundedContext
 {

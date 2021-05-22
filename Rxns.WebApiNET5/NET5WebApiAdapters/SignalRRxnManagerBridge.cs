@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
@@ -8,6 +9,8 @@ using System.Reactive.Subjects;
 using Autofac.Features.OwnedInstances;
 using Microsoft.AspNet.SignalR.Client;
 using Newtonsoft.Json;
+using Rxns.Cloud;
+using Rxns.Health;
 using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -15,7 +18,7 @@ using ConnectionState = Microsoft.AspNet.SignalR.Client.ConnectionState;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters
 {
-    public class SignalRRxnManagerBridge : ReportsStatus, IEventHubClient
+    public class SignalRRxnManagerBridge : HttpAppStatusServiceClient, IEventHubClient, IAppStatusServiceClient
     {
         public IScheduler DefaultScheduler { get; set; }
 
@@ -41,7 +44,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         private IHubProxy _clientProxy;
         
 
-        public SignalRRxnManagerBridge(Func<string, Owned<HubConnection>> hubClientFactory, ITenantCredentials configuration, IRouteProvider systemInfo, IAuthenticationService<AccessToken, ITenantCredentials> authenticationService, IRxnManager<IRxn> eventManager, IScheduler scheduler = null)
+        public SignalRRxnManagerBridge(Func<string, Owned<HubConnection>> hubClientFactory, IRouteProvider systemInfo, IAuthenticationService<AccessToken, ITenantCredentials> authenticationService, IRxnManager<IRxn> eventManager, IHttpConnection client, ICreateEvents eventFactory, ITenantCredentials credentials, IAppServiceRegistry apps, IScheduler scheduler = null) : base(client, eventFactory, systemInfo, credentials, apps)
         {
             
             _eventManager = eventManager;
@@ -216,6 +219,33 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             }
 
             return _remoteEvents;
+        }
+
+        public IObservable<Unit> Publish(IEnumerable<IRxn> events)
+        {
+            return Rxn.Create(() => Publish(events));
+        }
+
+        public IObservable<Unit> PublishError(BasicErrorReport report)
+        {
+            return Rxn.Create(() => Publish(report));
+        }
+
+        public IObservable<Unit> DeleteError(long id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
+        {
+            "FIXME: appcmds not received? do we care? already received on the other channel yeh? of need to flush that store still? hmm how?".LogDebug();
+            return Rxn.Create<IRxnQuestion[]>(() => Publish(new AppHeatbeat(status, meta)));
+
+        }
+
+        public IObservable<string> PublishLog(Stream zippedLog)
+        {
+            throw new NotImplementedException();
         }
     }
 }

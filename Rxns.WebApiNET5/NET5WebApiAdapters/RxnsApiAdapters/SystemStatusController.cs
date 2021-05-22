@@ -4,7 +4,6 @@ using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Rxns.Cloud;
-using Rxns.DDD.Commanding;
 using Rxns.Health.AppStatus;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters

@@ -3,32 +3,15 @@ using Rxns.DDD.BoundedContext;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters
 {
-    public enum AggSyncLevel
-    {
-        Brief,
-        Summary,
-        All,
-        Custom
-    }
-
-    public enum AggregateType
-    {
-        Matter,
-        Party,
-        Firm,
-        Documents,
-        Messages
-    }
-
     public class ForgetRequest
     {
         public string[] AggIds { get; set; }
-        public AggregateType Type { get; set; }
+        public string Type { get; set; }
 
     }
     public class SyncRequest : ForgetRequest
     {
-        public AggSyncLevel Level { get; set; }
+        public string Level { get; set; }
         public Guid? LastEventId { get; set; }
     }
 
@@ -78,14 +61,14 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         /// <param name="aggIds"></param>
         /// <param name="level"></param>
         /// <returns></returns>
-        void Sync(string[] aggIds, AggregateType type, AggSyncLevel level, Guid? lastEventId = null);
+        void Sync(string[] aggIds, string type, string level, Guid? lastEventId = null);
         /// <summary>
         /// Forgets a agg you are already syncing
         /// note: will not throw if the idsubmitted has not been marked for sync 
         /// </summary>
         /// <param name="aggIds"></param>
         /// <returns></returns>
-        void Forget(AggregateType type, params string[] aggIds);
+        void Forget(string type, params string[] aggIds);
 
         void Confirm(params Guid[] eventIds);
     }

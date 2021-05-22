@@ -19,10 +19,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
     public interface IAggSyncBrokerServiceClient : IAggSyncControls
     {
         void RegisterAsSlave(string clientId);
-        void Sync(string[] aggIds, AggregateType type, AggSyncLevel level, Guid? lastEventId);
+        void Sync(string[] aggIds, string type, string level, Guid? lastEventId);
         IObservable<IDomainEvent> ToSync(string clientId);
         void Unregister(string clientId);
-        void Forget(AggregateType type, string[] aggIds);
+        void Forget(string type, string[] aggIds);
         void Confirm(Guid[] eventIds);
     }
 }

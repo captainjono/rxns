@@ -5,6 +5,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Newtonsoft.Json;
+using Rxns.DDD.Tenant;
 using Rxns.Interfaces;
 
 namespace Rxns.DDD.BoundedContext

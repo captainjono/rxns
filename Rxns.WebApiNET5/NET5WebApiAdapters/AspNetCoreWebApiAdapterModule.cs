@@ -1,4 +1,8 @@
-﻿using Rxns.DDD;
+﻿using System;
+using Autofac;
+using Autofac.Features.OwnedInstances;
+using Microsoft.AspNet.SignalR.Client;
+using Rxns.DDD;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting;
 using Rxns.Logging;
@@ -37,9 +41,20 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .CreatesOncePerApp<ResolverCommandFactory>()
                 .Includes<AppStatusServerModule>() //server modules always after client module
                 .Includes<DDDServerModule>()
-                
-                //so adapters can be swapped out
-                 ;
+
+            //this is a connection factory takes a url and returns a signalR client
+            .CreatesOncePerApp<Func<string, Owned<HubConnection>>>(c =>
+            {
+                var cc = c.Resolve<IComponentContext>();
+                return (url) =>
+                {
+                    var lifetime = cc.Resolve<ILifetimeScope>().BeginLifetimeScope();
+                    return new Owned<HubConnection>(new HubConnection(url), lifetime);
+                };
+            });
+
+            //so adapters can be swapped out
+            ;
 
 
         }

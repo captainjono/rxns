@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
+using Rxns.DDD.Tenant;
 using Rxns.Playback;
 
 namespace Rxns.DDD.BoundedContext

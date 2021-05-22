@@ -58,6 +58,7 @@ namespace Rxns
     public class SystemStatusEvent : SystemRxn, IRouteAware
     {
         public string SystemName { get; set; }
+        public string Ip { get; set; }
 
         public SystemStatus Status { get; set; }
 

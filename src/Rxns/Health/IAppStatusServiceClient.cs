@@ -1,20 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Net.Http;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Text;
-using System.Threading.Tasks;
 using Rxns.Cloud;
-using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.Metrics;
 
 namespace Rxns.Health
 {
