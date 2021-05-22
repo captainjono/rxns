@@ -3,7 +3,6 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
 using Rxns.DDD.Commanding;
-using Rxns.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
 

@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Rxns.CQRS;
 using Rxns.DDD.BoundedContext;
-using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 
-namespace Rxns.DDD.Commanding
+namespace Rxns.DDD.CQRS
 {
     public class DomainCommandResult<T> : IDomainCommandResult<T>
     {

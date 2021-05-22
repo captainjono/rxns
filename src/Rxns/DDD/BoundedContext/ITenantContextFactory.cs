@@ -1,4 +1,4 @@
-﻿namespace Rxns.DDD.BoundedContext.Tenant
+﻿namespace Rxns.DDD.BoundedContext
 {
     public interface ITenantContextFactory
     {

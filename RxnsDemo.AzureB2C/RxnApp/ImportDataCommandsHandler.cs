@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using Rxns;
 using Rxns.DDD.Commanding;
+using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using RxnsDemo.AzureB2C.RxnApps.Events;

@@ -18,10 +18,10 @@ namespace Rxns.Health.AppStatus
         private readonly IResolveTypes _resolver;
         private readonly ICommandService _cmds;
         private readonly IRouteProvider _local;
-        private readonly IAppStatusStore _statusStore;
-        private Type[] _respondsToRoute;
+        private readonly IAppCmdManager _statusStore;
+        private readonly Type[] _respondsToRoute;
 
-        public ServiceCommandExecutor(IServiceCommandFactory cmdFactory, IResolveTypes resolver, ICommandService cmds, IRxnAppCfg cfg, IRouteProvider local, IAppStatusStore statusStore = null)
+        public ServiceCommandExecutor(IServiceCommandFactory cmdFactory, IResolveTypes resolver, ICommandService cmds, IRxnAppCfg cfg, IRouteProvider local, IAppCmdManager statusStore = null)
         {
             _cmdFactory = cmdFactory;
             _resolver = resolver;

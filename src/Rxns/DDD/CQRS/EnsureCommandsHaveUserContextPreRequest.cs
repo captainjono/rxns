@@ -1,5 +1,4 @@
 ﻿using Rxns.DDD.Commanding;
-using Rxns.CQRS;
 using Rxns.DDD.BoundedContext;
 
 namespace Rxns.DDD.CQRS

@@ -1,7 +1,7 @@
 ﻿using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
-namespace Rxns.CQRS
+namespace Rxns.DDD.CQRS
 {
     public class CommandSuccess<T> : Success<T>, IDomainCommandResult<T>
     {

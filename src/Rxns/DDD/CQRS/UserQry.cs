@@ -1,5 +1,4 @@
 ﻿using System;
-using Rxns.CQRS;
 
 namespace Rxns.DDD.CQRS
 {

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Rxns.DDD.Commanding;
 using Rxns.Health.AppStatus;
-using Rxns.Interfaces;
 using Rxns.Logging;
 
 namespace Rxns.Hosting.Updates
@@ -21,7 +19,15 @@ namespace Rxns.Hosting.Updates
         public string AppRoot { get; set; }
     }
 
-    public interface IAppStatusStore
+    public interface IAppCmdManager
+    {
+        IEnumerable<IRxnQuestion> FlushCommands(string route);
+
+        void Add(IRxnQuestion cmds);
+    }
+
+
+    public interface IAppStatusStore : IAppCmdManager
     {
         IDictionary<object, object> Cache { get; }
 
@@ -44,10 +50,7 @@ namespace Rxns.Hosting.Updates
         IObservable<string> SaveLog(string tenant, Stream log, string file);
         IObservable<AppLogInfo[]> ListLogs(string tenantId, int top = 3);
         IObservable<Stream> GetLogs(string tenantId, string file);
-        IEnumerable<IRxnQuestion> FlushCommands(string route);
-
-        void Add(IRxnQuestion cmds);
-        void Add(LogMessage<string> message);
         void Add(LogMessage<Exception> message);
+        void Add(LogMessage<string> message);
     }
 }

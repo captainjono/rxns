@@ -1,5 +1,5 @@
 ﻿
-namespace Rxns.CQRS
+namespace Rxns.DDD.CQRS
 {
     public interface IRequireTenantContext
     {

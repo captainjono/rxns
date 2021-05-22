@@ -5,13 +5,14 @@ using System.Reactive.Linq;
 using Microsoft.CSharp.RuntimeBinder;
 using Rxns;
 using Rxns.Collections;
+using Rxns.DDD;
 using Rxns.DDD.BoundedContext;
 using Rxns.DDD.Commanding;
+using Rxns.DDD.Tenant;
 using Rxns.Interfaces;
 using Rxns.Interfaces.Reliability;
 using Rxns.NewtonsoftJson;
 using RxnsDemo.AzureB2C.Rxns;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps
 {

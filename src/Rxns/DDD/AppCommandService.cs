@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text;
-using Rxns.CQRS;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Hosting.Updates;
@@ -63,22 +62,16 @@ namespace Rxns.DDD
         }
     }
 
-    public class AppCommandService : ReportsStatus, IAppCommandService, IRxnPublisher<IRxn>, IRxnProcessor<CommandResult>
+    public class AppCommandService : ReportsStatus, IAppCommandService,  IRxnProcessor<CommandResult>
     {
-        private readonly IResolveTypes _resolver;
         private readonly ICommandService _cmdService;
         private readonly IServiceCommandFactory _serviceCommands;
-        private readonly IRxnManager<IRxn> _eventmanager;
-        private readonly IAppStatusStore _appStatus;
-        private Action<IRxn> _publish;
-        private readonly IDictionary<string, string> _routes = new Dictionary<string, string>();
+        private readonly IAppCmdManager _appStatus;
 
-        public AppCommandService(IResolveTypes resolver, ICommandService cmdService, IServiceCommandFactory serviceCommands, IRxnManager<IRxn> eventmanager, IAppStatusStore appStatus)
+        public AppCommandService(ICommandService cmdService, IServiceCommandFactory serviceCommands, IAppCmdManager appStatus)
         {
-            _resolver = resolver;
             _cmdService = cmdService;
             _serviceCommands = serviceCommands;
-            _eventmanager = eventmanager;
             _appStatus = appStatus;
         }
 
@@ -130,11 +123,6 @@ namespace Rxns.DDD
             ServiceCommand.Parse(command, _serviceCommands).Select(c => c.AsQuestion(route)).ForEach(q => _appStatus.Add(q));
 
             return CommandResult.Success().ToObservable();
-        }
-
-        public void ConfigiurePublishFunc(Action<IRxn> publish)
-        {
-            _publish = publish;
         }
 
         public IObservable<IRxn> Process(CommandResult @event)

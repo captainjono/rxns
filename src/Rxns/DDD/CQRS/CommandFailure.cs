@@ -2,7 +2,7 @@
 using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
-namespace Rxns.CQRS
+namespace Rxns.DDD.CQRS
 {
     public class CommandFailure<T> : Failure<T>, IDomainCommandResult<T> where T : DDD.Commanding.IUniqueRxn
     {

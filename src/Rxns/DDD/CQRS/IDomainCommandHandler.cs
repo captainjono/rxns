@@ -1,10 +1,7 @@
-﻿using Rxns.DDD.Commanding;
-using Rxns.CQRS;
-using Rxns.Interfaces;
-using System;
-using Rxns.DDD.CQRS;
+﻿using System;
+using Rxns.DDD.Commanding;
 
-namespace Rxns.DDD.Commanding
+namespace Rxns.DDD.CQRS
 {
     /// <summary>
     /// Defines an asynchronous handler for a request

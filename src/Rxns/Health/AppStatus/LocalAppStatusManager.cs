@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
-using Rxns.Cloud;
 using Rxns.Commanding;
-using Rxns.DDD.Commanding;
 using Rxns.Hosting.Updates;
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -35,17 +30,14 @@ namespace Rxns.Health.AppStatus
         private readonly IAppStatusStore _appStatus;
         private readonly IAppUpdateManager _updates;
         private readonly IAppHeartBeatHandler[] _heartBeatHandlers;
-        private readonly IFileSystemService _fs;
         private Action<IRxn> _publish;
-        private IDictionary<string, string> _keepUpToDateWithNewAppVersions = new ConcurrentDictionary<string, string>();
 
 
-        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates, IAppHeartBeatHandler[] heartBeatHandlers, IFileSystemService fs)
+        public LocalAppStatusManager(ISystemStatusStore systemStatus, IAppStatusStore appStatus, IAppUpdateManager updates, IAppHeartBeatHandler[] heartBeatHandlers)
         {
             _appStatus = appStatus;
             _updates = updates;
             _heartBeatHandlers = heartBeatHandlers;
-            _fs = fs;
             _systemStatus = systemStatus;
         }
 

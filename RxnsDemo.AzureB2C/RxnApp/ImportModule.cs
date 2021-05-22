@@ -1,8 +1,8 @@
-﻿using Rxns.Hosting;
+﻿using Rxns.DDD.Tenant;
+using Rxns.Hosting;
 using Rxns.Redis;
 using RxnsDemo.AzureB2C.RxnApps.Events;
 using RxnsDemo.AzureB2C.Rxns;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps
 {

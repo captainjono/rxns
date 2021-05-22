@@ -37,8 +37,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     public class UpdatesController : ReportsStatusApiControllerWithUpload
     {
         private readonly IAppUpdateManager _updateManager;
-        private readonly IUpdateStorageClient _client;
-        private readonly IAppStatusStore _cmdHub;
 
         public UpdatesController(IFileUploadProvider uploadProvider, IAppUpdateManager updateManager)
             : base(uploadProvider)

@@ -1,5 +1,5 @@
 ﻿using System;
-using Rxns.CQRS;
+using Rxns.DDD.CQRS;
 
 namespace RxnsDemo.Micro.App.Cmds
 {

@@ -4,7 +4,6 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using Rxns.CQRS;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;

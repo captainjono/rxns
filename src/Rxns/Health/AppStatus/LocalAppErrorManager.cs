@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Rxns.Collections;
-using Rxns.CQRS;
+using Rxns.DDD.CQRS;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Metrics;

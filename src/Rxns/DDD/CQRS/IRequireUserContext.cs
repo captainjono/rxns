@@ -1,4 +1,4 @@
-﻿namespace Rxns.CQRS
+﻿namespace Rxns.DDD.CQRS
 {
     public interface IRequireUserContext : IRequireTenantContext
     {

@@ -1,4 +1,5 @@
 ﻿using System;
+using Rxns.DDD.CQRS;
 
 namespace Rxns.DDD.Commanding
 {

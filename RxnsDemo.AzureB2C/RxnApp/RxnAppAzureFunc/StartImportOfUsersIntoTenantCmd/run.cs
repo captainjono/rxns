@@ -4,9 +4,9 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using Rxns.DDD.Tenant;
 using Rxns.WebApiNET5.NET5WebApiAdapters;
 using RxnsDemo.AzureB2C.RxnApps;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace AzurFunc
 {

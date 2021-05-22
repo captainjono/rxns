@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Folder Include="RxnApp\Events\" />
+    <Folder Include="Rxns\" />
   </ItemGroup>
 
 </Project>

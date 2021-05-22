@@ -3,7 +3,6 @@ using System.Net.Http;
 using System.Reactive.Linq;
 using System.Text;
 using Rxns.DDD.Commanding;
-using Rxns.CQRS;
 using Rxns.Hosting;
 
 namespace Rxns.DDD.CQRS

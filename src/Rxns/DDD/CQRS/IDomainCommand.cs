@@ -1,6 +1,6 @@
-﻿using Rxns.Interfaces;
+﻿using Rxns.DDD.Commanding;
 
-namespace Rxns.DDD.Commanding
+namespace Rxns.DDD.CQRS
 {
     public interface IDomainCommand : IServiceCommand
     {

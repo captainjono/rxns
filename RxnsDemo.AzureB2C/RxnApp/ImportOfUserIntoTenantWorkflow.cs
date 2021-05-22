@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using Rxns.CQRS;
 using Rxns.DDD.BoundedContext;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
+using Rxns.DDD.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps.Events
 {

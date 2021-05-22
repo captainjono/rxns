@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
-using Rxns.CQRS;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.Interfaces;

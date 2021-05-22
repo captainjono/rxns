@@ -2,9 +2,9 @@
 using System.Reactive.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Rxns;
+using Rxns.DDD.Tenant;
 using Rxns.NewtonsoftJson;
 using Rxns.WebApiNET5.NET5WebApiAdapters;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps.RxnAppAzureFunc.ImportProgress
 {

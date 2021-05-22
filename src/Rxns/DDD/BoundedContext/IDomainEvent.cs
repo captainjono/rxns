@@ -1,6 +1,6 @@
 ﻿using System;
-using Rxns.CQRS;
 using Rxns.DDD.Commanding;
+using Rxns.DDD.CQRS;
 
 namespace Rxns.DDD.BoundedContext
 {

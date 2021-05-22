@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Rxns.CQRS;
 using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 

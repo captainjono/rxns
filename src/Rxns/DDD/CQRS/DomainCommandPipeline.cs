@@ -1,6 +1,6 @@
-﻿using Rxns.DDD.CQRS;
+﻿using Rxns.DDD.Commanding;
 
-namespace Rxns.DDD.Commanding
+namespace Rxns.DDD.CQRS
 {
     public class DomainCommandPipeline<T, TR> : RxnMediatorPipeline<T, DomainCommandResult<TR>>, IDomainCommandHandler<T, TR> where T : IDomainCommand<TR>
 

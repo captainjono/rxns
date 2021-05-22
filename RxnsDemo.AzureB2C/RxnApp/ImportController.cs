@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Rxns.DDD.CQRS;
+using Rxns.DDD.Tenant;
 using Rxns.NewtonsoftJson;
 using Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters;
 using RxnsDemo.AzureB2C.Rxns;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps
 {

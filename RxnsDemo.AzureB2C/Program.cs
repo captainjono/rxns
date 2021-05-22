@@ -4,6 +4,8 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Rxns;
 using Rxns.DDD;
+using Rxns.DDD.Sql;
+using Rxns.DDD.Tenant;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting;
 using Rxns.Interfaces;
@@ -16,8 +18,6 @@ using Rxns.WebApiNET5;
 using Rxns.WebApiNET5.NET5WebApiAdapters;
 using RxnsDemo.AzureB2C.RxnApps;
 using RxnsDemo.AzureB2C.Rxns;
-using RxnsDemo.AzureB2C.Rxns.Sql;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C
 {

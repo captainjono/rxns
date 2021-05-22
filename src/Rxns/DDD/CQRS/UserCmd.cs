@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Rxns.CQRS
+namespace Rxns.DDD.CQRS
 {
     public class UserCmd<T> : TenantCmd<T>, IRequireUserContext, IUserCmd
     {

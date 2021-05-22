@@ -1,8 +1,6 @@
 ﻿using System;
-using Rxns.DDD.Commanding;
-using Rxns.DDD.CQRS;
 
-namespace Rxns.CQRS
+namespace Rxns.DDD.CQRS
 {
     public class TenantCmd<T> : IDomainCommand<T>, IRequireTenantContext
     {

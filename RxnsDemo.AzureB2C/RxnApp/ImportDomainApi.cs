@@ -2,9 +2,9 @@
 using System.Threading.Tasks;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
+using Rxns.DDD.Tenant;
 using Rxns.Logging;
 using RxnsDemo.AzureB2C.RxnApps.Events;
-using RxnsDemo.AzureB2C.Rxns.Tenant;
 
 namespace RxnsDemo.AzureB2C.RxnApps
 {

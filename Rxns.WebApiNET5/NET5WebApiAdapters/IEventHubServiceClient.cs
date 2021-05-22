@@ -1,8 +1,7 @@
 ﻿using System;
 using Rxns.Interfaces;
-using Rxns.WebApiNET5.NET5WebApiAdapters;
 
-namespace RedRain.RedView.Adapter.SignalR
+namespace Rxns.WebApiNET5.NET5WebApiAdapters
 {
     public interface IEventHubServiceClient : IHubProxyClient
     {
