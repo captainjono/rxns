@@ -43,7 +43,7 @@ namespace Rxns.Hosting
 
         StringBuilder eventsAsJson = new StringBuilder();
 
-        public IObservable<Unit> Publish(IEnumerable<IRxn> events)
+        public virtual IObservable<Unit> Publish(IEnumerable<IRxn> events)
         {
             eventsAsJson.Clear();
             return Rxn.Create<Unit>(o =>
@@ -54,7 +54,7 @@ namespace Rxns.Hosting
             });
         }
 
-        public IObservable<Unit> PublishError(BasicErrorReport report)
+        public virtual IObservable<Unit> PublishError(BasicErrorReport report)
         {
             OnVerbose("Publishing error");
             return Connection.Call(client => client.PostAsync(WithBaseUrl("errors/basicReport/publish"), report.ToJsonContent())).Select(_ => new Unit());
@@ -80,7 +80,7 @@ namespace Rxns.Hosting
         public virtual IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             OnVerbose($"Publishing System Status to {BaseUrl()}");
-            return _eventFactory.ToCommands(Connection.Call(client => client.PostAsJsonAsync(WithBaseUrl("systemstatus/heartbeat-2/publish"), new AppHeatbeat(status, meta))));
+            return _eventFactory.ToCommands(Connection.Call(client => client.PostAsJsonAsync(WithBaseUrl("systemstatus/heartbeat-2/publish"), new AppHeartbeat(status, meta))));
         }
 
         protected override string BaseUrl()

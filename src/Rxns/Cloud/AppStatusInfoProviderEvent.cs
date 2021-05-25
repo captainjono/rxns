@@ -24,16 +24,16 @@ namespace Rxns.Cloud
         }
     }
     
-    public class AppHeatbeat : IRxn
+    public class AppHeartbeat : IRxn
     {
         public SystemStatusEvent Status { get; set; }
         public AppStatusInfo[] Meta { get; set; }
 
-        public AppHeatbeat()
+        public AppHeartbeat()
         {
             
         }
-        public AppHeatbeat(SystemStatusEvent status, AppStatusInfo[] meta)
+        public AppHeartbeat(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             Status = status;
             Meta = meta;

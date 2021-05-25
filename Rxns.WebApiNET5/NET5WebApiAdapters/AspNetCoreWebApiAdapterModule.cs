@@ -2,6 +2,7 @@
 using Autofac;
 using Autofac.Features.OwnedInstances;
 using Microsoft.AspNet.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using Rxns.DDD;
 using Rxns.Health.AppStatus;
 using Rxns.Hosting;
@@ -14,7 +15,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
     {
         public IRxnLifecycle Load(IRxnLifecycle lifecycle)
         {
-            
+
             return lifecycle
                 .CreatesOncePerApp<ReportHub>()
                 .CreatesOncePerApp<SystemMetricsHub>()
@@ -42,21 +43,37 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .Includes<AppStatusServerModule>() //server modules always after client module
                 .Includes<DDDServerModule>()
 
-            //this is a connection factory takes a url and returns a signalR client
-            .CreatesOncePerApp<Func<string, Owned<HubConnection>>>(c =>
-            {
-                var cc = c.Resolve<IComponentContext>();
-                return (url) =>
+                //this is a connection factory takes a url and returns a signalR client
+                .CreatesOncePerApp<Func<string, Owned<HubConnection>>>(c =>
                 {
-                    var lifetime = cc.Resolve<ILifetimeScope>().BeginLifetimeScope();
-                    return new Owned<HubConnection>(new HubConnection(url), lifetime);
-                };
-            });
+                    var cc = c.Resolve<IComponentContext>();
+                    return (url) =>
+                    {
+                        var lifetime = cc.Resolve<ILifetimeScope>().BeginLifetimeScope();
+                        return new Owned<HubConnection>(new HubConnectionBuilder().WithUrl(url).WithAutomaticReconnect(new AlwaysRetryPolicy(() => TimeSpan.FromSeconds(1))).Build(), lifetime);
+                    };
+                })
+                ;
 
             //so adapters can be swapped out
             ;
 
 
+        }
+    }
+    
+    public class AlwaysRetryPolicy : IRetryPolicy
+    {
+        private readonly Func<TimeSpan> _toWait;
+
+        public AlwaysRetryPolicy(Func<TimeSpan> toWait)
+        {
+            _toWait = toWait;
+        }
+
+        public TimeSpan? NextRetryDelay(RetryContext retryContext)
+        {
+            return _toWait();
         }
     }
 }

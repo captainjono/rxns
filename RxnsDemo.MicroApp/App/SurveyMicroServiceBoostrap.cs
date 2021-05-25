@@ -126,7 +126,7 @@ namespace RxnsDemo.Micro.App
                     TimeSpan.FromSeconds(10).Then(true).Do(_ =>
                     {
                         "publishing event to azure".LogDebug();
-                        evenBusToAzureFunc.Publish(new AppHeatbeat()).WaitR();
+                        evenBusToAzureFunc.Publish(new AppHeartbeat()).WaitR();
 
                     }).Until(ReportStatus.Log.OnError);
                 }))

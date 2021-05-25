@@ -1,24 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Reactive.Threading.Tasks;
+using System.Threading.Tasks;
 using Autofac.Features.OwnedInstances;
 using Microsoft.AspNet.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using Newtonsoft.Json;
 using Rxns.Cloud;
 using Rxns.Health;
 using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using ConnectionState = Microsoft.AspNet.SignalR.Client.ConnectionState;
 
 namespace Rxns.WebApiNET5.NET5WebApiAdapters
 {
-    public class SignalRRxnManagerBridge : HttpAppStatusServiceClient, IEventHubClient, IAppStatusServiceClient
+    public class SignalRRxnManagerBridge : HttpAppStatusServiceClient, IEventHubClient, IAppStatusServiceClient, IRxnPublisher<IRxn> //ibackingchannel
     {
         public IScheduler DefaultScheduler { get; set; }
 
@@ -36,22 +39,26 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         private Owned<HubConnection> _connection;
 
         private readonly Subject<IRxn> publishChannel = new Subject<IRxn>();
-        private readonly IRxnManager<IRxn> _eventManager;
 
         private readonly List<IDisposable> _connectionResources = new List<IDisposable>();
         private readonly List<IDisposable> _isConnectedResources = new List<IDisposable>();
         private readonly IAuthenticationService<AccessToken, ITenantCredentials> _authenticationService;
-        private IHubProxy _clientProxy;
-        
+        //private IHubProxy _clientProxy;
+        private Action<IRxn> _publish;
+        private IResolveTypes _resolver;
 
-        public SignalRRxnManagerBridge(Func<string, Owned<HubConnection>> hubClientFactory, IRouteProvider systemInfo, IAuthenticationService<AccessToken, ITenantCredentials> authenticationService, IRxnManager<IRxn> eventManager, IHttpConnection client, ICreateEvents eventFactory, ITenantCredentials credentials, IAppServiceRegistry apps, IScheduler scheduler = null) : base(client, eventFactory, systemInfo, credentials, apps)
+
+        public SignalRRxnManagerBridge(Func<string, Owned<HubConnection>> hubClientFactory, IRouteProvider systemInfo, IRxnAppInfo appInfo, IAuthenticationService<AccessToken, ITenantCredentials> authenticationService, IHttpConnection client, ICreateEvents eventFactory, ITenantCredentials credentials, IAppServiceRegistry apps, IResolveTypes resolver, IScheduler scheduler = null) : base(client, eventFactory, appInfo, credentials, apps)
         {
-            
-            _eventManager = eventManager;
+            _publish = msg => { "NOT SETUP YET, WONT SEND".LogDebug(msg.GetType()); };
             DefaultScheduler = scheduler ?? TaskPoolScheduler.Default;
             _hubClientFactory = hubClientFactory;
             _systemInfo = systemInfo;
             _authenticationService = authenticationService;
+            _resolver = resolver;
+
+            Url = WithBaseUrl("EventsHub");
+            Connect().Until(OnError);
         }
 
         /// <summary>
@@ -68,35 +75,107 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         OnInformation("Connecting to: '{0}'", Url);
 
                         //get new client from factory
-                        _connection = _hubClientFactory(Url).DisposedBy(_connectionResources);
+                        _connection = _hubClientFactory(Url); //singleton now //.DisposedBy(_connectionResources);
                         //Add logging to the client
                         var client = _connection.Value; //.ReportsWith(this, _connectionResources);
 
-                        Observable.FromEvent<StateChange>(e => client.StateChanged += e, e => client.StateChanged -= e)
-                            .Subscribe(state => OnConnectionStateChanged(state, o))
-                            .DisposedBy(_connectionResources);
+                        Action connect = null;
+                        connect = () =>
+                        {
+
+                            //already connecting?
+                            if(client.State != HubConnectionState.Disconnected) return;
+
+                            lock (_isConnectedResources)
+                            {
+                                _isConnectedResources.DisposeAll();
+                                _isConnectedResources.Clear();
+                            }
+
+                            TimeSpan.FromSeconds(1).Then().SelectMany(_ =>
+                                    
+                            client.StartAsync()
+                                .ToObservable()
+                                .Do(t =>
+                                {
+                                    _isConnected.OnNext(true);
+
+                                    lock (_isConnectedResources)
+                                    {
+                                        client.InvokeAsync("RegisterAsService", _systemInfo.GetLocalBaseRoute());
+                                        //setup the publish channel
+                                        publishChannel
+                                            //.Buffer(TimeSpan.FromSeconds(2), DefaultScheduler) //todo: add buffing back in, use string[] ? delim?
+                                            .Subscribe(this,
+                                                msg =>
+                                                {
+                                                    client.InvokeAsync("Publish",
+                                                        msg.Serialise().ResolveAs(msg.GetType()));
+                                                })
+                                            .DisposedBy(_isConnectedResources);
+
+                                        _isConnected.OnNext(true);
+
+
+                                        client.On<IRxn>("RemoteCommand", action => { _publish(action); })
+                                            .DisposedBy(_isConnectedResources);
+
+                                        //should be called in createsubscript, not here
+                                        client.On<string>("Subscribe",
+                                            action =>
+                                            {
+                                                _publish((IRxn) action.Deserialise(action.GetTypeFromJson(_resolver)));
+                                            }).DisposedBy(_isConnectedResources);
+                                    }
+
+                                })
+                            )
+                            .Until(e =>
+                            {
+                                o.OnError(e);
+                                connect();
+                            });
+                        };
+
+
+                        client.Reconnecting += exception =>
+                        {
+                            OnError("Reconnecting!", exception);
+                            _isConnected.OnNext(false);
+
+                            return Task.CompletedTask;
+                        };
+
+                        client.Reconnected += s =>
+                        {
+                            _isConnected.OnNext(true);
+
+                            return Task.CompletedTask;
+                        };
+
+                        client.Closed += exception =>
+                        {
+                            "Connection closed!".LogDebug(Url);
+                            _isConnected.OnNext(false);
+
+                            connect();
+
+                            return Task.CompletedTask;
+                        };
 
                         //setup proxy then start
-                        _clientProxy = client.CreateHubProxy("EventsHub");
                         OnVerbose("Connecting bridge");
 
                         //setup authentication
                         return client.WithAuthentication(_authenticationService).Subscribe(_ =>
                         {
-                            client.Start()
-                                .ToObservable()
-                                .Subscribe(t =>
-                                {
-                                    //do nothing, because state-change is more reliable
-                                    //way to tell if the connection is ready
-                                },
-                                error =>
-                                {
-                                    o.OnError(error);
-                                });
+                            connect();
+
                         },
                         error =>
                         {
+                            _isConnected.OnNext(false);
+
                             o.OnError(error);
                         })
                         .DisposedBy(_connectionResources);
@@ -111,59 +190,42 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             });
         }
 
-        private void OnConnectionStateChanged(StateChange state, IObserver<Unit> connectionStateStream)
-        {
-            switch (state.NewState)
-            {
+        //private void OnConnectionStateChanged(ConnectionState state, IObserver<Unit> connectionStateStream)
+        //{
+        //    switch (state.NewState)
+        //    {
 
-                //disconnection is only an error when a client is already connecting/connected 
-                case ConnectionState.Reconnecting:
-                    OnVerbose("Reconnecting");
-                    break;
-                case ConnectionState.Disconnected:
-                    OnVerbose("Disconnecting");
-                    _isConnected.OnNext(false);
-                    _isConnectedResources.DisposeAll();
-                    _isConnectedResources.Clear();
-                    break;
-                case ConnectionState.Connected:
-                    OnVerbose("Connected");
-                    //_route =
-                        //RemoteCommandEvent.ForTenant<RemoteCommandEvent>(_configuration.Tenant, _systemInfo.Name, ReporterName).Destination;
-                    _clientProxy.Invoke("RegisterAsService", _systemInfo.GetLocalBaseRoute());
-                    //setup the publish channel
-                    publishChannel
-                        //.Buffer(TimeSpan.FromSeconds(2), DefaultScheduler)
-                        .Subscribe(this, msg =>
-                        {
-                            _clientProxy.Invoke("Publish", msg);
-                        })
-                        .DisposedBy(_isConnectedResources);
-
-                    _clientProxy.On<IRxn>("RemoteCommand", action =>
-                    {
-                        _eventManager.Publish(action);
-                    }).DisposedBy(_isConnectedResources);
-
-                    _clientProxy.On<IRxn>("EventReceived", action =>
-                    {
-                        _eventManager.Publish(action);
-                    }).DisposedBy(_isConnectedResources);
+        //        //disconnection is only an error when a client is already connecting/connected 
+        //        case ConnectionState.Reconnecting:
+        //            OnVerbose("Reconnecting");
+        //            break;
+        //        case ConnectionState.Disconnected:
+        //            OnVerbose("Disconnecting");
+        //            _isConnected.OnNext(false);
+        //            _isConnectedResources.DisposeAll();
+        //            _isConnectedResources.Clear();
+        //            break;
+        //        case ConnectionState.Connected:
+        //            OnVerbose("Connected");
+        //            //_route =
+        //                //RemoteCommandEvent.ForTenant<RemoteCommandEvent>(_configuration.Tenant, _systemInfo.Name, ReporterName).Destination;
+                  
 
 
-                    if(false) //need to make configurable. this can flood otherwise
-                        _clientProxy.On<IRxn>("LogReceived", action =>
-                        {
-                            _eventManager.Publish(action);
-                        }).DisposedBy(_isConnectedResources);
+
+        //            if(false) //need to make configurable. this can flood otherwise
+        //                _clientProxy.On<IRxn>("LogReceived", action =>
+        //                {
+        //                    _publish(action);
+        //                }).DisposedBy(_isConnectedResources);
 
 
-                    _isConnected.OnNext(true);
-                    connectionStateStream.OnNext(new Unit());
-                    connectionStateStream.OnCompleted();
-                    break;
-            }
-        }
+        //            _isConnected.OnNext(true);
+        //            connectionStateStream.OnNext(new Unit());
+        //            connectionStateStream.OnCompleted();
+        //            break;
+        //    }
+        //}
 
         /// <summary>
         /// Disconnects from the SignalR hub
@@ -176,7 +238,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
 
                 this.ReportExceptions(() =>
                 {
-                    _clientProxy.Invoke("RemoveRegistration", _systemInfo.GetLocalBaseRoute());
+                    _connection.Value.InvokeAsync("RemoveRegistration", _systemInfo.GetLocalBaseRoute());
                 });
 
                 _isConnected.OnNext(false);
@@ -208,12 +270,12 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             {
                 _remoteEvents = new Subject<IRxn>();
 
-                _clientProxy.On<string>("EventReceived",
+                _connection.Value.On<string>("Subscribe",
                     (message) =>
                         this.ReportExceptions(() =>
                         {
-                            var msg = JsonConvert.DeserializeObject<IRxn>(message.ToString());
-                            _remoteEvents.OnNext(msg);
+                            var msg = message.Deserialise(message.GetTypeFromJson(_resolver));
+                            _remoteEvents.OnNext((IRxn)msg);
                         }))
                     .DisposedBy(_connectionResources);
             }
@@ -221,31 +283,28 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             return _remoteEvents;
         }
 
-        public IObservable<Unit> Publish(IEnumerable<IRxn> events)
+        public override IObservable<Unit> Publish(IEnumerable<IRxn> events)
         {
-            return Rxn.Create(() => Publish(events));
+            return Rxn.Create(() =>
+            {
+                events.ForEach(e => Publish(e));
+            });
         }
 
-        public IObservable<Unit> PublishError(BasicErrorReport report)
+        public override IObservable<Unit> PublishError(BasicErrorReport report)
         {
             return Rxn.Create(() => Publish(report));
         }
 
-        public IObservable<Unit> DeleteError(long id)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
+        public override IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)
         {
             "FIXME: appcmds not received? do we care? already received on the other channel yeh? of need to flush that store still? hmm how?".LogDebug();
-            return Rxn.Create<IRxnQuestion[]>(() => Publish(new AppHeatbeat(status, meta)));
-
+            return Rxn.Create<IRxnQuestion[]>(() => Publish(new AppHeartbeat(status, meta)));
         }
 
-        public IObservable<string> PublishLog(Stream zippedLog)
+        public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            throw new NotImplementedException();
+            _publish = publish;
         }
     }
 }

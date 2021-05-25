@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Rxns.Collections;
 
@@ -6,7 +7,13 @@ namespace Rxns.Playback
 {
     public class InMemoryTapeRepo : ITapeRepository
     {
+        private readonly Func<string, ITapeSource> _createSource;
         readonly IDictionary<string, ITapeStuff> _tapes = new UseConcurrentReliableOpsWhenCastToIDictionary<string, ITapeStuff>(new ConcurrentDictionary<string, ITapeStuff>());
+
+        public InMemoryTapeRepo(Func<string, ITapeSource> createSource)
+        {
+            _createSource = createSource;
+        }
 
         public void Delete(string name)
         {
@@ -18,7 +25,7 @@ namespace Rxns.Playback
             if (_tapes.ContainsKey(name)) return _tapes[name];
             else
             {
-                var newTape = RxnTape.FromSource(name, new InMemoryTapeSource());
+                var newTape = RxnTape.FromSource(name, _createSource(name));
                 _tapes.Add(name, newTape);
                 return newTape;
             }
@@ -29,4 +36,5 @@ namespace Rxns.Playback
             return _tapes.Values;
         }
     }
+
 }

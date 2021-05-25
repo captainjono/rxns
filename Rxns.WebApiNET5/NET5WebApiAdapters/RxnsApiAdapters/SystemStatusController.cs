@@ -43,7 +43,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         [Route("systemstatus/heartbeat-2/publish")]
         [HttpPost]
-        public async Task<IRxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] AppHeatbeat status)
+        public async Task<IRxnQuestion[]> UpdateSystemStatusWithMeta([FromBody] AppHeartbeat status)
         {
             try
             {

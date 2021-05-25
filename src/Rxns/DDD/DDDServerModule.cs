@@ -1,4 +1,5 @@
-﻿using Rxns.DDD.BoundedContext;
+﻿using System;
+using Rxns.DDD.BoundedContext;
 using Rxns.DDD.Commanding;
 using Rxns.DDD.CQRS;
 using Rxns.DDD.Tenant;
@@ -14,6 +15,7 @@ namespace Rxns.DDD
             return lifecycle
                 .CreatesOncePerApp<TapeArrayFactory>()
                 .CreatesOncePerApp<InMemoryTapeRepo>(true)
+                .CreatesOncePerApp<Func<string, ITapeSource>>(_ => __ => new InMemoryTapeSource())
                 .CreateGenericOncePerAppAs(typeof(TenantModelFactory<>), typeof(ITenantModelFactory<>))
                 //.CreatesOncePerApp<Inmemory>()
                 .CreatesOncePerApp<LocallyExecutingCommandService>()

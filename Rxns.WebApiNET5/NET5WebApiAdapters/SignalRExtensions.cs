@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reactive;
 using System.Reactive.Linq;
+using Microsoft.AspNetCore.SignalR.Client;
 using Rxns.Hosting;
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -36,8 +37,9 @@ namespace Microsoft.AspNet.SignalR.Client
 
             logger.Errors.Subscribe(error => reporter.OnError(error.Message)).DisposedBy(disposedBy);
 
-            client.TraceWriter = logger;
-            client.TraceLevel = TraceLevels.All;
+            //todo fix, convert to hub connectionbuild
+            //client.TraceWriter = logger;
+            //client.TraceLevel = TraceLevels.All;
 
             return client;
         }
@@ -57,7 +59,7 @@ namespace Microsoft.AspNet.SignalR.Client
             {
                 return authService.Tokens.Subscribe(token =>
                 {
-                    client.Headers.AddOrReplace("Authorization", token.Token);
+                  //  client.Headers.AddOrReplace("Authorization", token.Token);
                     o.OnNext(new Unit());
                     o.OnCompleted();
                 },

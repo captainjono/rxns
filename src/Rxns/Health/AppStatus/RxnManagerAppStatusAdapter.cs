@@ -7,7 +7,7 @@ using Rxns.Logging;
 
 namespace Rxns.Health.AppStatus
 {
-    public class RxnManagerSystemStatusAdapter : ReportStatus, IRxnProcessor<SystemStatusEvent>, IRxnProcessor<AppHeatbeat>, IRxnProcessor<BasicErrorReport>
+    public class RxnManagerSystemStatusAdapter : ReportStatus, IRxnProcessor<AppHeartbeat>, IRxnProcessor<BasicErrorReport>
     {
         private readonly IAppStatusManager _appStatus;
         private readonly IAppErrorManager _appErrors;
@@ -18,17 +18,7 @@ namespace Rxns.Health.AppStatus
             _appErrors = appErrors;
         }
 
-        public IObservable<IRxn> Process(SystemStatusEvent status)
-        {
-            return Rxn.Create<IRxn>(() =>
-            {
-                OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName);
-
-                _appStatus.UpdateSystemStatus(status);
-            });
-        }
-
-        public IObservable<IRxn> Process(AppHeatbeat status)
+        public IObservable<IRxn> Process(AppHeartbeat status)
         {
             return Rxn.Create<IRxn>(() =>
             {

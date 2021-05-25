@@ -41,17 +41,16 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
     public interface IAppEventManagerBridge
     {
-        void Publish(IRxn cmd);
-        void EventReceived(IRxn cmd);
-        void EventReceived(RemoteEventReceived cmd);
-        void RegisterAsService(string route);
+        Task RegisterAsService(string route);
+        Task Publish(string @event);
+        Task Subscribe(string @event);
     }
 
     public interface IAppStatusHub : IAppEventManagerBridge
     {
-        void StatusUpdatesSubscribe(IEnumerable<object> statuses);
-        void RemoteCommand(RxnQuestion cmd);
-        void StatusInitialSubscribe(IEnumerable<object> statuses);
+        Task StatusUpdatesSubscribe(IEnumerable<object> statuses);
+        Task RemoteCommand(RxnQuestion cmd);
+        Task StatusInitialSubscribe(IEnumerable<object> statuses);
     }
 
     public class RemoteEventReceived : IRxn
@@ -64,18 +63,18 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
     //[Authorize]
     public class EventsHub : ReportsStatusEventsHub<IAppStatusHub>, IRxnLogger, IAppCmdManager
     {
-        private readonly IAppCommandService _cmdService;
         private readonly ISystemStatusStore _statusStore;
         private readonly IHubContext<EventsHub> _context;
         private readonly IAppStatusStore _appStatusStore;
         private readonly IRxnManager<IRxn> _rxnManager;
         private IRxnAppInfo _systeminfo;
         private IDictionary<string, string> _routes = new UseConcurrentReliableOpsWhenCastToIDictionary<string,string>(new ConcurrentDictionary<string, string>());
+        private IResolveTypes _resolver;
 
 
         public new Action<LogMessage<string>> Information => info =>
         {
-            EventReceived(new RemoteEventReceived()
+            LogReceived(new RemoteEventReceived()
             {
                 Message = info.FromMessage().Serialise(),
                 Tenant = _systeminfo.Name,
@@ -85,7 +84,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
 
         public new Action<LogMessage<Exception>> Errors => error =>
         {
-            EventReceived(new RemoteEventReceived
+            LogReceived(new RemoteEventReceived
             {
                 Message = error.FromMessage().Serialise(),
                 Tenant = _systeminfo.Name,
@@ -93,13 +92,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             });
         };
         
-        public EventsHub(IEnumerable<IAppContainer> containers, IAppCommandService cmdService, ISystemStatusStore statusStore, IHubContext<EventsHub> context, IAppStatusStore appStatusStore, IRxnManager<IRxn> rxnManager) //should this be a IRxnPublisher instead? does that work, not sure of lifetimes?
+        public EventsHub(IEnumerable<IAppContainer> containers, ISystemStatusStore statusStore, IHubContext<EventsHub> context, IAppStatusStore appStatusStore, IRxnManager<IRxn> rxnManager, IResolveTypes resolver) //should this be a IRxnPublisher instead? does that work, not sure of lifetimes?
         {
-            _cmdService = cmdService;
             _statusStore = statusStore;
             _context = context;
             _appStatusStore = appStatusStore;
             _rxnManager = rxnManager;
+            _resolver = resolver;
 
             foreach (var container in containers)
             {
@@ -108,7 +107,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 container.SubscribeAll(info =>
                 {
                     var si = _systeminfo;
-                    EventReceived(new RemoteEventReceived()
+                    LogReceived(new RemoteEventReceived()
                     {
                         Message = info.FromMessage().Serialise(),
                         Tenant = si.Name,
@@ -117,7 +116,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 }, error =>
                 {
                     var si = _systeminfo;
-                    EventReceived(new RemoteEventReceived
+                    LogReceived(new RemoteEventReceived
                     {
                         Message = error.FromMessage().Serialise(),
                         Tenant = si.Name,
@@ -200,7 +199,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                     return Disposable.Empty;
                 }
 
-                return _cmdService.ExecuteCommand(route, command).Do(result =>
+                return _resolver.Resolve<IAppCommandService>().ExecuteCommand(route, command).Do(result =>
                 {
                     OnInformation("{0}", result);
                 })
@@ -228,6 +227,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             OnVerbose("Registering route for connectionId '{0}' --> '{1}'", Context.ConnectionId, rootRoute);
 
             _routes.AddOrReplace(rootRoute, Context.ConnectionId);
+            foreach (var c in _appStatusStore.FlushCommands(route))
+            {
+                Clients.Caller.Subscribe(c.Serialise().ResolveAs(c.GetType()));
+            }
         }
 
         public void RemoveRegistration(string route)
@@ -263,22 +266,30 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             return _appStatusStore.FlushCommands(route);
         }
 
-        public void Publish(IRxn @event)
+        public void Publish(string @event)
         {
-            _rxnManager.Publish(@event).Until(e => OnError(new Exception($"Failed to publish from remote client! ", e)));
+            
+            //need to FromJson this instead
+            _rxnManager.Publish((IRxn) @event.Deserialise(@event.GetTypeFromJson(_resolver))).Until(e => OnError(new Exception($"Failed to publish from remote client! ", e)));
         }
 
         public void Add(IRxnQuestion cmds)
         {
             var wasFound = false;
-            _routes.ForEach(r =>
+            foreach(var r in _routes)
             {
                 if (cmds.IsFor(r.Key))
                 {
                     wasFound = true;
-                    Clients.Client(r.Value).EventReceived(cmds);
+
+                    Clients.Client(r.Value).Subscribe(cmds.Serialise().ResolveAs(cmds.GetType()));
+
+                    foreach (var c in _appStatusStore.FlushCommands(r.Key))
+                    {
+                        Clients.Client(r.Value).Subscribe(c.Serialise().ResolveAs(c.GetType()));
+                    }
                 }
-            });
+            };
 
             if (!wasFound)
             {

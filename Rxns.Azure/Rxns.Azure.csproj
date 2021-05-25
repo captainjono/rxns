@@ -3,9 +3,9 @@
         <TargetFramework>netcoreapp3.1</TargetFramework>
         <AzureFunctionsVersion>V3</AzureFunctionsVersion>
       <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-      <PackageId>Rxns.WebApiNET5</PackageId>
+      <PackageId>Rxns.Azure</PackageId>
       <Authors>CaptainJono</Authors>
-      <Description>Interact with Azure services using IObservable streams built on Rxns</Description>
+      <Description>Interact with Azure services using IObservable streams built-on Rxns</Description>
       <Product>Reactions Azure</Product>
       <Company>Reactions</Company>
       <Copyright>MIT</Copyright>
