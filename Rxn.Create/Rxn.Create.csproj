@@ -5,6 +5,10 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <AssemblyName>Rxn.Create</AssemblyName>
     <RootNamespace>RxnCreate</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

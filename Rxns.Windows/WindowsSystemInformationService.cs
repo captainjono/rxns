@@ -12,7 +12,7 @@ namespace Rxns.Health
     /// A service that provides facilitates gathering operating system specific information on an 
     /// applications runtime environment, and manipulating this environment.
     /// </summary>
-    public class    WindowsSystemInformationService : ISystemResourceService
+    public class WindowsSystemInformationService : ISystemResourceService
     {
         public IScheduler DefaultScheduler { get; set; }
 

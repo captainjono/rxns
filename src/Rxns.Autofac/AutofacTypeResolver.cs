@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Autofac;
 using Rxns.DDD.Commanding;
 using Rxns.Hosting;
 using Rxns.Interfaces;
-using Rxns.Logging;
 
 namespace Rxns.Autofac
 {

@@ -114,7 +114,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 return InternalServerError(e);
 #else
                 OnError("While executing: {0}\\cmd {1}\r\n{2}", tenant, toRun, e);
-                return InternalServerError();
+                return InternalServerError(e);
 #endif
             }
         }

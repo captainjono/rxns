@@ -63,7 +63,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 return InternalServerError(e);
 #else
                 OnError("While executing publish: {0}", e);
-                return InternalServerError();
+                return InternalServerError(e);
 #endif
             }
         }

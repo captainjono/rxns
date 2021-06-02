@@ -79,12 +79,12 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         //Add logging to the client
                         var client = _connection.Value; //.ReportsWith(this, _connectionResources);
 
-                        Action connect = null;
+                        Func<IDisposable> connect = null;
                         connect = () =>
                         {
 
                             //already connecting?
-                            if(client.State != HubConnectionState.Disconnected) return;
+                            if (client.State != HubConnectionState.Disconnected) return Disposable.Empty;
 
                             lock (_isConnectedResources)
                             {
@@ -92,7 +92,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                                 _isConnectedResources.Clear();
                             }
 
-                            TimeSpan.FromSeconds(1).Then().SelectMany(_ =>
+                            return TimeSpan.FromSeconds(1).Then().SelectMany(_ =>
                                     
                             client.StartAsync()
                                 .ToObservable()
@@ -109,8 +109,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                                             .Subscribe(this,
                                                 msg =>
                                                 {
-                                                    client.InvokeAsync("Publish",
-                                                        msg.Serialise().ResolveAs(msg.GetType()));
+                                                    client.InvokeAsync("Publish", msg.Serialise().ResolveAs(msg.GetType()));
                                                 })
                                             .DisposedBy(_isConnectedResources);
 
@@ -167,12 +166,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         OnVerbose("Connecting bridge");
 
                         //setup authentication
-                        return client.WithAuthentication(_authenticationService).Subscribe(_ =>
-                        {
-                            connect();
-
-                        },
-                        error =>
+                        return client
+                            .WithAuthentication(_authenticationService)
+                            .Select(_ => connect())
+                            .Until(error =>
                         {
                             _isConnected.OnNext(false);
 

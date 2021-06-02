@@ -425,3 +425,5 @@ DerivedData/
 /Rxn.Create/updates
 /Rxn.Create/Properties/launchSettings.json
 /RxnsDemo.MicroApp/reports
+/AddAllNugetPls.ps1
+/importtest.json

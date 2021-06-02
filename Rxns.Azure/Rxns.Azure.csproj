@@ -5,7 +5,7 @@
       <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
       <PackageId>Rxns.Azure</PackageId>
       <Authors>CaptainJono</Authors>
-      <Description>Interact with Azure services using IObservable streams built-on Rxns</Description>
+      <Description>Interact with Azure services including ServiceBus to scale out Rxns</Description>
       <Product>Reactions Azure</Product>
       <Company>Reactions</Company>
       <Copyright>MIT</Copyright>
@@ -13,7 +13,7 @@
       <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
       <PackageTags>#webapi #reactive #rx</PackageTags>
       <PackageReleaseNotes></PackageReleaseNotes>
-      <Version>2.0.0</Version>
+      <Version>2.0.5</Version>
       <IsPackable>true</IsPackable>
     </PropertyGroup>
     <ItemGroup>
