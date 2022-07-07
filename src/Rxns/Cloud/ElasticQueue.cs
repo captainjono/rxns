@@ -91,10 +91,10 @@ namespace Rxns.Cloud
             return Rxn.Create<IRxn>(() => Queue(@event));
         }
 
-        public void ConfigiurePublishFunc(Action<IRxn> publish)
+        public virtual void ConfigiurePublishFunc(Action<IRxn> publish)
         {
             _publish = publish;
-            Workflow.Attach(_publish);
+            Workflow.ConfigiurePublishFunc(_publish);
         }
         
         public IObservable<CommandResult> Handle(KillWorker command)

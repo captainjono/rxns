@@ -121,7 +121,7 @@ namespace Rxns.DDD
         public IObservable<CommandResult> SendClientCommand(string route, string command, string from = null)
         {
             ServiceCommand.Parse(command, _serviceCommands).Select(c => c.AsQuestion(route)).ForEach(q => _appStatus.Add(q));
-
+            
             return CommandResult.Success().ToObservable();
         }
 

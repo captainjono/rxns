@@ -134,7 +134,8 @@ namespace Rxns.Hosting
                 
                 context.ExecuteCommand("",cmd).Do(r =>
                 {
-                    Console.WriteLine($"-->\r\b\n{r.ToJson()}\r\n-->");
+                    if(!(r is CommandResult))
+                        Console.WriteLine($"-->\r\b\n{r.ToJson()}\r\n-->");
                 }).Until(e => Console.Error.WriteLine(e.Message));
             }
         }

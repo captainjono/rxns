@@ -101,7 +101,7 @@ namespace Autofac
         {
             foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IServiceCommand>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
             {
-                cb.RegisterType(type).As<IServiceCommand>().Named<IServiceCommand>(type.Name).InstancePerDependency();
+                cb.RegisterType(type).As<IServiceCommand>().Named<IServiceCommand>(type.Name.ToLower().LogDebug("REGISTERED")).InstancePerDependency();
             }
         }
 

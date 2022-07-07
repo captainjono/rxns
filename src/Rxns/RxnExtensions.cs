@@ -419,11 +419,13 @@ namespace Rxns
 
         public static T WaitR<T>(this Task<T> task)
         {
+            $"{PlatformHelper.CallingTypeName}".LogDebug("WAITR");
             return task.Result;
         }
 
         public static void WaitR<T>(this Task task)
         {
+            $"{PlatformHelper.CallingTypeName}".LogDebug("WAITR");
             task.Wait();
         }
 

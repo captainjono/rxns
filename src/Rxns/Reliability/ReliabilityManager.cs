@@ -17,6 +17,7 @@ namespace Rxns.Reliability
         bool IsEnabled { get; }
         int RetryCount { get; }
     }
+    
 
     public class RetryMaxTimesReliabilityCfg : IReliabilityManagerCfg
     {
@@ -91,16 +92,16 @@ namespace Rxns.Reliability
             return schedule;
         }
 
-        private TimeSpan GetBackoffForCount(long count)
+        private static TimeSpan GetBackoffForCount(long count)
         {
             return count >= BackOffSchedule.Count ? BackOffSchedule.Last() : BackOffSchedule[(int)count];
         }
         
-        private void DoRetry(string stratergy, Exception exception, long retryCount)
+        public static void DoRetry(string stratergy, Exception exception, long retryCount)
         {
             var backOff = GetBackoffForCount(retryCount);
             
-            OnVerbose("{0}: Attempt failed with '{1}' retry '#{2}' in '{3}'", stratergy, exception.GetBaseException().Message, retryCount, backOff);
+            ReportStatus.Log.OnVerbose("{0}: Attempt failed with '{1}' retry '#{2}' in '{3}'", stratergy, exception.GetBaseException().Message, retryCount, backOff);
 
             SystemClock.Sleep(backOff);
         }

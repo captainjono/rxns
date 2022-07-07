@@ -169,17 +169,17 @@ namespace Rxns.Hosting
             spareReactor
                 .Includes<AppStatusClientModule>()
                 .Includes<RxnsModule>()
-                .CreatesOncePerApp<NoOpSystemResourceService>()
-                .CreatesOncePerApp(_ => new ReliableAppThatHeartbeatsEvery(TimeSpan.FromSeconds(10)))
-                .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>()
+                .CreatesOncePerApp<NoOpSystemResourceService>(true)
+                .CreatesOncePerApp(_ => new ReliableAppThatHeartbeatsEvery(TimeSpan.FromSeconds(10)), true)
+                .CreatesOncePerApp<INSECURE_SERVICE_DEBUG_ONLY_MODE>(true)
                 .CreatesOncePerApp(() => new AggViewCfg()
                 {
                     ReportDir = "reports"
-                })
+                }, true)
                 .CreatesOncePerApp(() => new AppServiceRegistry()
                 {
                     AppStatusUrl = appStatusUrl
-                })
+                }, true)
                 .CreatesOncePerApp<UseDeserialiseCodec>();
         };
 

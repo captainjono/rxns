@@ -18,7 +18,7 @@ namespace Rxns.DDD
                     .CreatesOncePerApp<UserContextFactory>()
                     .CreatesOncePerApp<ExecutionContext>()
                     .CreatesOncePerApp<TenantStorageDiscardRepository>()
-                    .CreatesOncePerApp<SqlTenantDatabaseFactory>()
+                    //.CreatesOncePerApp<SqlTenantDatabaseFactory>()
                     .CreatesOncePerApp<LocalRouteInfo>()
                     .CreatesOncePerApp<DefaultEmptyDatabaseConfiguration>()
                     .CreatesOncePerApp<LicenceRepositoryShim>()

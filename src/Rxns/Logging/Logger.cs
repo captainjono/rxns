@@ -1,32 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading;
-using Rxns.Scheduling;
 
 namespace Rxns.Logging
 {
     public static class Logger
     {
         public static Subject<string> OnDebug = new Subject<string>();
-
+        
         static Logger()
         {
-            OnDebug.Do(msg =>
-            {
-                if (Debugger.IsAttached)
-                {
-                    Debug.WriteLine(msg);
-                }
-                else
-                {
-                    Console.WriteLine(msg);
-                }
-            }).Until();
+            
         }
+        
         public static string LogDebug(this string toLog)
         {
             OnDebug.OnNext($"[{Thread.CurrentThread.ManagedThreadId}][DBG] {toLog}");

@@ -6,7 +6,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="DDD\LegacyOrmContext.cs" />
+    <Compile Remove="DDD\Sql\SqlDatabaseConnection.cs" />
     <Compile Remove="DDD\Sql\SqlEventSourcingRepository.cs" />
+    <Compile Remove="DDD\Sql\SqlMembershipBasedUserContext.cs" />
+    <Compile Remove="DDD\Sql\SqlOrmDbContext.cs" />
+    <Compile Remove="DDD\Sql\SqlTenantDatabaseFactory.cs" />
+    <Compile Remove="DDD\UserCentricViewProcessor.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="DDD\Sql\SqlDatabaseConnection.cs" />
+    <Content Include="DDD\Sql\SqlMembershipBasedUserContext.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,21 +25,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="DDD\LegacyOrmContext.cs" />
     <None Include="DDD\Sql\SqlEventSourcingRepository.cs" />
+    <None Include="DDD\Sql\SqlOrmDbContext.cs" />
+    <None Include="DDD\Sql\SqlTenantDatabaseFactory.cs" />
+    <None Include="DDD\UserCentricViewProcessor.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.0.78">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="DotNetZip" Version="1.15.0" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
     <PackageReference Include="NuGet.CommandLine" Version="5.9.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.2">
-      <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="System.Reactive" Version="4.0.0" />
     <PackageReference Include="Autofac" Version="3.5.0" />

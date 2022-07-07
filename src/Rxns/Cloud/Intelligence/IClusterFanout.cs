@@ -14,9 +14,8 @@ namespace Rxns.Cloud.Intelligence
         void Update(IDictionary<string, string> eventInfo);
     }
 
-    public interface IClusterFanout<T, TR> where TR : IRxn
+    public interface IClusterFanout<T, TR> : IRxnPublisher<IRxn> where TR : IRxn
     {
-        void Attach(Action<IRxn> workCompletedHandler);
         IDisposable RegisterWorker(IClusterWorker<T, TR> worker);
         void Fanout(T cfg);
         IDictionary<string, WorkerConnection<T, TR>> Workers { get; }

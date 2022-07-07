@@ -51,7 +51,7 @@ namespace Rxns.Autofac
             var @params = constructorParams.Select(p => new PositionalParameter(i++, p)).ToArray();
             try
             {
-                return _resolver.ResolveNamed<IServiceCommand>(cmdName, @params);
+                return _resolver.ResolveNamed<IServiceCommand>(cmdName.ToLower(), @params);
 
             }
             catch (Exception e)

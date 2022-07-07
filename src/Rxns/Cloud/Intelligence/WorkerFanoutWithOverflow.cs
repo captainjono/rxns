@@ -21,10 +21,9 @@ namespace Rxns.Cloud.Intelligence
         protected readonly Stack<T> _overflow = new Stack<T>(0);
         protected Action<IRxn> _publish;
 
-
-        public void Attach(Action<IRxn> workCompletedHandler)
+        public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            _publish = workCompletedHandler;
+            _publish = publish;
         }
 
         public IDisposable RegisterWorker(IClusterWorker<T, TR> worker)
@@ -67,5 +66,7 @@ namespace Rxns.Cloud.Intelligence
 
             return Rxn.Empty<TR>();
         }
+
+        
     }
 }

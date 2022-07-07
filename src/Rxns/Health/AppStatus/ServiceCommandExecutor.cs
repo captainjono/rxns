@@ -42,7 +42,7 @@ namespace Rxns.Health.AppStatus
         }
 
         public IObservable<IRxn> Process(IServiceCommand @event)
-        {
+        {   
             return Run(@event);
         }
 
@@ -120,15 +120,17 @@ namespace Rxns.Health.AppStatus
                     }
                     catch (ServiceCommandNotFound e)
                     {
-                        CommandResult.Failure("No handlers were found for the command".FormatWith(cmdToRun == null ? "unknown" : cmdToRun.GetType().Name, e.Message)).ToObservable();
+                        return CommandResult.Failure("No handlers were found for the command".FormatWith(cmdToRun == null ? "unknown" : cmdToRun.GetType().Name, e.GetBaseException().Message)).ToObservable();
                     }
                     catch (Exception e)
                     {
-                        CommandResult.Failure("Command '{0}' threw an error '{1}'".FormatWith(cmdToRun == null ? "unknown" : cmdToRun.GetType().Name, e.Message)).ToObservable();
+                        return CommandResult.Failure("[Error][{0}] {1}".FormatWith(cmdToRun == null ? "unknown" : cmdToRun.GetType().Name, e.GetBaseException().Message)).ToObservable();
                     }
 
                     return null;
-                }).Subscribe(o);
+                })
+                .Select(r => r.AsResultOf(cmdToRun))
+                .Subscribe(o);
             });
         }
 
