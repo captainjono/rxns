@@ -13,7 +13,7 @@
     <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
     <PackageReference Include="DotNetZip" Version="1.15.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageReference Include="System.Reactive" Version="4.0.0" />
   </ItemGroup>
 
