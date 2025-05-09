@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Rxns.Collections;
 using Rxns.Logging;
 using Rxns.Metrics;
-using Rxns.Playback;
 
 namespace Rxns.Health.AppStatus
 {

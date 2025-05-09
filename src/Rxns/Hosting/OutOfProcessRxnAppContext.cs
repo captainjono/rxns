@@ -165,7 +165,7 @@ namespace Rxns.Hosting
                 throw new Exception(string.Format("Failed to start process from: {0}", _process.StartInfo.FileName));
             }
 
-            _process.KillOnExit();
+            //_process.KillOnExit();
             $"Process successfully started with process id {_process.Id}".LogDebug();
 
             //_centralManager.Publish(new AppProcessStarted());

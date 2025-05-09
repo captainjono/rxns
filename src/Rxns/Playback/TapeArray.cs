@@ -95,11 +95,11 @@ namespace Rxns.Playback
             _tapeRepo.Delete(name);
         }
 
-        public ITapeStuff GetOrCreate(string key, IStringCodec codec = null)
+        public ITapeStuff GetOrCreate(string key, IStringCodec codec = null, IObservable<bool> shouldRecord = null)
         {
             //the assumption here is the tape.Name and key are the same
             if (!_tapes.ContainsKey(key))
-                Insert(_tapeRepo.GetOrCreate(key, codec));
+                Insert(_tapeRepo.GetOrCreate(key, codec, shouldRecord));
 
             return _tapes[key];
         }

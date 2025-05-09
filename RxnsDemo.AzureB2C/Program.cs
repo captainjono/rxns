@@ -57,7 +57,9 @@ namespace RxnsDemo.AzureB2C
                         lifecycle
                             .RunsTask<TenantSqlTask>()
                             .RunsTask<SqlTask>()
-                            .CreatesOncePerApp<SqlDatabaseConnection>()
+                            //todo: need to fix this  after i removed sqlconnection from the solution
+                            //should be in a sql dll?
+                            //.CreatesOncePerApp<SqlDatabaseConnection>()
                             .Includes<RxnsTenantDDDModule>()
                             .CreatesOncePerApp(() => new AggViewCfg()
                             {

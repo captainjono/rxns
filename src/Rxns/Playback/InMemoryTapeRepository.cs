@@ -20,7 +20,7 @@ namespace Rxns.Playback
             _tapes.Remove(name);
         }
 
-        public ITapeStuff GetOrCreate(string name, IStringCodec codec = null)
+        public ITapeStuff GetOrCreate(string name, IStringCodec codec = null, IObservable<bool> shouldRecord = null)
         {
             if (_tapes.ContainsKey(name)) return _tapes[name];
             else

@@ -150,7 +150,7 @@ namespace RxnCreate
                     $"Starting {pathToProcess}".LogDebug();
 
                     var p = StartProcess(pathToProcess);
-                    p.KillOnExit();
+                    //p.KillOnExit();
 
                     var exit = new DisposableAction(() =>
                     {

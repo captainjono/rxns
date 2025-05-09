@@ -217,7 +217,7 @@ namespace Rxns
                     onInfo($"{pathToProcess} exited");
                 };
 
-                p.KillOnExit();
+                //p.KillOnExit();
 
                 var exit = new DisposableAction(() =>
                 {

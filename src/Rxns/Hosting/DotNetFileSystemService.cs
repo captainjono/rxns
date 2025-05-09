@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using Rxns.Interfaces;
-using Rxns.Windows;
 
 namespace Rxns.Hosting
 {

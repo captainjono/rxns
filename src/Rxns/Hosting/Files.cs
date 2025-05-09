@@ -3,7 +3,7 @@ using System.IO;
 using System.Reactive;
 using Rxns.Logging;
 
-namespace Rxns.Windows
+namespace Rxns.Hosting
 {
     /// <summary>
     /// Extension methods of the Files class

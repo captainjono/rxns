@@ -43,7 +43,7 @@ namespace Rxns.Playback
     {
         void Delete(string name);
 
-        ITapeStuff GetOrCreate(string name, IStringCodec codec = null);
+        ITapeStuff GetOrCreate(string name, IStringCodec codec = null, IObservable<bool> shouldRecord = null);
 
         IEnumerable<ITapeStuff> GetAll(string directory = "", string mask = "*.*", IStringCodec codec = null);
     }

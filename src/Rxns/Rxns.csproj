@@ -13,6 +13,7 @@
     <Compile Remove="DDD\Sql\SqlOrmDbContext.cs" />
     <Compile Remove="DDD\Sql\SqlTenantDatabaseFactory.cs" />
     <Compile Remove="DDD\UserCentricViewProcessor.cs" />
+    <Compile Remove="Hosting\KillOnExit.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +31,7 @@
     <None Include="DDD\Sql\SqlOrmDbContext.cs" />
     <None Include="DDD\Sql\SqlTenantDatabaseFactory.cs" />
     <None Include="DDD\UserCentricViewProcessor.cs" />
+    <None Include="Hosting\KillOnExit.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,11 +41,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.Reactive" Version="4.0.0" />
+    <PackageReference Include="System.Reactive" Version="6.0.0" />
     <PackageReference Include="Autofac" Version="3.5.0" />
   </ItemGroup>
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
     <WebProject_DirectoryAccessLevelKey>0</WebProject_DirectoryAccessLevelKey>
     <OutputType>Library</OutputType>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -57,7 +58,7 @@
     <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
     <PackageTags>webapi reactive rx event sourcing DDD CQRS appinsights iobservable micro apps arhictecture</PackageTags>
     <PackageReleaseNotes>Checkout github for the latest</PackageReleaseNotes>
-    <Version>2.0.5</Version>
+    <Version>3.0.0</Version>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 

@@ -14,9 +14,9 @@
     <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
     <PackageTags>#webapi #reactive #rx</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
-    <Version>2.0.5</Version>
+    <Version>3.0.0</Version>
     <IsPackable>true</IsPackable>
-    <AssemblyVersion>2.0.5.0</AssemblyVersion>
+    <AssemblyVersion>3.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>

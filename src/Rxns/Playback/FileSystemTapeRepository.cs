@@ -42,13 +42,13 @@ namespace Rxns.Playback
             _fileSystem.DeleteFile(name);
         }
 
-        public ITapeStuff GetOrCreate(string fulleName, IStringCodec codec = null)
+        public ITapeStuff GetOrCreate(string fulleName, IStringCodec codec = null, IObservable<bool> shouldRecord = null)
         {
             var fileToGet = Path.Combine(_cfg.AppRoot, fulleName);
             var directory = _fileSystem.GetDirectoryPart(fileToGet);
             if (!directory.IsNullOrWhitespace() && !_fileSystem.ExistsDirectory(directory)) _fileSystem.CreateDirectory(directory);
 
-            return RxnTape.FromSource(fileToGet, new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(fileToGet), codec ?? _defaultCodec, _isStarted));
+            return RxnTape.FromSource(fileToGet, new CapturedRxnTapeSource(TimeSpan.Zero, _fileSystem.GetOrCreateFile(fileToGet), codec ?? _defaultCodec, shouldRecord ?? _isStarted));
         }
 
         public IEnumerable<ITapeStuff> GetAll(string directory = @".\", string mask = "*.*", IStringCodec codec = null)

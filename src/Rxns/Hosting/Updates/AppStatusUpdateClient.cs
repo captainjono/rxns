@@ -129,12 +129,7 @@ namespace Rxns.Hosting.Updates
 
                 
                 var zippedUpdate = Zip(sourceFolder, "*.*", exclusions);
-                return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).Catch<Unit, Exception>(
-                    e =>
-                    {
-                        $"Failed to upload {e}".LogDebug();
-                        return new Unit().ToObservable();
-                    }).FinallyR(() =>
+                return _updateService.CreateUpdate(system, version, zippedUpdate).Select(_ => new Unit()).FinallyR(() =>
                 {
                     OnVerbose($"Upload of {zippedUpdate.Length.ToFileSize()} complete");
                     zippedUpdate.Dispose();
