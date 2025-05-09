@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>Rxn.Create</AssemblyName>
     <RootNamespace>RxnCreate</RootNamespace>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <Copyright>MIT</Copyright>
     <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
     <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
