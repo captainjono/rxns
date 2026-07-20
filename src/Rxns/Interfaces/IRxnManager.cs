@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reactive;
 
 namespace Rxns.Interfaces
 {
@@ -11,7 +12,7 @@ namespace Rxns.Interfaces
         /// <summary>
         /// Sets the rxn bus up  ready to route messages
         /// </summary>
-        void Activate();
+        IObservable<Unit> Activate();
         /// <summary>
         /// Creates a subscription to the rxn bus that will receive all messages sent over it
         /// </summary>
@@ -30,7 +31,7 @@ namespace Rxns.Interfaces
         /// on a subscription until sometime later
         /// </summary>
         /// <param name="message"></param>
-        void Publish(T message);
+        IObservable<Unit> Publish(T message);
     }
 }
 

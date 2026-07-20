@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <WebProject_DirectoryAccessLevelKey>0</WebProject_DirectoryAccessLevelKey>
+    <OutputType>Library</OutputType>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Rxns.WebApiNET5</PackageId>
+    <Authors>CaptainJono</Authors>
+    <Description>A CrossPlatform WebAPI host with optional real-time monitoring capabilities.</Description>
+    <Product>Reactions WebAPI</Product>
+    <Company>Reactions</Company>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
+    <PackageTags>#webapi #reactive #rx</PackageTags>
+    <PackageReleaseNotes>4.0.0 — New AppStatus.Host + Ai subsystems (BETA). Breaking: WebApiCfg.Port string-&gt;int; AppStatus module split (AppStatusCoreModule -&gt; AppStatusServerCoreModule); net10 multi-target. See RELEASENOTES.md.</PackageReleaseNotes>
+    <Version>4.0.0</Version>
+    <IsPackable>true</IsPackable>
+    <AssemblyVersion>4.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="3.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.8.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
+    <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="NET5WebApiAdapters\RxnsApiAdapters\Autofac\" />
+  </ItemGroup>
+  
+  <!--<ItemGroup>
+    <None Include="..\Rxns.AppSatus\Web\dist\**\*.*" Pack="true" PackagePath="./contentFiles/any/any">
+      <BuildAction>Content</BuildAction>
+    </None>
+  </ItemGroup>-->
+ 
+
+  <ItemGroup>
+    <File Include="ConfigureAndStartAspnetCore.cs" />
+  </ItemGroup>
+
+</Project>

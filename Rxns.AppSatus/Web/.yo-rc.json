@@ -1,0 +1,48 @@
+{
+  "generator-cg-angular": {
+    "uirouter": true,
+    "partialDirectory": "partial/",
+    "directiveDirectory": "directive/",
+    "filterDirectory": "filter/",
+    "serviceDirectory": "service/",
+    "inject": {
+      "js": {
+        "file": "index.html",
+        "marker": "<!-- Add New Component JS Above -->",
+        "template": "<script src=\"<%= filename %>\"></script>"
+      },
+      "less": {
+        "relativeToModule": true,
+        "file": "<%= module %>.less",
+        "marker": "/* Add Component LESS Above */",
+        "template": "@import \"<%= filename %>\";"
+      }
+    },
+    "modules": [
+      {
+        "name": "errors",
+        "file": "errors\\errors.js"
+      },
+      {
+        "name": "metrics",
+        "file": "metrics\\metrics.js"
+      },
+      {
+        "name": "systemstatus",
+        "file": "systemstatus\\systemstatus.js"
+      },
+      {
+        "name": "authentication",
+        "file": "authentication\\authentication.js"
+      },
+      {
+        "name": "updates",
+        "file": "updates\\updates.js"
+      },
+      {
+        "name": "import",
+        "file": "import\\import.js"
+      }
+    ]
+  }
+}

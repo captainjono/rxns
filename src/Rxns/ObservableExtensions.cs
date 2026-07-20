@@ -43,12 +43,6 @@ namespace System.Reactive
                 return task.Subscribe(o).DisposedBy(c);
             });
         }
-
-        public static T Value<T>(this IObservable<T> item)
-        {
-            return item.Take(1).Wait();
-        }
-
         public static void SetValue<T>(this BehaviorSubject<T> item, T newValue)
         {
             item.OnNext(newValue);

@@ -1,0 +1,96 @@
+<div class="col-md-12 claude-chat-page" ng-controller="ClaudeChatCtrl">
+    <div class="claude-header">
+        <div class="claude-title">
+            <h2>AI &mdash; diagnostic assistant</h2>
+            <div class="meta">
+                <span ng-if="meta.state === 'loading'">loading...</span>
+                <span ng-if="meta.state === 'error'" class="text-danger">Failed to load /api/ai/info: {{meta.error}}</span>
+                <span ng-if="meta.state === 'ok'">
+                    <span class="engine-pill" title="Per-pane selection; the cheapest available local engine is the recommended default for ambient chatting.">
+                        Engine:
+                        <select ng-model="selectedEngineId" ng-change="onEngineChange()" ng-options="e.id as engineLabel(e) for e in meta.engines">
+                        </select>
+                    </span>
+                    <span class="model-pill" ng-if="models.list && models.list.length"
+                          title="Models available on the selected engine — switch without leaving the pane.">
+                        Model:
+                        <select ng-model="selectedModel" ng-change="onModelChange()"
+                                ng-options="m for m in models.list">
+                        </select>
+                    </span>
+                    <span class="model-pill" ng-if="models.loading">
+                        Model: <em>loading…</em>
+                    </span>
+                    &middot;
+                    Tools: <strong>{{meta.toolCount}}</strong> available
+                    <span class="muted" ng-if="meta.toolNames">({{meta.toolNames}})</span>
+                </span>
+            </div>
+        </div>
+        <div class="claude-header-actions">
+            <label class="claude-toggle" title="Read-only mode is a server setting; toggle is display-only.">
+                <input type="checkbox" ng-checked="readOnly" disabled />
+                <span>Read-only mode (server setting)</span>
+            </label>
+            <button class="btn btn-default btn-sm" type="button" ng-click="reloadInfo()">Reload</button>
+        </div>
+    </div>
+
+    <div id="claudeChatArea" class="claude-chat-area">
+        <div class="placeholder" ng-if="!transcript.length">
+            <h3>Ask about the live system</h3>
+            <p>Try: <em>"What errors has myapp had in the last hour?"</em> or <em>"List the apps currently reporting."</em></p>
+            <p class="muted" ng-if="meta.state === 'ok'">Currently routing through <strong>{{selectedEngineLabel}}</strong>.</p>
+        </div>
+
+        <div ng-repeat="m in transcript track by $index">
+            <!-- Plain message -->
+            <div ng-if="m.type === 'message'" class="claude-message" ng-class="m.role">
+                <div class="avatar">{{m.avatar}}</div>
+                <div class="body">{{m.body}}</div>
+            </div>
+
+            <!-- Tool result bubble -->
+            <div ng-if="m.type === 'tool'" class="claude-message tool">
+                <div class="avatar">{{m.avatar}}</div>
+                <div class="body"><strong>{{m.name}}</strong>: {{m.body}}</div>
+            </div>
+
+            <!-- Tool-calls card list -->
+            <div ng-if="m.type === 'toolcalls'" class="claude-message assistant">
+                <div class="avatar">{{m.avatar}}</div>
+                <div class="body">
+                    <em>{{m.note}}</em>
+                    <div class="tool-call" ng-repeat="c in m.calls">
+                        <div class="name">{{c.name}}</div>
+                        <div>{{c.args}}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- "thinking..." placeholder -->
+            <div ng-if="m.type === 'thinking'" class="claude-message assistant" id="{{m.id}}">
+                <div class="avatar">{{m.avatar}}</div>
+                <div class="body"><em class="muted">thinking via {{selectedEngineLabel}}...</em></div>
+            </div>
+
+            <!-- Error bubble -->
+            <div ng-if="m.type === 'error'" class="claude-message assistant">
+                <div class="avatar">{{m.avatar}}</div>
+                <div class="body"><span class="text-danger">{{m.body}}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="claude-composer">
+        <div class="row-input">
+            <textarea ng-model="prompt"
+                      placeholder="Ask about errors, logs, scaling..."
+                      ng-keydown="onKey($event)"></textarea>
+            <button class="btn-send" type="button"
+                    ng-click="send()"
+                    ng-disabled="busy || !canSend">Send</button>
+        </div>
+        <div class="hint" ng-class="{ 'text-danger': composerHintError }">{{composerHint}}</div>
+    </div>
+</div>

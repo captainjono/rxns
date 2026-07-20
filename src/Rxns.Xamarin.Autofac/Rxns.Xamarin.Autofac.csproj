@@ -70,6 +70,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Rxns.Autofac\Rxns.Autofac.csproj">
+      <Project>{1C0938A0-7A3E-4063-8F92-C17D42D47664}</Project>
+      <Name>Rxns.Autofac</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Rxns.Xamarin\Rxns.Xamarin.csproj">
       <Project>{19B1D26B-7E5E-4BB0-9055-F78735D43102}</Project>
       <Name>Rxns.Xamarin</Name>
@@ -80,6 +84,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
     <None Include="Rxns.Xamarin.Autofac.nuspec" />
   </ItemGroup>

@@ -9,8 +9,8 @@ namespace Rxns.Autofac
     {
         protected override void Load(ContainerBuilder cb)
         {
-            RxnExtensions.OnReactionScheduler = RxnApp.BackgroundScheduler;
-            RxnExtensions.UIScheduler = RxnApp.UIScheduler;
+            RxnExtensions.OnReactionScheduler = RxnAppCfg.BackgroundScheduler;
+            RxnExtensions.UIScheduler = RxnAppCfg.UIScheduler;
             RxnExtensions.UntilScheduler = Scheduler.Immediate;
 
             TaskScheduler.UnobservedTaskException += (sender, args) =>

@@ -1,0 +1,106 @@
+<div class="col-md-12 support-insights-page" ng-controller="SupportInsightsCtrl">
+    <div class="support-insights-layout">
+        <!-- Sidebar: system + level filters + stream badge -->
+        <aside class="support-insights-sidebar">
+            <div class="filter-group">
+                <h4>System</h4>
+                <input type="text" class="form-control input-sm"
+                       ng-model="systemName"
+                       ng-change="onSystemChange()"
+                       placeholder="e.g. insights" />
+            </div>
+            <div class="filter-group">
+                <h4>Levels</h4>
+                <label class="filter-label"><input type="checkbox" ng-model="levels.Error"> Error</label>
+                <label class="filter-label"><input type="checkbox" ng-model="levels.Warning"> Warning</label>
+                <label class="filter-label"><input type="checkbox" ng-model="levels.Information"> Information</label>
+                <label class="filter-label"><input type="checkbox" ng-model="levels.Verbose"> Verbose</label>
+            </div>
+            <div class="filter-group">
+                <h4>Source filter</h4>
+                <input type="text" class="form-control input-sm"
+                       ng-model="reporterFilter"
+                       placeholder="reporter name..." />
+            </div>
+            <div class="filter-group">
+                <h4>Stream</h4>
+                <span ng-class="streamStatus.cls">{{streamStatus.text}}</span>
+            </div>
+        </aside>
+
+        <!-- Main: cards + table -->
+        <main class="support-insights-main">
+            <h2 class="page-title">Insights Logs</h2>
+            <p class="subtitle">Live error + log feed for <code>{{systemName}}</code></p>
+
+            <div class="toolbar">
+                <span class="badge">{{visibleEntries().length}} / {{entries.length}} entries</span>
+                <button class="btn btn-default btn-sm" type="button" ng-click="reloadAll()">
+                    <span class="fa fa-refresh"></span> Refresh
+                </button>
+            </div>
+
+            <div class="stat-row">
+                <div class="stat-card red">
+                    <div class="value">{{stats.ErrorsLast1h}}</div>
+                    <div class="label">Errors</div>
+                    <div class="sub">last 1h</div>
+                </div>
+                <div class="stat-card red">
+                    <div class="value">{{stats.ErrorsLast24h}}</div>
+                    <div class="label">Errors</div>
+                    <div class="sub">last 24h</div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="value">{{stats.WarningsLast1h}}</div>
+                    <div class="label">Warnings</div>
+                    <div class="sub">last 1h</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="value">{{stats.InfoLast1h}}</div>
+                    <div class="label">Info</div>
+                    <div class="sub">last 1h</div>
+                </div>
+            </div>
+
+            <div class="table-container" ng-if="!notConnected && visibleEntries().length">
+                <table class="table table-condensed table-hover">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th>Reporter</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat-start="e in visibleEntries() track by $index"
+                            class="log-row"
+                            ng-click="toggleStack($index)">
+                            <td class="ts">{{e.Timestamp | amDateFormat:'YYYY-MM-DD HH:mm:ss'}}</td>
+                            <td><span ng-class="levelClass(e.Level)">{{e.Level || 'Info'}}</span></td>
+                            <td>{{e.Reporter}}</td>
+                            <td class="msg">{{e.Message}}</td>
+                        </tr>
+                        <tr ng-repeat-end ng-if="expanded[$index] && e.StackTrace">
+                            <td colspan="4"><pre class="stack">{{e.StackTrace}}</pre></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="empty-state" ng-if="notConnected">
+                <h3>Adapter not connected</h3>
+                <p>Could not load <code>/api/appstatus/log</code> ({{errMessage}}).
+                   If you expect this app to be reporting, check that its support-portal adapter
+                   is enabled and reaching this server.</p>
+            </div>
+
+            <div class="empty-state" ng-if="!notConnected && !visibleEntries().length">
+                <h3>No entries</h3>
+                <p ng-if="entries.length === 0">Once <code>{{systemName}}</code> starts publishing via the AppStatus adapter, entries will appear here.</p>
+                <p ng-if="entries.length > 0">Try relaxing the level filter or clearing the reporter search.</p>
+            </div>
+        </main>
+    </div>
+</div>

@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Reactive.Linq;
 using System.Windows.Input;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Xamarin.Features.Navigation;
 using Rxns.Xamarin.Features.Navigation.Pages;
 using Xamarin.Forms;

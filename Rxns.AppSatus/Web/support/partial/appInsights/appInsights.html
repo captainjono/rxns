@@ -1,0 +1,78 @@
+<div class="col-md-12 appinsights-page" ng-controller="AppInsightsCtrl">
+    <h2 class="page-title">App Insights browser</h2>
+    <p class="subtitle">
+        Run KQL against a configured AppInsights component via
+        <code>az monitor app-insights query</code>.
+    </p>
+
+    <div class="error-banner" ng-if="banner">{{banner}}</div>
+
+    <div class="targets-panel" ng-if="targets.length">
+        <div class="targets-header">
+            <strong>Targets ({{enabledCount()}} of {{targets.length}} enabled)</strong>
+            <span class="targets-hint">enable multiple to flatten queries across envs</span>
+            <span class="targets-actions">
+                <button class="btn btn-default btn-xs" type="button" ng-click="enableAll()">enable all</button>
+                <button class="btn btn-default btn-xs" type="button" ng-click="disableAll()">disable all</button>
+            </span>
+        </div>
+        <div class="targets-list">
+            <label class="target-row" ng-repeat="t in targets track by $index"
+                   ng-class="{ enabled: t._enabled }">
+                <input type="checkbox" ng-checked="t._enabled" ng-click="toggleTarget(t)" />
+                <span class="target-name">{{t.Name || t.AppName}}</span>
+                <span class="target-meta" ng-if="t.ResourceGroup">{{t.ResourceGroup}}</span>
+            </label>
+        </div>
+    </div>
+    <div class="targets-empty" ng-if="!targets.length">
+        No targets configured. Drop an <code>appstatus.config</code> next to the host with a <code>Targets[]</code> array.
+    </div>
+
+    <div class="toolbar form-inline">
+        <label>Preset
+            <select class="form-control input-sm" ng-model="preset">
+                <option value="">(custom KQL)</option>
+                <option ng-repeat="p in presets" value="{{p}}">{{p}}</option>
+            </select>
+        </label>
+        <label>Offset
+            <input type="text" class="form-control input-sm offset-input" ng-model="offset" />
+        </label>
+        <label>Max rows
+            <input type="number" class="form-control input-sm maxrows-input" ng-model="maxRows" />
+        </label>
+        <button class="btn btn-primary btn-sm" type="button" ng-click="run()">Run</button>
+        <button class="btn btn-default btn-sm" type="button" ng-click="loadInfo()">Reload targets</button>
+    </div>
+
+    <div class="toolbar">
+        <label class="kql-label">Custom KQL (leave blank to use preset)</label>
+        <textarea class="form-control kql-input"
+                  ng-model="kql"
+                  placeholder="requests | summarize count() by name | take 50"></textarea>
+    </div>
+
+    <div class="status-bar">
+        <span ng-class="status.cls">{{status.text}}</span>
+    </div>
+
+    <div class="results">
+        <div class="empty" ng-if="empty">{{emptyMessage}}</div>
+        <div class="table-container" ng-if="!empty && results">
+            <table class="table table-condensed">
+                <thead>
+                    <tr>
+                        <th ng-repeat="c in results.columns track by $index">{{c}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="row in results.rows track by $index">
+                        <td ng-repeat="cell in row track by $index"
+                            ng-class="{ json: cell.json, target: cell.isTarget }">{{cell.value}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

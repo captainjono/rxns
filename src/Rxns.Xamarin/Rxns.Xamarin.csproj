@@ -81,7 +81,6 @@
     <Compile Include="Features\Automation\CommandInterceptorAutomator.cs" />
     <Compile Include="Features\Automation\IAutomateUserActions.cs" />
     <Compile Include="Features\Automation\PlayBackFilter\AssertionFilter.cs" />
-    <Compile Include="Features\Automation\ITapeRepository.cs" />
     <Compile Include="Features\Automation\PlayBackFilter\CommandInterceptorPlaybackFilter.cs" />
     <Compile Include="Features\Automation\PlayBackFilter\ITapePlaybackFilter.cs" />
     <Compile Include="Features\Automation\PlayBackFilter\UserActionsOnlyFilter.cs" />
@@ -145,14 +144,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
     <None Include="Rxns.Xamarin.nuspec" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rxns.NewtonsoftJson\Rxns.NewtonsoftJson.csproj">
-      <Project>{c0ac4198-938d-48cd-8537-bf9c8d22bade}</Project>
-      <Name>Rxns.NewtonsoftJson</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Rxns\Rxns.csproj">
       <Project>{96734d71-3223-4e4b-830c-5498783c162f}</Project>
       <Name>Rxns</Name>

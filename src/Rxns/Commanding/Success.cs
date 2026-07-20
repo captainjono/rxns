@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// The command which was successful
@@ -8,8 +8,9 @@ namespace Rxns.Commanding
     /// <typeparam name="T"></typeparam>
     public class Success<T> : ICommandResult<T>
     {
-        public Success(T result)
+        public Success(string cmdId, T result)
         {
+            InResponseTo = cmdId;
             Result = result;
         }
 
@@ -24,5 +25,6 @@ namespace Rxns.Commanding
         }
 
         public T Result { get; private set; }
+        public string InResponseTo { get; }
     }
 }

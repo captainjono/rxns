@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     internal abstract class AsyncRequestHandlerWrapper<TResult>
     {
@@ -10,9 +10,9 @@ namespace Rxns.Commanding
     internal class AsyncRequestHandlerWrapper<TCommand, TResult> : AsyncRequestHandlerWrapper<TResult>
         where TCommand : IAsyncRequest<TResult>
     {
-        private readonly IAsyncRequestHandler<TCommand, TResult> _inner;
+        private readonly IRxnMediatorPipeline<TCommand, TResult> _inner;
 
-        public AsyncRequestHandlerWrapper(IAsyncRequestHandler<TCommand, TResult> inner)
+        public AsyncRequestHandlerWrapper(IRxnMediatorPipeline<TCommand, TResult> inner)
         {
             _inner = inner;
         }

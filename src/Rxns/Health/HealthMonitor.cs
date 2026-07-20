@@ -10,7 +10,7 @@ namespace Rxns.Health
 
             var overflow = new BackpressureAction<T>(c => c > overflowWhen, (t, current) => reporter.Pulse.OnNext(new QueueOverflowEvent(name, current)), TimeSpan.FromMinutes(5));
             var snapshot = new BackpressureAction<T>(c => c > snapshotWhen, (t, current) => reporter.Pulse.OnNext(new QueueSnapshotEvent(name, TimeSpan.FromSeconds(1), current)), sampleTime ?? TimeSpan.FromSeconds(15));
-            var countPerSec = new StreamTimerAction<T>((count) => reporter.Pulse.OnNext(new QueueSpeedEvent(name, count)), sampleTime ?? TimeSpan.FromSeconds(15));
+            var countPerSec = new StreamCounterPulsar<T>((count) => reporter.Pulse.OnNext(new QueueSpeedEvent(name, count)), sampleTime ?? TimeSpan.FromSeconds(15));
 
 
             return new IMonitorActionFactory<T>[]

@@ -1,0 +1,33 @@
+<div class="col-md-12" ng-controller="remoteCommandCtrl">
+    <form name="remote">
+        <div class="input-group">
+            <input type="text" class="form-control" ng-init="destination = 'Not Set\\App'" ng-model="destination">
+            <input type="text" class="form-control" ng-init="cmd = 'Update'" ng-model="cmd">
+            <span class="input-group-btn">
+                <button class="btn btn-default" type="button" ng-click="publish(destination, cmd)">Send</button>
+            </span>
+        </div>
+        <div class="span6">
+            <table class="table table-hover table-striped table-condensed h6">
+                <thead>
+                <th>Timestamp</th>
+                <th>System</th>
+                <th>Reporter</th>
+                <th>Level</th>
+                <th>Message</th>
+                </thead>
+                <tbody>
+
+                    <!--<span class="fa fa-cog fa-spin" ng-show="$parent.logLoading" />-->
+                    <tr ng-class="{error: entry.Level === 'Error', infor: entry.Level === 'Info', verbose: entry.Level === 'Verbose'}" ng-repeat="entry in log">
+                        <td>{{entry.Timestamp | amDateFormat:'hh:mm:ss.SSS'}}</td>
+                        <td>{{entry.Tenant}}</td>
+                        <td>{{entry.Reporter}}</td>
+                        <td>{{entry.Level}}</td>
+                        <td>{{entry.Message}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>

@@ -1,27 +1,32 @@
-﻿using System;
+﻿using Rxns.DDD.CQRS;
+using System;
 using System.Linq;
 using System.Reactive.Linq;
+using Rxns.Health;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
-    public class AsyncMediatorPipeline<TRequest, TResponse>
-         : IAsyncRequestHandler<TRequest, TResponse>
+    public class RxnMediatorPipeline<TRequest, TResponse>
+         : IRxnMediatorPipeline<TRequest, TResponse>
          where TRequest : IAsyncRequest<TResponse>
     {
-
         private readonly IAsyncRequestHandler<TRequest, TResponse> _inner;
         private readonly IPreRequestHandler<TRequest>[] _preRequestHandlers;
         private readonly IPostRequestHandler<TRequest, TResponse>[] _postRequestHandlers;
-
-        public AsyncMediatorPipeline(
+        
+        public RxnMediatorPipeline(
             IAsyncRequestHandler<TRequest, TResponse> inner,
             IPreRequestHandler<TRequest>[] preRequestHandlers,
-            IPostRequestHandler<TRequest, TResponse>[] postRequestHandlers
+            IPostRequestHandler<TRequest, TResponse>[] postRequestHandlers,
+            IRxnHealthManager health  
             )
         {
+            var metrics = new RequestElpasedTimeMonitor<TRequest, TResponse>($"RxnMediatorPipeline.{this.GetType().Name}", TimeSpan.FromSeconds(60), health);
+
             _inner = inner;
-            _preRequestHandlers = preRequestHandlers;
-            _postRequestHandlers = postRequestHandlers;
+            _preRequestHandlers = new [] { metrics.StartTimer() }.Concat(preRequestHandlers).ToArray();
+            _postRequestHandlers =  postRequestHandlers.Concat(new[] { metrics.EndTimer() }).ToArray();
+
         }
 
         public IObservable<TResponse> Handle(TRequest message)
@@ -40,6 +45,7 @@ namespace Rxns.Commanding
                                 {
                                     postRequestHandler.Handle(message, result);
                                 }
+
                                 return result;
                             })
                             .Subscribe(o);

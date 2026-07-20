@@ -2,7 +2,7 @@
 using Rxns.Collections;
 using Rxns.Interfaces;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// A question is a simple saga which runs a command then waits 
@@ -10,11 +10,11 @@ namespace Rxns.Commanding
     /// </summary>
     public class Question : IRxn
     {
-        public IServiceCommand Ask { get; private set; }
+        public IUniqueRxn Ask { get; private set; }
         public IRxn OnSuccess { get; private set; }
         public IRxn OnFailure { get; private set; }
 
-        public Question(IServiceCommand ask, IRxn onSuccess = null, IRxn onFailure = null)
+        public Question(IUniqueRxn ask, IRxn onSuccess = null, IRxn onFailure = null)
         {
             OnSuccess = onSuccess;
             Ask = ask;
@@ -32,11 +32,11 @@ namespace Rxns.Commanding
     /// </summary>
     public class QuestionMediator : IRxnProcessor<Question>, IRxnProcessor<CommandResult>
     {
-        private readonly IExpiringCache<Guid, Question> _inFlight = ExpiringCache.CreateConcurrent<Guid, Question>(TimeSpan.FromMinutes(10));
+        private readonly IExpiringCache<string, Question> _inFlight = ExpiringCache.CreateConcurrent<string, Question>(TimeSpan.FromMinutes(10));
 
         public IObservable<IRxn> Process(Question @event)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 _inFlight.Set(@event.Ask.Id, @event);
 
@@ -46,7 +46,7 @@ namespace Rxns.Commanding
 
         public IObservable<IRxn> Process(CommandResult @event)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 if (!_inFlight.Contains(@event.InResponseTo)) return null;
 

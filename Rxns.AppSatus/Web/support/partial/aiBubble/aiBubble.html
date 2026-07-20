@@ -1,0 +1,552 @@
+<div class="ai-bubble-host">
+    <!-- Floating action button (collapsed state) -->
+    <button class="ai-fab" ng-class="{open: s.state.open}" ng-click="toggle()"
+            title="AI assistant — chat, suggestions, settings (Ctrl+/ to toggle)">
+        <span class="fa" ng-class="s.state.open ? 'fa-times' : 'fa-comment-o'"></span>
+        <span class="ai-fab-label" ng-if="!s.state.open">ask</span>
+        <span class="ai-fab-badge" ng-if="!s.state.open && s.state.unread > 0">{{s.state.unread}}</span>
+    </button>
+
+    <!-- Slide-out panel -->
+    <aside class="ai-panel" ng-class="{open: s.state.open}" ng-style="panelStyle">
+        <!-- Top-left drag handle: panel is anchored to the FAB at bottom-right,
+             so the only corner the user can grab to resize is the top-left. -->
+        <div class="ai-resize-handle" title="drag to resize" ng-mousedown="onResizeStart($event)"></div>
+
+        <div class="ai-panel-header">
+            <span class="fa fa-comment-o"></span>
+            <span class="panel-title">AI</span>
+            <span class="engine-mini" ng-if="s.state.selectedEngineId">
+                {{currentEngine().kind}} · {{s.state.selectedModelByEngine[s.state.selectedEngineId] || currentEngine().model || '?'}}
+                <span ng-if="currentEngine() && !currentEngine().available" class="muted">(offline)</span>
+            </span>
+            <button class="panel-icon" ng-click="clearConversation()" ng-if="s.state.activeTab === 'chat' && s.state.conversation.length" title="clear conversation">
+                <span class="fa fa-trash"></span>
+            </button>
+            <button class="panel-icon" ng-click="toggle()" title="close (Ctrl+/)"><span class="fa fa-times"></span></button>
+        </div>
+
+        <ul class="ai-tabs nav nav-tabs">
+            <li ng-class="{active: s.state.activeTab === 'suggestions'}">
+                <a ng-click="setTab('suggestions')">
+                    Suggestions
+                    <span class="tab-badge" ng-if="s.state.suggestions.length">{{s.state.suggestions.length}}</span>
+                </a>
+            </li>
+            <li ng-class="{active: s.state.activeTab === 'chat'}">
+                <a ng-click="setTab('chat')">Chat</a>
+            </li>
+            <li ng-class="{active: s.state.activeTab === 'settings'}">
+                <a ng-click="setTab('settings')">Settings</a>
+            </li>
+        </ul>
+
+        <!-- ============== Suggestions tab ============== -->
+        <div class="ai-tab-body suggestions-body" ng-if="s.state.activeTab === 'suggestions'">
+            <div class="suggestions-toolbar">
+                <span class="mode-chip" title="Heal/fix gating mode. Manual=always confirm. Semi=run then offer to trust. Auto=trusted actions run silently.">
+                    mode:
+                    <select ng-model="s.state.mode" ng-change="setMode()">
+                        <option value="manual">Manual</option>
+                        <option value="semi">Semi-auto</option>
+                        <option value="auto">Auto</option>
+                    </select>
+                </span>
+                <span class="sources-chip">
+                    streams:
+                    <label class="source-toggle" ng-repeat="src in s.state.sources track by src.id"
+                           ng-class="{disabled: !src.available}"
+                           title="{{src.description}}">
+                        <input type="checkbox" ng-checked="src.enabled" ng-disabled="!src.available"
+                               ng-click="toggleSource(src)"/> {{src.label}}
+                    </label>
+                </span>
+                <button class="btn btn-default btn-xs" ng-click="analyseNow()" ng-disabled="busy">Analyse now</button>
+            </div>
+
+            <div class="suggestion-stack">
+                <div class="empty" ng-if="!s.state.suggestions.length">
+                    <div class="empty-title">No active suggestions.</div>
+                    <div class="empty-hint">
+                        Enable a stream above. The engine batches signals every minute
+                        (or 20 errors, whichever first) and surfaces findings here.
+                        Use <strong>Analyse now</strong> to flush whatever's buffered.
+                    </div>
+                </div>
+
+                <div class="suggestion-card" ng-repeat="sg in s.state.suggestions track by (sg.Id || sg.id)"
+                     ng-class="s.severityClass(sg)">
+                    <div class="card-head">
+                        <span class="sev-badge">{{(s.pickField(sg, 'Severity') || 'info') | uppercase}}</span>
+                        <span class="cat-pill">{{s.pickField(sg, 'Category')}}</span>
+                        <span class="title">{{s.pickField(sg, 'Title')}}</span>
+                        <span class="raised-at">{{s.pickField(sg, 'RaisedAt') | date:'HH:mm:ss'}}</span>
+                    </div>
+                    <div class="trigger-line">
+                        <span class="muted">triggered by</span>
+                        <span class="trigger-sources">{{evidenceSources(sg)}}</span>
+                        <span class="muted">· {{s.pickField(sg, 'EngineId')}}</span>
+                    </div>
+                    <div class="rationale">{{s.pickField(sg, 'Rationale')}}</div>
+
+                    <div class="evidence" ng-if="(s.pickField(sg, 'Evidence') || []).length">
+                        <details>
+                            <summary>{{(s.pickField(sg, 'Evidence') || []).length}} signal(s) cited</summary>
+                            <ul>
+                                <li ng-repeat="e in (s.pickField(sg, 'Evidence') || []) | limitTo: 6">
+                                    <span class="ev-source">[{{s.pickField(e, 'SourceId')}}]</span>
+                                    <span class="ev-cat">{{s.pickField(e, 'Category')}}</span>
+                                    <span class="ev-title">{{s.pickField(e, 'Title')}}</span>
+                                </li>
+                            </ul>
+                        </details>
+                    </div>
+
+                    <div class="actions-row" ng-if="(s.pickField(sg, 'SuggestedActions') || []).length">
+                        <button class="btn btn-xs btn-primary"
+                                ng-repeat="a in s.pickField(sg, 'SuggestedActions')"
+                                ng-click="runAction(sg, a)"
+                                ng-disabled="busy">
+                            {{s.pickField(a, 'Label') || s.pickField(a, 'Tool') || '(no-op)'}}
+                        </button>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-xs btn-link" ng-click="openInChat(sg)">Open in chat</button>
+                        <button class="btn btn-xs btn-link" ng-click="ack(sg)">Ack</button>
+                        <button class="btn btn-xs btn-link" ng-click="snooze(sg)">Snooze 30m</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============== Chat tab ============== -->
+        <div class="ai-tab-body chat-body" ng-if="s.state.activeTab === 'chat'">
+            <div class="chat-log" id="aiBubbleChatLog">
+                <div class="empty" ng-if="!s.state.conversation.length">
+                    <div class="empty-title">Ask the {{currentEngine().kind || 'AI'}} about the live system.</div>
+                    <div class="empty-hint">e.g. "what errors has myapp had in the last hour?" or click a suggestion's "Open in chat".</div>
+                </div>
+                <div ng-repeat="m in s.state.conversation track by $index">
+                    <div ng-if="m.role === 'user' || m.role === 'assistant'"
+                         class="chat-msg" ng-class="m.role">
+                        <div class="role">{{m.role}}</div>
+                        <div class="body">{{m.content}}</div>
+                    </div>
+                    <div ng-if="m.role === 'tool'" class="chat-msg tool">
+                        <div class="role">tool · {{m.name}}</div>
+                        <div class="body">{{m.content | limitTo:600}}</div>
+                    </div>
+                    <div ng-if="m.role === 'tool-calls'" class="chat-msg assistant">
+                        <div class="role">assistant</div>
+                        <div class="body">
+                            <em>Calling tools…</em>
+                            <div class="tool-call" ng-repeat="c in m.calls">
+                                <div class="name">{{c.Name || c.name}}</div>
+                                <div class="args">{{c.ArgumentsJson || c.argumentsJson}}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div ng-if="m.role === 'thinking'" class="chat-msg assistant">
+                        <div class="role">assistant</div>
+                        <div class="body muted"><em>thinking via {{currentEngine().kind}}…</em></div>
+                    </div>
+                    <div ng-if="m.role === 'error'" class="chat-msg error">
+                        <div class="role">error</div>
+                        <div class="body">{{m.content}}</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Operator-attached context. Lets a non-tool-capable model see
+                 live system state via inlined snippets, since with tools off
+                 the model can't fetch anything itself. -->
+            <div class="chat-context">
+                <div class="ctx-row">
+                    <span class="ctx-label">Attach context:</span>
+                    <label class="ctx-chip"
+                           title="Inline the last 30 entries from /api/appstatus/log before your prompt.">
+                        <input type="checkbox" ng-model="s.state.contextChips.logs"/> +logs
+                    </label>
+                    <label class="ctx-chip"
+                           title="Inline recent error entries.">
+                        <input type="checkbox" ng-model="s.state.contextChips.errors"/> +errors
+                    </label>
+                    <label class="ctx-chip"
+                           title="Inline current infra component states (only present when a SupportPortal augment is loaded).">
+                        <input type="checkbox" ng-model="s.state.contextChips.infra"/> +infra
+                    </label>
+                </div>
+                <details class="ctx-paste" ng-attr-open="{{s.state.contextPaste ? 'open' : undefined}}">
+                    <summary>+paste · attach arbitrary text</summary>
+                    <textarea ng-model="s.state.contextPaste"
+                              placeholder="paste a stack trace, KQL row, config blob, etc. — inlined as 'operator-pasted context' before your prompt"></textarea>
+                </details>
+            </div>
+
+            <div class="chat-input">
+                <!-- ng-model uses `ui.chatInput` (not bare `input`) because the
+                     enclosing ng-if creates a child scope; the "always use a
+                     dot" AngularJS rule means we need an object reference for
+                     prototypal inheritance to write through to the directive
+                     scope. Without this, the user's typed text lived on the
+                     ng-if's child scope and scope.send() saw an empty string. -->
+                <textarea ng-model="ui.chatInput"
+                          ng-keydown="onKey($event)"
+                          ng-disabled="s.state.sending"
+                          placeholder="ask… (Enter to send · Shift+Enter newline)"></textarea>
+                <button class="btn btn-primary"
+                        ng-disabled="s.state.sending || !ui.chatInput"
+                        ng-click="send()">Send</button>
+            </div>
+        </div>
+
+        <!-- ============== Settings tab ============== -->
+        <div class="ai-tab-body settings-body" ng-if="s.state.activeTab === 'settings'">
+
+            <!-- Active selection -->
+            <div class="setting-section">
+                <div class="section-title">Active</div>
+                <div class="setting-row">
+                    <label>Engine</label>
+                    <select ng-model="s.state.selectedEngineId" ng-change="onEngineChange()"
+                            ng-options="e.id as s.engineLabel(e) for e in s.state.engines"
+                            ng-disabled="!s.state.engines.length"></select>
+                </div>
+                <div class="setting-row" ng-if="currentEngineModels().list.length || currentEngineModels().loading">
+                    <label>Model</label>
+                    <select ng-model="s.state.selectedModelByEngine[s.state.selectedEngineId]"
+                            ng-change="onModelChange()"
+                            ng-options="m for m in currentEngineModels().list"
+                            ng-disabled="currentEngineModels().loading"></select>
+                </div>
+                <div class="muted small" ng-if="currentEngineModels().loading">loading models…</div>
+                <div class="muted small" ng-if="currentEngineModels().warning">{{currentEngineModels().warning}}</div>
+                <div class="setting-row" ng-if="s.state.selectedEngineId">
+                    <label>Tools</label>
+                    <label class="tool-toggle" title="Advertise the rxns tool registry (query_logs, infra_list_components, …) to this engine. Turn OFF for models that emit tool calls as inline text instead of using the OpenAI tool_calls field — e.g. qwen2.5-7b on Foundry NPU.">
+                        <input type="checkbox" ng-checked="s.getAllowTools()" ng-click="toggleAllowTools()"/>
+                        Send tool descriptions to this engine
+                    </label>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Engine list with remove buttons -->
+            <div class="setting-section">
+                <div class="section-title">Registered engines ({{s.state.engines.length}})</div>
+                <div class="muted small" ng-if="!s.state.engines.length">
+                    No engines registered. Set <code>CLAUDE_API_KEY</code>, <code>OLLAMA_URL</code>, or <code>FOUNDRY_URL</code> env vars,
+                    or add hosts below.
+                </div>
+                <div class="engine-row" ng-repeat="e in s.state.engines track by e.id">
+                    <span class="dot" ng-class="{ok: e.available, bad: !e.available}"></span>
+                    <span class="label" title="{{e.label}}">{{e.label}}</span>
+                    <span class="kind">{{e.kind}}</span>
+                    <span class="model muted">{{e.model}}</span>
+                    <button class="btn btn-link btn-xs"
+                            title="remove from local cfg (does not touch base appstatus.config)"
+                            ng-click="removeEngine(e)">×</button>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Add host manually -->
+            <div class="setting-section">
+                <div class="section-title">Add a host</div>
+                <div class="muted small">Probes the URL via <code>/v1/models</code> (Ollama/Foundry) or sets up an API key (Claude). Successful entries persist to <code>appstatus.local.config</code>.</div>
+                <div class="add-host-grid">
+                    <label>Kind</label>
+                    <select ng-model="add.kind" ng-change="onAddKindChange()">
+                        <option value="ollama">ollama</option>
+                        <option value="foundry">foundry</option>
+                        <option value="claude">claude</option>
+                    </select>
+
+                    <label ng-if="add.kind !== 'claude'">URL</label>
+                    <input ng-if="add.kind !== 'claude'" type="text" ng-model="add.endpoint"
+                           placeholder="{{add.kind === 'ollama' ? 'http://192.168.1.50:11434' : 'http://192.168.1.50:5273'}}"/>
+
+                    <label ng-if="add.kind === 'claude'">API key</label>
+                    <input ng-if="add.kind === 'claude'" type="password" ng-model="add.apiKey" placeholder="sk-ant-..."/>
+
+                    <label>Model</label>
+                    <input type="text" ng-model="add.model"
+                           placeholder="{{add.kind === 'ollama' ? 'qwen2.5-coder:7b' : (add.kind === 'foundry' ? 'phi-4-mini-instruct' : 'claude-sonnet-4-6')}}"/>
+
+                    <label>Label</label>
+                    <input type="text" ng-model="add.label" placeholder="optional · shown in picker"/>
+                </div>
+                <div class="add-host-actions">
+                    <button class="btn btn-primary btn-xs" ng-click="doAddHost()"
+                            ng-disabled="addBusy || !canAddHost()">
+                        {{addBusy ? 'adding…' : 'Add'}}
+                    </button>
+                    <span class="muted small" ng-if="add.lastError" style="color:#aa1f1f">{{add.lastError}}</span>
+                    <span class="muted small" ng-if="add.lastSuccess" style="color:#235f23">added {{add.lastSuccess}}</span>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Scan LAN -->
+            <div class="setting-section">
+                <div class="section-title">Scan LAN</div>
+                <div class="muted small">Probes a CIDR range for Ollama (11434) + Foundry (5273) services. Per-host timeout ~2s, parallel sweep.</div>
+                <div class="add-host-grid">
+                    <label>CIDR</label>
+                    <input type="text" ng-model="scan.cidr" placeholder="e.g. 192.168.1.0/24"/>
+
+                    <label>Ports</label>
+                    <input type="text" ng-model="scan.portsText" placeholder="11434,5273"/>
+                </div>
+                <div class="add-host-actions">
+                    <button class="btn btn-default btn-xs" ng-click="doScan()"
+                            ng-disabled="scanBusy || !scan.cidr">
+                        {{scanBusy ? 'scanning…' : 'Scan'}}
+                    </button>
+                    <span class="muted small" ng-if="scan.lastError" style="color:#aa1f1f">{{scan.lastError}}</span>
+                    <span class="muted small" ng-if="scan.lastSummary">{{scan.lastSummary}}</span>
+                </div>
+                <div class="scan-results" ng-if="scan.results && scan.results.length">
+                    <div class="scan-row" ng-repeat="r in scan.results">
+                        <span class="dot ok"></span>
+                        <span class="url">{{r.url}}</span>
+                        <span class="kind">{{r.kind}}</span>
+                        <span class="muted small">{{r.latencyMs}}ms</span>
+                        <select ng-if="(r.models || []).length"
+                                ng-model="r.pickedModel"
+                                title="pick which model to use on this host"
+                                ng-options="m for m in r.models"></select>
+                        <input ng-if="!(r.models || []).length" type="text"
+                               ng-model="r.pickedModel"
+                               placeholder="model id (host returned no list)"/>
+                        <button class="btn btn-primary btn-xs" ng-click="adoptScanResult(r)"
+                                ng-disabled="r.adopted || !r.pickedModel">
+                            {{r.adopted ? 'added' : 'Add'}}
+                        </button>
+                        <button class="btn btn-default btn-xs"
+                                ng-if="(r.models || []).length > 1"
+                                ng-click="adoptAllScanModels(r)"
+                                ng-disabled="r.adoptingAll || r.adoptedAll"
+                                title="register every returned model as a separate picker entry">
+                            {{r.adoptingAll ? '…' : ('+ all (' + r.models.length + ')')}}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Discover via vendor adapters (Foundry CLI, future LM Studio, etc.) -->
+            <div class="setting-section">
+                <div class="section-title">Discover via adapters</div>
+                <div class="muted small">Asks every registered <code>IAiEngineDiscoveryAdapter</code> (Foundry CLI today, more later) where it sees AI services on this machine. No LAN traffic.</div>
+                <div class="add-host-actions">
+                    <button class="btn btn-default btn-xs" ng-click="doDiscover()" ng-disabled="discoverBusy">
+                        {{discoverBusy ? 'discovering…' : 'Discover'}}
+                    </button>
+                    <span class="muted small" ng-if="discover.lastError" style="color:#aa1f1f">{{discover.lastError}}</span>
+                    <span class="muted small" ng-if="discover.lastSummary">{{discover.lastSummary}}</span>
+                </div>
+                <div class="scan-results" ng-if="discover.results && discover.results.length">
+                    <div class="scan-row" ng-repeat="r in discover.results">
+                        <span class="dot ok"></span>
+                        <span class="url">{{r.url}}</span>
+                        <span class="kind">{{r.kind}}</span>
+                        <span class="muted small">via {{r.adapter}}</span>
+                        <select ng-if="(r.models || []).length"
+                                ng-model="r.pickedModel"
+                                title="pick which model to use on this host"
+                                ng-options="m for m in r.models"></select>
+                        <input ng-if="!(r.models || []).length" type="text"
+                               ng-model="r.pickedModel"
+                               placeholder="model id"/>
+                        <button class="btn btn-primary btn-xs" ng-click="adoptScanResult(r)"
+                                ng-disabled="r.adopted || !r.pickedModel">
+                            {{r.adopted ? 'added' : 'Add'}}
+                        </button>
+                        <button class="btn btn-default btn-xs"
+                                ng-if="(r.models || []).length > 1"
+                                ng-click="adoptAllScanModels(r)"
+                                ng-disabled="r.adoptingAll || r.adoptedAll"
+                                title="register every returned model as a separate picker entry">
+                            {{r.adoptingAll ? '…' : ('+ all (' + r.models.length + ')')}}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Workspace: multi-root + auto-discovery + per-file selection.
+                 Selected files are inlined as a "Workspace knowledge" preamble
+                 on every chat. Scalable alternative to pasting a CLAUDE.md;
+                 you tick which docs the model can see and the rest of the
+                 repo stays out of the prompt window. -->
+            <div class="setting-section">
+                <div class="section-title">Workspace</div>
+                <div class="muted small">
+                    Multi-root list of repos the bubble can read from. Auto-discovery scans each root
+                    for known knowledge files (CLAUDE.md / AGENTS.md / README.md / docs/**/*.md by default).
+                    Tick which files to auto-attach to every chat. Selection persists in <code>appstatus.local.config</code>.
+                </div>
+
+                <div class="ws-roots">
+                    <div class="ws-row" ng-repeat="r in s.state.workspace.roots track by $index">
+                        <input type="text" ng-model="s.state.workspace.roots[$index]" ng-change="onRootsChanged()"
+                               placeholder="C:/src/myrepo"/>
+                        <button class="btn btn-link btn-xs" ng-click="removeRoot($index)" title="remove">×</button>
+                    </div>
+                    <div class="ws-row">
+                        <input type="text" ng-model="ui.newRoot" placeholder="add another root, e.g. C:/jan/rxns"/>
+                        <button class="btn btn-default btn-xs" ng-click="addRoot()" ng-disabled="!ui.newRoot">Add</button>
+                    </div>
+                </div>
+
+                <details class="ws-patterns">
+                    <summary>Discovery patterns
+                        ({{(s.state.workspace.discoveryPatterns && s.state.workspace.discoveryPatterns.length) || (s.state.workspace.defaultPatterns && s.state.workspace.defaultPatterns.length) || 0}})</summary>
+                    <div class="muted small">
+                        One glob per line. Leading <code>!</code> excludes. Leave empty to use the defaults:
+                        <code>{{(s.state.workspace.defaultPatterns || []).join(', ')}}</code>.
+                    </div>
+                    <textarea class="ws-patterns-area"
+                              ng-model="ui.patternsText"
+                              ng-blur="savePatterns()"
+                              placeholder="CLAUDE.md&#10;AGENTS.md&#10;README.md&#10;docs/**/*.md&#10;!docs/legacy/**"></textarea>
+                </details>
+
+                <div class="ws-actions">
+                    <button class="btn btn-primary btn-xs" ng-click="scanFiles()" ng-disabled="s.state.workspace.scanning || !s.state.workspace.roots.length">
+                        {{s.state.workspace.scanning ? 'scanning…' : 'Scan'}}
+                    </button>
+                    <span class="muted small" ng-if="s.state.workspace.lastScanSummary">{{s.state.workspace.lastScanSummary}}</span>
+                    <span class="muted small" ng-if="s.state.workspace.lastError" style="color:#aa1f1f">{{s.state.workspace.lastError}}</span>
+                </div>
+
+                <div class="ws-tree" ng-if="s.state.workspace.scanResults && s.state.workspace.scanResults.length">
+                    <div class="ws-tree-root" ng-repeat="(root, files) in s.state.workspace.scanGroupedByRoot">
+                        <div class="ws-tree-root-label">
+                            <code>{{root}}</code>
+                            <span class="muted small">· {{files.length}} file(s)</span>
+                            <a class="muted small" ng-click="selectAllInRoot(root, true)">all</a>
+                            <a class="muted small" ng-click="selectAllInRoot(root, false)">none</a>
+                        </div>
+                        <label class="ws-tree-file" ng-repeat="f in files track by f.absolutePath">
+                            <input type="checkbox"
+                                   ng-checked="isSelected(f.absolutePath)"
+                                   ng-click="toggleFile(f.absolutePath)"/>
+                            <span class="ws-rel">{{f.relativePath}}</span>
+                            <span class="muted small">{{f.sizeBytes}}b · {{f.modifiedUtc | date:'yyyy-MM-dd'}}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="muted small" ng-if="s.state.workspace.scanResults && !s.state.workspace.scanResults.length && s.state.workspace.lastScanSummary">
+                    No files matched the discovery patterns. Adjust the patterns above or add a root that contains markdown docs.
+                </div>
+
+                <!-- Knowledge index (embedding RAG) per workspace root. -->
+                <div class="ws-index-section" ng-if="s.state.workspace.roots.length">
+                    <div class="section-title" style="margin-top:8px">Knowledge index</div>
+                    <div class="muted small">
+                        Embed the ticked files into a per-root index so the model can semantic-search them via
+                        <code>search_workspace_knowledge</code>. One-time build per root; rerun after big doc changes.
+                        Each repo's index lives at <code>&lt;root&gt;/.rxns/ai-knowledge/index.json</code> (gitignored).
+                    </div>
+
+                    <div class="ws-emb-engines">
+                        <div class="muted small" ng-if="!s.state.workspace.embeddingsEngines.length && !s.state.workspace.pendingRestartEmbeddingsEngines.length">
+                            No embeddings engine configured. <a ng-click="quickAddOllamaEmbed()">Quick-add Ollama nomic-embed-text</a> (uses your local Ollama).
+                        </div>
+                        <div class="setting-row" ng-if="s.state.workspace.embeddingsEngines.length">
+                            <label>Embedder</label>
+                            <select ng-model="s.state.workspace.defaultEmbeddingsEngineId"
+                                    ng-options="e.id as (e.label + ' · ' + e.model + (e.available ? '' : ' (offline)')) for e in s.state.workspace.embeddingsEngines"></select>
+                        </div>
+                        <div class="muted small" ng-if="s.state.workspace.pendingRestartEmbeddingsEngines.length" style="color:#aa1f1f">
+                            Pending restart to activate: {{(s.state.workspace.pendingRestartEmbeddingsEngines | json)}}
+                        </div>
+                    </div>
+
+                    <div class="ws-index-row" ng-repeat="r in s.state.workspace.roots track by $index">
+                        <span class="dot"
+                              ng-class="{ ok: s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built,
+                                          bad: !(s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built) }"></span>
+                        <code class="ws-index-root">{{r}}</code>
+                        <span class="muted small" ng-if="s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built">
+                            built · {{s.state.workspace.indexStatusByRoot[r].chunkCount}} chunks ·
+                            {{s.state.workspace.indexStatusByRoot[r].dimensions}}d ·
+                            {{s.state.workspace.indexStatusByRoot[r].builtAtUtc | date:'yyyy-MM-dd HH:mm'}}
+                        </span>
+                        <span class="muted small" ng-if="!(s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built)">not built</span>
+                        <button class="btn btn-primary btn-xs"
+                                ng-disabled="s.state.workspace.indexBuildingByRoot[r] || !filesSelectedUnder(r)"
+                                ng-click="buildIndex(r)"
+                                title="{{filesSelectedUnder(r) ? 'Embed ticked files under this root.' : 'Tick at least one file under this root above.'}}">
+                            {{s.state.workspace.indexBuildingByRoot[r]
+                                ? 'building…'
+                                : (s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built ? 'Rebuild' : 'Build')}}
+                        </button>
+                        <button class="btn btn-link btn-xs"
+                                ng-if="s.state.workspace.indexStatusByRoot[r] && s.state.workspace.indexStatusByRoot[r].built"
+                                ng-click="clearIndex(r)"
+                                title="delete the index file on disk">Clear</button>
+                    </div>
+                    <div class="muted small" ng-if="s.state.workspace.lastIndexError" style="color:#aa1f1f">{{s.state.workspace.lastIndexError}}</div>
+                </div>
+            </div>
+
+            <hr/>
+
+            <!-- Project context (CLAUDE.md-style). Prepended to every system
+                 prompt by the server so the model knows project-specific
+                 things general training won't tell it — start commands,
+                 conventions, log paths, etc. -->
+            <div class="setting-section">
+                <div class="section-title">Project context</div>
+                <div class="muted small">
+                    Free-form notes prepended to every chat's system prompt — so the model
+                    knows things like "<code>myapp starts via powershell .\build.ps1 -Serve</code>".
+                    Persists to <code>appstatus.local.config</code>. 64KB cap.
+                </div>
+                <textarea class="project-context-area"
+                          ng-model="ui.projectContext"
+                          placeholder="# This project: myapp support portal&#10;&#10;Start: powershell .\build.ps1 -Serve&#10;Restart portal: powershell .\SupportPortal\start-portal.ps1 -Restart -Background -Force&#10;Tests: powershell .\_debug.ps1&#10;Logs: bin\Debug\net10.0\myapp-portal.log&#10;..."></textarea>
+                <div class="add-host-actions">
+                    <button class="btn btn-primary btn-xs" ng-click="saveProjectContext()" ng-disabled="ctxBusy">
+                        {{ctxBusy ? 'saving…' : 'Save'}}
+                    </button>
+                    <button class="btn btn-default btn-xs" ng-click="reloadProjectContext()" ng-disabled="ctxBusy"
+                            title="discard local edits, reload from server">Reload</button>
+                    <span class="muted small" ng-if="ctxStatus">{{ctxStatus}}</span>
+                </div>
+            </div>
+
+            <hr/>
+
+            <div class="setting-section">
+                <div class="section-title">Tools available</div>
+                <div class="muted small">{{s.state.tools.length}} tool(s) · read-only mode: <strong>{{s.state.readOnly ? 'on' : 'off'}}</strong></div>
+                <ul class="tools-list">
+                    <li ng-repeat="t in s.state.tools track by t.name">
+                        <code>{{t.name}}</code> — {{t.description}}
+                    </li>
+                </ul>
+            </div>
+
+            <hr/>
+
+            <div class="setting-section">
+                <div class="section-title">Trusted actions</div>
+                <div class="muted small" ng-if="!s.state.trustedActions.length">No trusted actions yet. In Semi-auto mode, the operator can opt in after a successful run.</div>
+                <div class="trusted-row" ng-repeat="t in s.state.trustedActions">
+                    <code>{{t.Tool || t.tool}}</code>
+                    <span class="hash">#{{(t.ArgSchemaHash || t.argSchemaHash) | limitTo:8}}</span>
+                    <span class="muted small">{{t.Label || t.label}}</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>

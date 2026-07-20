@@ -1,7 +1,9 @@
-﻿namespace Rxns.Interfaces
+﻿using System;
+
+namespace Rxns.Interfaces
 {
     public interface IRxnTargetCfg
     {
-        IRxnRouteCfg<T> PublishTo<T>(IRxnManager<T> rxnManager);
+        IRxnRouteCfg<T> PublishTo<T>(Action<T> rxnManager);
     }
 }

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Rxns.AppStatus.Host</RootNamespace>
+    <AssemblyName>Rxns.AppStatus.Host</AssemblyName>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Version>4.0.0</Version>
+    <PackageReleaseNotes>4.0.0 — AppStatus.Host + Ai subsystems shipped as BETA. See PLAN.md.</PackageReleaseNotes>
+    <OutputType>Library</OutputType>
+    <!-- The Web SDK normally emits an apphost; we're library-only so suppress it. -->
+    <UseAppHost>false</UseAppHost>
+    <!-- Don't try to copy a wwwroot from this project — Html5Root is set per host at runtime. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
+    <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
+    <ProjectReference Include="..\src\Rxns.NewtonsoftJson\Rxns.NewtonsoftJson.csproj" />
+    <ProjectReference Include="..\Rxns.WebApiNET5\Rxns.WebApiNET5.csproj" />
+  </ItemGroup>
+
+</Project>

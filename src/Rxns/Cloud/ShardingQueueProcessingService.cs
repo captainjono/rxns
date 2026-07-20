@@ -8,10 +8,14 @@ using System.Reactive.Subjects;
 using System.Threading;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
 
 namespace Rxns.Cloud
 {
+    /// <summary>
+    /// This queue does work for each shard on a different thread in an effort to create a higher degree of in-app tenanted seperation
+    /// and reduce comptetion for resources that a hungry tenant may demand.
+    /// </summary>
+    /// <typeparam name="TQueueItem"></typeparam>
     public abstract class ShardingQueueProcessingService<TQueueItem> : ReportStatusService, IRxnPublisher<IRxn>
     {
         public string QueueName { get; set; }
@@ -26,6 +30,7 @@ namespace Rxns.Cloud
         /// </summary>
         protected int _started;
         protected readonly bool _isSynchronous;
+        private int _workerId;
         protected Action<IRxn> _publish { get; private set; }
 
         /// <summary>
@@ -45,16 +50,16 @@ namespace Rxns.Cloud
             OnDispose(new DisposableAction(StopQueue));
         }
 
-        public void ConfigiurePublishFunc(Action<IRxn> eventFunc)
+        public void ConfigiurePublishFunc(Action<IRxn> publish)
         {
-            _publish = eventFunc;
-            eventFunc(new SystemStatusMetaEvent()
+            _publish = publish;
+            publish(new AppStatusInfoProviderEvent()
             {
-                Meta = () => new
+                Info = () => new []
                 {
-                    QueueName,
-                    QueueCurrent,
-                    QueueSize
+                    new AppStatusInfo("Queue", QueueName),
+                    new AppStatusInfo("QueueC", QueueCurrent),
+                    new AppStatusInfo("QueueSize", QueueSize)
                 }
             });
         }
@@ -69,23 +74,23 @@ namespace Rxns.Cloud
                     _queueResources.Clear();
                 }
             })
-                            .Select(tenants =>
-                            {
-                                return tenants.Select(t =>
-                                {
-                                    var tt = t;
-                                    return new Func<TQueueItem, bool>(a => shardSelector(tt, a));
-                                })
-                                .ToArray();
-                            })
-                            .Do(tenants =>
-                            {
-                                _queueWorkerScheduler = TaskPoolSchedulerWithLimiter.ToScheduler(tenants.Length > 0 ? tenants.Length : 8);
+            .Select(tenants =>
+            {
+                return tenants.Select(t =>
+                {
+                    var tt = t;
+                    return new Func<TQueueItem, bool>(a => shardSelector(tt, a));
+                })
+                .ToArray();
+            })
+            .Do(tenants =>
+            {
+                _queueWorkerScheduler = TaskPoolSchedulerWithLimiter.ToScheduler(tenants.Length > 0 ? tenants.Length : 8);
 
-                                lock (itemInList)
-                                    StartQueue(tenants);
-                            })
-                            .Until(OnError);
+                lock (itemInList)
+                    StartQueue(tenants);
+            })
+            .Until(OnError);
         }
 
         /// <summary>
@@ -94,55 +99,59 @@ namespace Rxns.Cloud
         /// <param name="workerShardSelector"></param>
         protected virtual void StartQueue(params Func<TQueueItem, bool>[] workerShardSelector)
         {
-            if (Interlocked.CompareExchange(ref _started, 1, 0) == 1) return;
-
-            QueueSize = workerShardSelector.Length;
-            _shardQueue = new Subject<TQueueItem>();
-            _queueFunc = item => _shardQueue.OnNext(item);
-            var workerId = 0;
-
-            OnInformation("Queue configured as {0}", _isSynchronous ? "sync" : "async");
-
-            foreach (var selector in workerShardSelector)
+            foreach (var where in workerShardSelector)
             {
-                var where = selector;
+               StartQueue(where);
+            }
+        }
 
-                try
+        public void StartQueue(Func<TQueueItem, bool> where)
+        {
+            try
+            {
+                if (Interlocked.CompareExchange(ref _started, 1, 0) != 1)
                 {
-                    var consumer = _shardQueue.Where(where);
-                    //need this incase the implementor "awaits", which causes the consuming enumerable to advance before the previous consumer has fully processed "not a proper queue"
-                    if (_isSynchronous) consumer = consumer.Synchronize(where);
+                    QueueSize = 8;
+                    _shardQueue = new Subject<TQueueItem>();
+                    _queueFunc = item => _shardQueue.OnNext(item);
+                    _workerId = 0;
 
-                    consumer
-                        .ObserveOn(_queueWorkerScheduler)
-                        .Do(_ => Interlocked.Increment(ref QueueCurrent))
-                        .SelectMany(request => this.ReportExceptions(() => ProcessQueueItem(request).Where(@event => @event != null).ToArray()))
-                        .Do(@event => @event.ForEach(_publish))
-                        .Select(_ => new Unit())
-                        .Catch<Unit, Exception>(e =>
+                    OnInformation("Queue configured as {0}", _isSynchronous ? "sync" : "async");
+                }
+
+                var consumer = _shardQueue.Where(where);
+                //need this incase the implementor "awaits", which causes the consuming enumerable to advance before the previous consumer has fully processed "not a proper queue"
+                if (_isSynchronous) consumer = consumer.Synchronize(where);
+
+                consumer
+                    .ObserveOn(_queueWorkerScheduler)
+                    .Do(_ => Interlocked.Increment(ref QueueCurrent))
+                    .SelectMany(request => this.ReportExceptions(() => ProcessQueueItem(request).Where(@event => @event != null).ToArray()))
+                    .Do(@event => @event.ForEach(_publish))
+                    .Select(_ => new Unit())
+                    .Catch<Unit, Exception>(e =>
+                    {
+                        OnError(e);
+                        return new Unit().ToObservable();
+                    })
+                    .Do(_ => Interlocked.Decrement(ref QueueCurrent))
+                    .Subscribe(_ => { },
+                        error =>
                         {
-                            OnError(e);
-                            return new Unit().ToObservable();
+                            if (error is OperationCanceledException)
+                                OnVerbose("Queue processing has been stopped");
+                            else
+                            {
+                                OnError("Terminating the consumer for this queue processor due to: {0}", error);
+                            }
                         })
-                        .Do(_ => Interlocked.Decrement(ref QueueCurrent))
-                        .Subscribe(_ => { },
-                                error =>
-                                {
-                                    if (error is OperationCanceledException)
-                                        OnVerbose("Queue processing has been stopped");
-                                    else
-                                    {
-                                        OnError("Terminating the consumer for this queue processor due to: {0}", error);
-                                    }
-                                })
-                        .DisposedBy(_queueResources);
+                    .DisposedBy(_queueResources);
 
-                    OnVerbose("[{0}] Started sharding consumer", workerId++);
-                }
-                catch (Exception e)
-                {
-                    OnError(e);
-                }
+                OnVerbose("[{0}] Started sharding consumer", Interlocked.Increment(ref _workerId));
+            }
+            catch (Exception e)
+            {
+                OnError(e);
             }
         }
 
@@ -166,7 +175,7 @@ namespace Rxns.Cloud
 
         protected virtual IObservable<IRxn> ProcessQueueItem(TQueueItem item)
         {
-            return RxObservable.DfrCreate(() => ProcessQueueItemSync(item));
+            return Rxn.DfrCreate(() => ProcessQueueItemSync(item));
         }
 
         protected virtual IRxn ProcessQueueItemSync(TQueueItem item)

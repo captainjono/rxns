@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Rxn.Create</AssemblyName>
+    <RootNamespace>RxnCreate</RootNamespace>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/captainjono/rxns</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/captainjono/rxns</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="3.5.0" />
+    <PackageReference Include="DotNetZip.NetStandard" Version="1.12.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
+    <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="unittest.cfg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+    <!--<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+      <Exec Command="dotnet $(TargetPath) NewAppUpdate DemoApp Latest-1 $(TargetDir)/ false true http://localhost:888/" />
+    </Target>-->
+
+<!--  <Target Name="PostBuild" AfterTargets="PostBuildEvent">--><!--
+--><!--    <Exec Command="dotnet $(TargetPath) NewAppUpdate DotNetTestWorker Latest-1 $(TargetDir)/ false true http://192.168.1.2:888/" />--><!--
+--><!--  </Target>-->
+
+</Project>

@@ -1,0 +1,173 @@
+/* App Insights KQL browser. */
+.appinsights-page {
+    padding: 12px 0;
+
+    .page-title { font-size: 1.4em; font-weight: 700; margin: 0 0 4px; }
+    .subtitle { font-size: 0.9em; color: #64748b; margin: 0 0 16px; }
+
+    .toolbar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 14px 16px;
+
+        label {
+            display: flex;
+            flex-direction: column;
+            font-size: 0.78em;
+            color: #64748b;
+            font-weight: 600;
+            margin: 0;
+            gap: 4px;
+        }
+
+        .offset-input { width: 90px; }
+        .maxrows-input { width: 90px; }
+    }
+
+    .kql-label { font-size: 0.78em; color: #64748b; font-weight: 600; }
+    .kql-input {
+        font-family: Consolas, Menlo, monospace;
+        font-size: 0.82em;
+        min-height: 70px;
+        width: 100%;
+    }
+
+    .status-bar { margin: 6px 0 8px; }
+
+    .badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 12px;
+        font-size: 0.78em;
+        font-weight: 600;
+        background: #dbeafe;
+        color: #1d4ed8;
+
+        &.warn { background: #fef3c7; color: #92400e; }
+        &.err  { background: #fee2e2; color: #b91c1c; }
+    }
+
+    .table-container {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: auto;
+        max-height: 60vh;
+
+        table { margin-bottom: 0; font-size: 0.85em; }
+        th {
+            position: sticky;
+            top: 0;
+            background: #fafbfc;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        td.json {
+            font-family: Consolas, Menlo, monospace;
+            font-size: 0.85em;
+            color: #64748b;
+        }
+    }
+
+    .empty {
+        padding: 50px;
+        text-align: center;
+        color: #64748b;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    .error-banner {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+        font-size: 0.85em;
+    }
+
+    .targets-panel {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+    }
+    .targets-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.85em;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    .targets-hint {
+        color: #94a3b8;
+        font-size: 0.78em;
+        font-style: italic;
+    }
+    .targets-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+    }
+    .targets-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .target-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.82em;
+        cursor: pointer;
+        margin: 0;
+        font-weight: normal;
+        user-select: none;
+
+        &.enabled {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+        input { margin: 0; }
+        .target-name { font-weight: 600; color: #1e293b; }
+        .target-meta {
+            color: #94a3b8;
+            font-size: 0.85em;
+            font-family: Consolas, Menlo, monospace;
+        }
+    }
+    .targets-empty {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+        font-size: 0.85em;
+
+        code { background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 3px; }
+    }
+
+    .table-container {
+        td.target {
+            font-weight: 600;
+            background: #f8fafc;
+            white-space: nowrap;
+        }
+    }
+}

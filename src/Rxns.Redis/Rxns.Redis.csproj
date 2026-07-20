@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Multi-targeted so netstandard2.0 consumers can adopt this
+         transport; net10.0 stays for the modern reactor hosts. -->
+    <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+    <RootNamespace>Rxns.Redis</RootNamespace>
+    <AssemblyName>Rxns.Redis</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Description>Optional Redis Streams transport for Rxns. Adds StackExchange.Redis as a hard dep so consumers that don't need lossless central transport can omit this project.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Rxns\Rxns.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
+  </ItemGroup>
+
+</Project>

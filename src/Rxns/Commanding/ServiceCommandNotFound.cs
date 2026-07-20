@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     public class ServiceCommandNotFound : Exception
     {

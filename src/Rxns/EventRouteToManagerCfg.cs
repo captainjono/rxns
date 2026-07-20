@@ -11,15 +11,15 @@ namespace Rxns
     public class EventRouteToManagerCfg<TBaseEvent> : IRxnRouteCfg<TBaseEvent>
     {
         public IList<Func<object, bool>> Conditions { get; private set; }
-        public IList<IRxnManager<TBaseEvent>> Destinations { get; private set; }
+        public IList<Action<TBaseEvent>> Destinations { get; private set; }
 
-        public EventRouteToManagerCfg(IList<Func<object, bool>> conditions, IRxnManager<TBaseEvent> rxnManager)
+        public EventRouteToManagerCfg(IList<Func<object, bool>> conditions, Action<TBaseEvent> rxnManager)
         {
             Conditions = conditions;
-            Destinations = new List<IRxnManager<TBaseEvent>>(new[] { rxnManager });
+            Destinations = new List<Action<TBaseEvent>>(new[] { rxnManager  });
         }
 
-        public IRxnRouteCfg<TBaseEvent> AndTo(IRxnManager<TBaseEvent> rxnManager)
+        public IRxnRouteCfg<TBaseEvent> AndTo(Action<TBaseEvent> rxnManager)
         {
             Destinations.Add(rxnManager);
 

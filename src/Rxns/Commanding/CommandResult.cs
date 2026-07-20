@@ -2,24 +2,33 @@
 using System.Reactive.Linq;
 using Rxns.Interfaces;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
-    public interface ICommandResult
+    public interface IRxnResult : IRxn
     {
-        Guid InResponseTo { get; }
+        string InResponseTo { get; }
+    }
+    public interface ICommandResult : IRxnResult
+    {
         CmdResult Result { get; }
     }
 
     public interface IUniqueRxn : IRxn
     {
-        Guid Id { get; }
+        /// <summary>
+        /// WARNING: only set this if you know what you're doing
+        /// </summary>
+        string Id { get; set; }
     }
 
     public class CommandResult : IRxn, ICommandResult
     {
-        public CmdResult Result { get; private set; }
-        public string Message;
-        public Guid InResponseTo { get; private set; }
+        public CmdResult Result { get; set; }
+        // Property (not a field) so JSON serializers surface this to HTTP callers — the
+        // CommandController's Ok(result) was returning { result, inResponseTo } only,
+        // losing every message/URL payload (e.g. the download URL produced by Handle(Export)).
+        public string Message { get; set; }
+        public string InResponseTo { get; set; } = "";
 
         public static CommandResult Success()
         {

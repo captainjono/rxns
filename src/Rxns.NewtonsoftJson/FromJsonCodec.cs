@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Rxns.NewtonsoftJson;
 
 namespace Rxns.Playback
 {

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Reactive.Subjects;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 
 namespace Rxns

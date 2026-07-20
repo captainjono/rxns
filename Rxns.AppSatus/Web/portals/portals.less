@@ -1,0 +1,124 @@
+.portal-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px;
+    margin-bottom: 6px;
+}
+
+.portal-pills .portal-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+    user-select: none;
+}
+
+.portal-pills .portal-pill:hover {
+    background: #e8e8e8;
+}
+
+.portal-pills .portal-pill.active {
+    background: #337ab7;
+    border-color: #2e6da4;
+    color: #fff;
+    cursor: default;
+}
+
+.portal-pills .portal-pill.portal-pill-custom {
+    border-style: dotted;
+    border-color: #888;
+    background: #fffbe6;
+}
+
+.portal-pills .portal-pill.portal-pill-custom:hover {
+    background: #fff3bf;
+}
+
+.portal-pills .portal-pill-remove {
+    display: none;
+    margin-left: 6px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    font-weight: bold;
+    line-height: 1;
+}
+
+.portal-pills .portal-pill-custom:hover .portal-pill-remove {
+    display: inline-block;
+}
+
+.portal-pills .portal-pill-remove:hover {
+    background: #d9534f;
+    color: #fff;
+}
+
+.portal-pills .portal-pill-add {
+    border-style: dashed;
+    color: #666;
+    font-weight: bold;
+    padding: 4px 12px;
+}
+
+.portal-pills .portal-pill-add:hover {
+    color: #222;
+}
+
+.portal-pills .portal-pill-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border: 1px dashed #999;
+    border-radius: 10px;
+    background: #fafafa;
+}
+
+.portal-pills .portal-pill-input {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.portal-pills .portal-pill-input-name {
+    width: 80px;
+}
+
+.portal-pills .portal-pill-input-url {
+    width: 180px;
+}
+
+.portal-pills .portal-pill-btn {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #eee;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.portal-pills .portal-pill-btn-ok {
+    background: #5cb85c;
+    border-color: #4cae4c;
+    color: #fff;
+}
+
+.portal-pills .portal-pill-btn-cancel {
+    background: #f5f5f5;
+}
+
+.portal-pills .portal-pill-error {
+    color: #b94a48;
+    font-size: 11px;
+    margin-left: 6px;
+}

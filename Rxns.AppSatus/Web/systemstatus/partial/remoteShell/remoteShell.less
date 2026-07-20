@@ -1,0 +1,62 @@
+/* Full-screen terminal layout for the Remote Shell page.
+   - Header (worker selector + clear) at top
+   - Output fills the middle, newest line at the bottom
+   - Input pinned at the footer
+   - Resizes responsively: window grows → output area grows */
+.remote-shell-page {
+    display: flex;
+    flex-direction: column;
+    /* Subtract the app shell's nav/header height so we fit the viewport. The
+       body content lives inside .container > .row > [ui-view]; this height
+       calc lines up with the rest of the SPA without measuring at runtime. */
+    height: calc(100vh - 90px);
+    min-height: 400px;
+    padding: 6px 0;
+}
+
+.remote-shell-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px 6px;
+    flex: 0 0 auto;
+}
+.remote-shell-worker {
+    flex: 1 1 auto;
+    max-width: 480px;
+}
+
+.remote-shell-terminal {
+    flex: 1 1 auto;
+    min-height: 0;          /* allow flex child to shrink below content size */
+    background: #111;
+    color: #d0d0d0;
+    font-family: Consolas, Menlo, 'Courier New', monospace;
+    padding: 10px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border-radius: 4px;
+    border: 1px solid #333;
+}
+
+.remote-shell-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0 0;
+    flex: 0 0 auto;
+}
+.remote-shell-prompt {
+    font-family: Consolas, Menlo, 'Courier New', monospace;
+    color: #7ec7ff;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+.remote-shell-input {
+    flex: 1 1 auto;
+    font-family: Consolas, Menlo, 'Courier New', monospace;
+}

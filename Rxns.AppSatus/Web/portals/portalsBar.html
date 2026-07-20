@@ -1,0 +1,24 @@
+<div class="portal-pills" ng-show="peers.length || addOpen">
+    <span class="portal-pill"
+          ng-repeat="p in peers"
+          ng-class="{active: p.current, 'portal-pill-custom': p.source === 'custom', 'portal-pill-ssdp': p.source === 'ssdp'}"
+          ng-click="!p.current && goto(p.url)"
+          title="{{p.url}} ({{p.source}})">
+        <span class="portal-pill-label">{{p.name}}</span>
+        <span class="portal-pill-remove"
+              ng-show="p.source === 'custom'"
+              ng-click="$event.stopPropagation(); remove(p.url)"
+              title="Remove peer">&times;</span>
+    </span>
+    <span class="portal-pill portal-pill-add"
+          ng-show="!addOpen"
+          ng-click="openAdd()"
+          title="Add a custom peer">+</span>
+    <span class="portal-pill-form" ng-show="addOpen">
+        <input type="text" ng-model="newPeer.name" placeholder="name" class="portal-pill-input portal-pill-input-name" />
+        <input type="text" ng-model="newPeer.url" placeholder="http://host:port" class="portal-pill-input portal-pill-input-url" />
+        <button ng-click="submitAdd()" class="portal-pill-btn portal-pill-btn-ok">add</button>
+        <button ng-click="cancelAdd()" class="portal-pill-btn portal-pill-btn-cancel">x</button>
+        <span class="portal-pill-error" ng-show="addError">{{addError}}</span>
+    </span>
+</div>

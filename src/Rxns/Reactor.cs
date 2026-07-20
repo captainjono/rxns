@@ -7,7 +7,7 @@ using System.Reactive.Subjects;
 using Rxns.Health;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
+
 
 namespace Rxns
 {
@@ -86,7 +86,7 @@ namespace Rxns
             @in = input == null ? @in : @in.ObserveOn(input);
 
             var inChannel = @in.Subscribe(e => Input.OnNext(e), OnError);
-            var outChannel = @out.Subscribe(rxnManager.Publish, OnError);
+            var outChannel = @out.SelectMany(rxnManager.Publish).Until(OnError);
             _molecules.Add(rxnManager);
 
             OnInformation("Chained to '{0}'", rxnManager.GetType().Name);
@@ -121,6 +121,7 @@ namespace Rxns
             }))
             .DisposedBy(_resources);
         }
+
 
         public IDisposable Connect(object irxnProcessor /*recovery mode */, IScheduler inputScheduler = null)
         {
@@ -188,6 +189,14 @@ namespace Rxns
             }))
             .DisposedBy(_resources);
         }
+
+        public void Handles(params Type[] allProcessorTypes)
+        {
+            _routes.AddRange(allProcessorTypes);
+        }
+
+        private List<Type> _routes = new List<Type>();
+        public Type[] Route => _routes.ToArray();
 
         public override void Dispose()
         {

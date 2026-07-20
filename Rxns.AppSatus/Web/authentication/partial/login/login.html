@@ -1,0 +1,8 @@
+<div class="col-md-12" ng-controller="LoginCtrl">
+    <input type="text" ng-model="loginData.userName" id="username" />
+    <input type="password" ng-model="loginData.password" id="password" />
+    <input type="Submit" id="login" value="Login" ng-click="login()" />
+    <input type="button" id="login" value="Logout" ng-click="logout()" />
+    
+    <div>{{message}}</div>  
+</div>

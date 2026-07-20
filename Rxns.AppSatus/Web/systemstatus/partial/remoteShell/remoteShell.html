@@ -1,0 +1,30 @@
+<div class="col-md-12 remote-shell-page" ng-controller="RemoteShellCtrl">
+    <!-- Header: selector + clear button. Stays visible at top. -->
+    <div class="remote-shell-header">
+        <span class="fa fa-terminal"></span>
+        <span style="font-weight: 500; margin-right: 8px;">Remote Shell</span>
+        <select class="form-control input-sm remote-shell-worker"
+                ng-model="selectedRoute"
+                ng-options="w.route as w.display for w in workers">
+            <option value="">-- select worker --</option>
+        </select>
+        <button class="btn btn-default btn-sm" type="button" ng-click="clearOutput()" title="Clear output (or type 'cls')">
+            <span class="fa fa-eraser"></span>
+        </button>
+    </div>
+
+    <!-- Terminal output: flexes to fill available height. Scrolls newest at bottom. -->
+    <div id="remoteShellTerminal" class="remote-shell-terminal">
+        <div ng-repeat="line in lines track by $index"
+             ng-style="{color: line.cls=='err' ? '#ff6b6b' : (line.cls=='prompt' ? '#7ec7ff' : (line.cls=='hdr' ? '#d7d77e' : '#9cff9c'))}">{{line.text}}</div>
+    </div>
+
+    <!-- Footer: prompt + input pinned to bottom (real terminal layout). -->
+    <div class="remote-shell-footer">
+        <span class="remote-shell-prompt" title="{{promptFor(selectedRoute)}}">{{promptFor(selectedRoute)}}&nbsp;&gt;</span>
+        <input type="text" class="form-control remote-shell-input"
+               placeholder="shell command (try 'cls' to clear)"
+               ng-model="command" ng-keydown="onKey($event)" />
+        <button class="btn btn-default" type="button" ng-click="runCommand()">Run</button>
+    </div>
+</div>

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reactive;
@@ -7,13 +9,17 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Reactive.Threading.Tasks;
 using System.Reflection;
-using Rxns.Commanding;
+using System.Threading.Tasks;
+using Rxns.DDD.Commanding;
+using Rxns.Hosting;
 using Rxns.Interfaces;
+using Rxns.Logging;
 
 namespace Rxns
 {
-    public static class RxObservable
+    public static class Rxn
     {
         /// <summary>
         /// 
@@ -120,6 +126,155 @@ namespace Rxns
                     o.OnError(e);
                     return Disposable.Empty;
                 }
+            });
+        }
+
+        public static IObservable<long> Create(TimeSpan repeats, IScheduler seconds = null)
+        {
+            return Observable.Timer(repeats, seconds ?? Scheduler.Default);
+        }
+
+        public static IObservable<T> Create<T>(TimeSpan repeats, Func<T> action, IScheduler seconds = null)
+        {
+            return Observable.Timer(repeats, seconds ?? Scheduler.Default).Select(_ => action());
+        }
+        
+        public static IObservable<T> Create<T>(Func<Task<T>> action)
+        {
+            return Observable.Create<T>(o =>
+            {
+                try
+                {
+                    action().ContinueWith(result =>
+                    {
+                        if (result.IsFaulted)
+                        {
+                            o.OnError(result.Exception);
+                            o.OnCompleted();
+                            return;
+                        }
+
+                        o.OnNext(result.Result);
+                        o.OnCompleted();
+                    });
+
+                    return Disposable.Empty;
+                }
+                catch (Exception e)
+                {
+                    o.OnError(e);
+                    return Disposable.Empty;
+                }
+            });
+        }
+
+        public static IObservable<T> CreatePulse<T>(TimeSpan repeats, Func<T> action, IScheduler seconds = null)
+        {
+            return Observable.Timer(repeats, repeats, seconds ?? Scheduler.Default).Select(_ => action());
+        }
+
+        /// <summary>
+        /// Spawns <paramref name="pathToProcess"/> as an observable child process.
+        /// Defaults preserve the original behaviour: stdout/stderr are piped back via
+        /// the callbacks, and disposing the subscription kills the child.
+        ///
+        /// Set <paramref name="asChild"/>=false to spawn a detached sibling that
+        /// survives Dispose - use when you need a process that outlives the caller.
+        /// With asChild=false stdout/stderr are not redirected (the onInfo/onError
+        /// callbacks will never fire) and disposing the subscription leaves the
+        /// child running.
+        ///
+        /// <paramref name="env"/> merges extra environment variables into the child
+        /// before start (useful for passing per-child identity / arena URL without
+        /// stuffing everything into args).
+        ///
+        /// <paramref name="noWindow"/> sets <c>CreateNoWindow=true</c> so a detached
+        /// child on Windows doesn't pop a console.
+        ///
+        /// <paramref name="redirectStdIn"/> sets <c>RedirectStandardInput=true</c> so
+        /// callers can write to the spawned process's stdin via the <see cref="Process"/>
+        /// instance pushed through <c>OnNext</c>. Used for persistent interactive
+        /// shells (one <c>cmd.exe</c> / <c>bash</c> per session) where successive
+        /// user commands are piped in instead of spawning a fresh subshell each time —
+        /// preserves <c>cd</c>, env vars, and other shell state across commands.
+        /// </summary>
+        public static IObservable<IDisposable> Create(string pathToProcess, string args, Action<string> onInfo, Action<string> onError,
+            bool asChild = true,
+            IDictionary<string, string> env = null,
+            bool noWindow = false,
+            bool redirectStdIn = false,
+            string workingDirectory = null)
+        {
+            return Create<Process>(o =>
+            {
+                var reactorProcess = new ProcessStartInfo
+                {
+                    ErrorDialog = false,
+                    // Caller-supplied CWD takes precedence — used by BFG's test-arena
+                    // launcher to put `dotnet test` inside the per-run logDir so any
+                    // `testresults/` the test writes lands inside the dir BFG ships.
+                    WorkingDirectory = workingDirectory ?? new FileInfo(pathToProcess).DirectoryName,
+                    FileName = pathToProcess,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardError = asChild,
+                    RedirectStandardOutput = asChild,
+                    RedirectStandardInput = redirectStdIn,
+                    CreateNoWindow = noWindow,
+                };
+
+                if (env != null)
+                    foreach (var kv in env)
+                        reactorProcess.Environment[kv.Key] = kv.Value;
+
+                var p = new Process
+                {
+                    StartInfo = reactorProcess,
+                    EnableRaisingEvents = true,
+                };
+                var hasExited = false;
+
+                //$"Starting: {p.StartInfo.FileName} {p.StartInfo.Arguments}".LogDebug();
+
+                p.Start();
+
+                if (asChild)
+                {
+                    Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardOutput.ReadLineAsync())).Do(msg =>
+                    {
+                        onInfo(msg);
+                    }).DoWhile(() => !p.StandardOutput.EndOfStream).FinallyR(() => o.OnCompleted()).Until(o.OnError);
+
+                    Rxn.DfrCreate(() => TaskObservableExtensions.ToObservable(p.StandardError.ReadLineAsync())).Where(e => !e.IsNullOrWhitespace()).Do(msg =>
+                    {
+                        onError(msg);
+                    }).DoWhile(() => !p.StandardError.EndOfStream).Until(o.OnError);
+                }
+
+                p.Exited += (__, _) =>
+                {
+                    if (hasExited) return;
+
+                    hasExited = true;
+                    onInfo($"{pathToProcess} exited");
+                };
+
+                //p.KillOnExit();
+
+                var exit = new DisposableAction(() =>
+                {
+                    if (hasExited) return;
+
+                    hasExited = true;
+                    // Detached siblings must survive the subscription teardown; only
+                    // owned children get killed.
+                    if (asChild) p.Kill();
+                    o.OnCompleted();
+                });
+
+                o.OnNext(p);
+
+                return exit;
             });
         }
 
@@ -287,6 +442,11 @@ namespace Rxns
             return propertyInfo;
         }
 
+        public static IObservable<IRxn> Empty()
+        {
+            return Observable.Empty<IRxn>();
+        }
+
         public static IObservable<T> Empty<T>()
         {
             return Observable.Empty<T>();
@@ -305,7 +465,7 @@ namespace Rxns
         /// <returns></returns>
         public static IObservable<long> TimerWithPause(DateTimeOffset dueTime, TimeSpan period, IObservable<bool> isPaused, IScheduler scheduler = null)
         {
-            return RxObservable.DfrCreate<long>(o =>
+            return Rxn.DfrCreate<long>(o =>
             {
                 var isFirst = true;
                 IDisposable timer = null;
@@ -329,6 +489,129 @@ namespace Rxns
 
                 return new CompositeDisposable(timer, playPauser);
             });
+        }
+
+        public static IRxnApp WithRxns(this IMicroApp context, IRxnDef def)
+        {
+            return new RxnApp(def, new RxnAppFactory());
+        }
+
+        public static IRxnApp WithRxns(this Type context, IRxnDef def)
+        {
+            return new RxnApp(context, def, new RxnAppFactory());
+        }
+
+        public static IRxnHostableApp Named(this IRxnApp app, IRxnAppInfo appInfo)
+        {
+            app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => appInfo));
+            app.Definition.UpdateWith(d => d.CreatesOncePerApp(_ => app));
+
+            return new RxnHostableApp(app, appInfo);
+        }
+
+        public static IObservable<IRxnHostReadyToRun> OnHost(this IRxnHostableApp app, IRxnHost host, IRxnAppCfg cfg)
+        {
+            return host.Stage(app, cfg);
+        }
+
+
+        public static IObservable<T> On<T>(IScheduler scheduler, Func<T> operation)
+        {
+            return Observable.Start( operation, scheduler);
+        }
+
+        public static IObservable<Unit> On(IScheduler scheduler, Action operation)
+        {
+            return Observable.Start(operation, scheduler);
+        }
+
+        /// <summary>
+        /// this will iterate an array in sequence serially until completion of first failure
+        /// </summary>
+        /// <param name="items"></param>
+        /// <param name="selector"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <returns></returns>
+        public static IObservable<T> SelectMany<T, R>(this R[] items, Func<R, IObservable<T>> selector)
+        {
+            if (!items.AnyItems()) return Observable.Empty<T>();
+            return Rxn.Create<T>(o =>
+            {
+                var current = 0; 
+                bool isCanceled = false;
+                Action trampolineIterate = null;
+                var currentSelector = Disposable.Empty;
+                Action RunIf = () =>
+                {
+                    if (current >= items.Length || isCanceled)
+                    {
+                        o.OnCompleted();
+                    }
+                    else
+                    {
+                        CurrentThreadScheduler.Instance.Schedule(() => trampolineIterate());
+                    }
+                };
+                
+                trampolineIterate = () => currentSelector = selector(items[current++]).Subscribe(
+                    result => { o.OnNext(result); }, 
+                    onError => { o.OnError(onError); }, 
+                    () =>
+                    {
+                        RunIf();
+                    });
+
+                RunIf();
+                
+                return Disposable.Create(() =>
+                {
+                    currentSelector.Dispose();
+                    isCanceled = true;
+                });
+            });
+        }
+
+
+        /// <summary>
+        /// If a sequence sometimes throws exceptions, this function will catch that
+        /// error and recreate the sequence while maintaining all existing subscriptions
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="unreliable"></param>
+        /// <param name="onError"></param>
+        /// <returns></returns>
+        public static IObservable<T> MakeReliable<T>(Func<IObservable<T>> unreliable, Action<Exception> onError)
+        {
+            Func<IObservable<T>> reliable = null;
+
+            reliable = () => unreliable()
+                .Catch<T, Exception>(error =>
+                {
+                    onError(error);
+                    return reliable();
+                });
+
+            return reliable();
+        }
+
+
+        public static IObservable<T> CatchAndSignal<T>(this IObservable<T> source, Action signal, Action<Exception> error)
+        {
+            return source.Catch<T, Exception>(e =>
+            {
+                error(e);
+                CurrentThreadScheduler.Instance.Schedule(() => signal());
+                return Observable.Empty<T>();
+            });
+        }
+
+        public static IObservable<long> Then(this TimeSpan when, bool repeat = false, IScheduler schedler = null)
+        {
+            if (schedler != null)
+                return repeat ? Observable.Timer(when, when, schedler) : Observable.Timer(when, schedler);
+
+            return repeat ? Observable.Timer(when, when) : Observable.Timer(when);
         }
     }
 }

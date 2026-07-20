@@ -1,0 +1,14 @@
+﻿{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net",
+    "AzureWebJobs.HttpExample.Disabled": "true",
+    "rxns": "DefaultEndpointsProtocol=https;AccountName=rxns;AccountKey=MlxQL7N/9eMvm2vdAwiKmzPTda5GycIDE+WyCKxmkb+83OQztFf03o057yq8G1cb5AcfRHaQTBzdBnBS7/Temg==;EndpointSuffix=core.windows.net"
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}

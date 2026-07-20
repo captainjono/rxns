@@ -16,12 +16,12 @@ namespace Rxns.Interfaces
         /// <summary>
         /// One or more destinations to the deliver the rxn to if the condition matches
         /// </summary>
-        IList<IRxnManager<TBaseEvent>> Destinations { get; }
+        IList<Action<TBaseEvent>> Destinations { get; }
         /// <summary>
         /// A fluent interface for building a destination list
         /// </summary>
         /// <param name="rxnManager"></param>
         /// <returns></returns>
-        IRxnRouteCfg<TBaseEvent> AndTo(IRxnManager<TBaseEvent> rxnManager);
+        IRxnRouteCfg<TBaseEvent> AndTo(Action<TBaseEvent> rxnManager);
     }
 }

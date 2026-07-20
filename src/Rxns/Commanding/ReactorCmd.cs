@@ -1,4 +1,4 @@
-﻿namespace Rxns.Commanding
+﻿namespace Rxns.DDD.Commanding
 {
     public abstract class ReactorCmd : ServiceCommand
     {
@@ -9,6 +9,7 @@
 
         protected ReactorCmd()
         {
+
         }
 
         protected ReactorCmd(string name)

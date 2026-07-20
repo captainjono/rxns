@@ -5,7 +5,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
 using Rxns.Interfaces;
 using Rxns.Logging;
 using Rxns.Playback;
@@ -100,7 +100,7 @@ namespace Rxns.Xamarin.Features.Automation
 
         public IObservable<IRxn> Process(StartStopRecording @event)
         {
-            return RxObservable.Create<IRxn>(() =>
+            return Rxn.Create<IRxn>(() =>
             {
                 if (_tape != null)
                 {
@@ -126,7 +126,7 @@ namespace Rxns.Xamarin.Features.Automation
 
         public IObservable<IRxn> Process(PlayRecording @event)
         {
-            return RxObservable.Create<IRxn>(o =>
+            return Rxn.Create<IRxn>(o =>
             {
                 //todo: fix way inital page of recording is shown so playback is consistant
                 o.OnCompleted();
@@ -162,7 +162,7 @@ namespace Rxns.Xamarin.Features.Automation
                                                      automator.Dispose();
                                                      pageTransition.Dispose();
                                                  })
-                                                 .Do(_ => OnWarning("PLAYING>> {0}-{1}", _.GetType().Name, _.ToJson()))
+                                                 .Do(_ => OnWarning("PLAYING>> {0}-{1}", _.GetType().Name, _.Serialise()))
                                                  .Subscribe(p => _publish(p), error => OnError(error));
                 });
             });
@@ -196,7 +196,7 @@ namespace Rxns.Xamarin.Features.Automation
 
         public IObservable<IRxn> Process(DeleteRecording @event)
         {
-            return RxObservable.Create<IRxn>(() => _tapeRepository.Delete(@event.Name));
+            return Rxn.Create<IRxn>(() => _tapeRepository.Delete(@event.Name));
         }
     }
 }

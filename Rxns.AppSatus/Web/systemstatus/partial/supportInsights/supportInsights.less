@@ -1,0 +1,187 @@
+/* Support Insights — live logs dashboard.
+   Cribs the card / table / pill styling from the vanilla wwwroot page,
+   reworked for the portal's Bootstrap-3 shell. */
+.support-insights-page {
+    padding: 12px 0;
+}
+
+.support-insights-layout {
+    display: flex;
+    gap: 16px;
+    min-height: calc(100vh - 140px);
+}
+
+.support-insights-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 14px;
+    overflow-y: auto;
+
+    .filter-group {
+        margin-bottom: 18px;
+
+        h4 {
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin: 0 0 6px;
+        }
+    }
+
+    .filter-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        font-size: 0.85em;
+        font-weight: normal;
+        cursor: pointer;
+        margin: 0;
+    }
+}
+
+.support-insights-main {
+    flex: 1;
+    min-width: 0;
+
+    .page-title {
+        font-size: 1.4em;
+        font-weight: 700;
+        margin: 0 0 4px;
+    }
+
+    .subtitle {
+        font-size: 0.9em;
+        color: #64748b;
+        margin: 0 0 16px;
+    }
+
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+}
+
+.support-insights-page .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 0.78em;
+    font-weight: 600;
+    background: #dbeafe;
+    color: #1d4ed8;
+
+    &.live { background: #dcfce7; color: #16a34a; }
+    &.warn { background: #fef3c7; color: #92400e; }
+    &.err  { background: #fee2e2; color: #b91c1c; }
+}
+
+.support-insights-page .stat-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+
+.support-insights-page .stat-card {
+    flex: 1 1 160px;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+
+    .value {
+        font-size: 1.8em;
+        font-weight: 700;
+        color: #059669;
+    }
+    .label {
+        font-size: 0.78em;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    .sub {
+        font-size: 0.7em;
+        color: #94a3b8;
+    }
+
+    &.red  .value { color: #ef4444; }
+    &.amber .value { color: #d97706; }
+    &.blue .value { color: #2563eb; }
+}
+
+.support-insights-page .table-container {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+
+    table { margin-bottom: 0; }
+    th { color: #64748b; font-weight: 600; background: #fafbfc; white-space: nowrap; }
+}
+
+.support-insights-page .log-row { cursor: pointer; }
+.support-insights-page .log-row:hover td { background: rgba(0, 0, 0, 0.02); }
+
+.support-insights-page .ts {
+    color: #64748b;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.support-insights-page .msg { word-break: break-word; }
+
+.support-insights-page .level-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: 600;
+
+    &.level-Error       { background: #fee2e2; color: #b91c1c; }
+    &.level-Warning     { background: #fef3c7; color: #92400e; }
+    &.level-Information { background: #dbeafe; color: #1d4ed8; }
+    &.level-Verbose     { background: #f1f5f9; color: #64748b; }
+}
+
+.support-insights-page .stack {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 0.78em;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    border: 0;
+}
+
+.support-insights-page .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: #64748b;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+
+    h3 {
+        font-size: 1.1em;
+        margin: 0 0 8px;
+        color: #1e293b;
+    }
+    p {
+        max-width: 420px;
+        margin: 0 auto;
+        font-size: 0.9em;
+    }
+}

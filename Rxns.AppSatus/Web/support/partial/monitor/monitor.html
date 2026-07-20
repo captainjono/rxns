@@ -1,0 +1,105 @@
+<div class="col-md-12 monitor-page" ng-controller="MonitorCtrl">
+    <div class="monitor-header">
+        <div class="monitor-title">
+            <h2>Monitor &mdash; ambient suggestions</h2>
+            <div class="meta">
+                <span ng-if="loading">loading...</span>
+                <span ng-if="!loading && !error">
+                    <span class="mode-pill" title="Heal/fix gating mode. Manual=always confirm. Semi=run, then offer to trust. Auto=trusted actions run silently.">
+                        Mode:
+                        <select ng-model="mode" ng-change="onModeChange()">
+                            <option value="manual">Manual</option>
+                            <option value="semi">Semi-auto</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </span>
+                    &middot; {{suggestions.length}} active &middot; {{trusted.length}} trusted action(s)
+                </span>
+                <span ng-if="error" class="text-danger">{{error}}</span>
+            </div>
+        </div>
+        <div class="monitor-header-actions">
+            <button class="btn btn-default btn-sm" type="button" ng-click="analyseNow()" ng-disabled="busy">Analyse now</button>
+            <button class="btn btn-default btn-sm" type="button" ng-click="reload()">Reload</button>
+            <button class="btn btn-default btn-sm" type="button" ng-click="popOut()" title="Open monitor in a new window — park it on a second monitor.">Pop out</button>
+        </div>
+    </div>
+
+    <div class="monitor-sources">
+        <div class="sources-label">Streams:</div>
+        <label class="source-checkbox" ng-repeat="s in sources" ng-class="{disabled: !s.available}">
+            <input type="checkbox"
+                   ng-checked="s.enabled"
+                   ng-disabled="!s.available || busy"
+                   ng-click="toggleSource(s)" />
+            <span class="source-name">{{s.label}}</span>
+            <span class="source-desc">{{s.description}}</span>
+            <span class="source-unavailable" ng-if="!s.available">unavailable</span>
+        </label>
+        <div class="source-empty" ng-if="!sources.length">
+            No monitor sources registered. Built-in: rxns log bus. Add more by registering an <code>IMonitorSource</code> in an augmentation module.
+        </div>
+    </div>
+
+    <div class="monitor-body">
+        <div class="monitor-empty" ng-if="!suggestions.length">
+            <div class="empty-title">No active suggestions.</div>
+            <div class="empty-hint">
+                Enable a stream above and the configured AI engine will batch its signals every minute (or 20 errors, whichever first) and surface findings here. Click <strong>Analyse now</strong> to force a pass with whatever's already buffered.
+            </div>
+        </div>
+
+        <div class="suggestion-card" ng-repeat="s in suggestions track by s.Id || s.id" ng-class="severityClass(s)">
+            <div class="card-head">
+                <span class="sev-badge">{{(s.Severity || s.severity || 'info') | uppercase}}</span>
+                <span class="cat-pill">{{s.Category || s.category}}</span>
+                <span class="title">{{s.Title || s.title}}</span>
+                <span class="engine">via {{s.EngineId || s.engineId}}</span>
+                <span class="raised-at">{{s.RaisedAt || s.raisedAt | date:'HH:mm:ss'}}</span>
+            </div>
+            <div class="card-body">
+                <p class="rationale">{{s.Rationale || s.rationale}}</p>
+
+                <div class="evidence" ng-if="(s.Evidence || s.evidence || []).length">
+                    <details>
+                        <summary>{{(s.Evidence || s.evidence).length}} signal(s) cited</summary>
+                        <ul>
+                            <li ng-repeat="e in (s.Evidence || s.evidence) | limitTo: 8">
+                                <span class="ev-source">[{{e.SourceId || e.sourceId}}]</span>
+                                <span class="ev-cat">{{e.Category || e.category}}</span>
+                                <span class="ev-title">{{e.Title || e.title}}</span>
+                            </li>
+                        </ul>
+                    </details>
+                </div>
+
+                <div class="actions-row" ng-if="(s.SuggestedActions || s.suggestedActions || []).length">
+                    <button class="btn btn-xs btn-primary"
+                            ng-repeat="a in s.SuggestedActions || s.suggestedActions"
+                            ng-click="runAction(s, a)"
+                            ng-disabled="busy"
+                            title="{{a.Tool || a.tool ? 'Runs ' + (a.Tool || a.tool) + ' with the proposed args (gated by current mode).' : 'No-tool action — informational only.'}}">
+                        {{a.Label || a.label}}
+                        <span ng-if="(a.Tool || a.tool) && isTrusted(a)" class="trust-pill">trusted</span>
+                    </button>
+                </div>
+
+                <div class="card-actions">
+                    <button class="btn btn-xs btn-link" ng-click="openInChat(s)">Open in chat</button>
+                    <button class="btn btn-xs btn-link" ng-click="ack(s)">Ack</button>
+                    <button class="btn btn-xs btn-link" ng-click="snooze(s)">Snooze 30m</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="monitor-trust" ng-if="trusted.length">
+        <h3>Trusted actions ({{trusted.length}})</h3>
+        <div class="trusted-row" ng-repeat="t in trusted">
+            <span class="trusted-tool">{{t.Tool || t.tool}}</span>
+            <span class="trusted-hash">#{{t.ArgSchemaHash || t.argSchemaHash}}</span>
+            <span class="trusted-label">{{t.Label || t.label}}</span>
+            <button class="btn btn-xs btn-link" ng-click="revoke(t)">Revoke</button>
+        </div>
+    </div>
+</div>

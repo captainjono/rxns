@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Linq;
+using System.Reactive.Linq;
+using Rxns.DDD.CQRS;
 
-namespace Rxns.Commanding
-{
+namespace Rxns.DDD.Commanding
+{   
 
     /// <summary>
     /// This code has been borrowed heavily from the mediatoR project;
@@ -32,7 +35,7 @@ namespace Rxns.Commanding
         private AsyncRequestHandlerWrapper<TResponse> GetHandler<TResponse>(IAsyncRequest<TResponse> request)
         {
             return GetHandler<AsyncRequestHandlerWrapper<TResponse>, TResponse>(request,
-                typeof(IAsyncRequestHandler<,>),
+                typeof(IRxnMediatorPipeline<,>),
                 typeof(AsyncRequestHandlerWrapper<,>));
         }
 

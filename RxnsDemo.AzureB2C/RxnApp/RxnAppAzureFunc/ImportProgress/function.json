@@ -1,0 +1,18 @@
+﻿{
+  "bindings": [
+    {
+      "authLevel": "function",
+      "name": "ProgressOfUserImportIntoTenantQry",
+      "type": "ImportProgressFunc",
+      "direction": "in",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "name": "$return",
+      "type": "http",
+      "direction": "out"
+    }
+  ]
+}

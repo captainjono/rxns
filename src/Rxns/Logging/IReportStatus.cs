@@ -1,11 +1,55 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Threading.Tasks;
+using Rxns.Logging;
 
 namespace Rxns.Interfaces
 {
+
+    public interface IRxnLogger
+    {
+        Action<LogMessage<string>> Information { get; }
+        Action<LogMessage<Exception>> Errors { get; }
+    }
+
+    public class RxnDebugLogger : RxnLogger
+    {
+        public RxnDebugLogger(string name = null) : base(i =>
+        {
+            if(Debugger.IsAttached)
+                Debug.WriteLine($"{(name != null ? $"[{name}]" : "")}{i}");
+            else
+                Console.WriteLine($"{(name != null ? $"[{name}]" : "")}{i}");
+
+        }, e =>
+        {
+            if (Debugger.IsAttached)
+                Debug.WriteLine($"{(name != null ? $"[{name}]" : "")}{e}");
+            else
+                Console.WriteLine($"{(name != null ? $"[{name}]" : "")}{e}");
+        })
+        {
+
+        }
+    }
+
+    public class RxnLogger : IRxnLogger
+    {
+        public RxnLogger(Action<LogMessage<string>> information, Action<LogMessage<Exception>> errors)
+        {
+            Information = information;
+            Errors = errors;
+        }
+
+        public Action<LogMessage<string>> Information { get; }
+        public Action<LogMessage<Exception>> Errors { get; }
+    }
+
+
     public interface IReporterName
     {
         string ReporterName { get; }
@@ -29,10 +73,6 @@ namespace Rxns.Interfaces
 
 
         void OnError(Exception exception);
-
-        void OnError(string exceptionMessage, params object[] args);
-
-        void OnError(Exception innerException, string exceptionMessage, params object[] args);
 
         void OnInformation(string info, params object[] args);
 

@@ -1,10 +1,10 @@
 ﻿using System;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// Factory method for creating single instances. Used to build instances of
-    /// <see cref="IAsyncRequestHandler{TRequest,TResponse}"/> and <see cref="IAsyncRequestHandler{TRequest,TResponse}"/>
+    /// <see cref="IRxnMediatorPipeline{TRequest,TResponse}"/> and <see cref="IRxnMediatorPipeline{TRequest,TResponse}"/>
     /// </summary>
     /// <param name="serviceType">Type of service to resolve</param>
     /// <returns>An instance of type <paramref name="serviceType" /></returns>

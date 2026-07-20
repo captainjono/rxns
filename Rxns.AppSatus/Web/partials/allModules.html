@@ -1,0 +1,77 @@
+<div class="col-md-12" ng-controller="AllmodulesCtrl">
+    <rxns-portals-bar></rxns-portals-bar>
+    <ul class="nav nav-pills nav-stacked ">
+
+        <!--
+            Augment-supplied nav buttons. Rendered at the TOP of the list so
+            host-specific entry points (e.g. infra status for the insights
+            augment) get prime placement. Empty when no augment is loaded.
+        -->
+        <li class="btn btn-group fa-4x augment-nav-button"
+            ng-repeat="aug in augmentNavButtons track by aug.state"
+            ng-attr-title="{{aug.navButton.title}}">
+            <a ui-sref="{{aug.state}}">
+                <span class="fa" ng-class="aug.navButton.icon || 'fa-puzzle-piece'"></span>
+            </a>
+        </li>
+
+        <li class="btn btn-group fa-4x">
+            <a ui-sref="applicationStatus" title="Application status (passive)">
+                <span class="fa fa-cloud text-muted"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="errors" title="Errors">
+                <span class="fa fa-chain-broken fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="metrics" title="Metrics">
+                <span class="fa fa-bar-chart-o fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="systemLog" title="System log">
+                <span class="fa fa-list-alt fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="remoteCommand" title="Remote command">
+                <span class="fa fa-caret-square-o-right fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="remoteShell" title="Remote Shell">
+                <span class="fa fa-terminal fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="updates" title="Updates">
+                <span class="fa fa-cloud-download fa-4x"></span>
+            </a>
+        </li>
+
+        <!-- AI / diagnostic surfaces. Direct entry points so they get the same
+             prominence as the cluster-status tiles. Also reachable via /#/support. -->
+        <li class="btn btn-group">
+            <a ui-sref="claudeChat" title="AI Chat — Claude / Ollama / Foundry diagnostic assistant">
+                <span class="fa fa-comments fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="monitor" title="Monitor — ambient AI suggestions with heal/fix actions">
+                <span class="fa fa-heartbeat fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="appInsights" title="App Insights — KQL browser across configured targets">
+                <span class="fa fa-line-chart fa-4x"></span>
+            </a>
+        </li>
+        <li class="btn btn-group">
+            <a ui-sref="support" title="Support — landing page grouping AI Chat, Monitor, App Insights">
+                <span class="fa fa-life-ring fa-4x"></span>
+            </a>
+        </li>
+    </ul>
+</div>

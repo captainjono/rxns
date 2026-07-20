@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Rxns.Hosting;
 using Rxns.Xamarin.Features.Navigation;
 
 namespace Rxns.Autofac
@@ -7,10 +8,11 @@ namespace Rxns.Autofac
     {
         protected override void Load(ContainerBuilder cb)
         {
-            cb.RegisterType<PhoneNavigationOrchestrator>().AsImplementedInterfaces().SingleInstance();
-            cb.RegisterType<NavigationEventGenerator>().AsImplementedInterfaces().SingleInstance();
-            cb.RegisterType<AutoFacPageResolver>().AsImplementedInterfaces().SingleInstance();
-            cb.RegisterType<RxnAppNavigator>().AsImplementedInterfaces().SingleInstance();
+            new AutofacRxnLifecycle(cb)
+                .CreatesOncePerApp<PhoneNavigationOrchestrator>()
+                .CreatesOncePerApp<NavigationEventGenerator>()
+                .CreatesOncePerApp<AutoFacPageResolver>()
+                .CreatesOncePerApp<RxnAppNavigator>();
 
             base.Load(cb);
         }

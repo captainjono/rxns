@@ -61,7 +61,7 @@ namespace Rxns.Xamarin.Features.Automation
 
         public IObservable<bool> AutomateUserActions(Page page, RxnPageModel model, IObservable<IRxn> actions, Action<IRxn> publish)
         {
-            return RxObservable.DfrCreate<bool>(o =>
+            return Rxn.DfrCreate<bool>(o =>
             {
                 var state = new InterceptState(model, actions, publish);
                 var resources = new CompositeDisposable(new DisposableAction(() => { Debug.WriteLine("<<<<Disposing of {0}>>>>>", model.GetType().Name); }));
@@ -78,7 +78,7 @@ namespace Rxns.Xamarin.Features.Automation
 
                             .Select(_ =>
                             {
-                                return Observable.Defer(() => RxObservable.Create(() =>
+                                return Observable.Defer(() => Rxn.Create(() =>
                                 {
                                     var timer = Stopwatch.StartNew();
                                     var r = FindAllCommandHolder(((ContentPage)page).Content as IViewContainer<View>, state);
@@ -190,7 +190,7 @@ namespace Rxns.Xamarin.Features.Automation
                         propertyNameOfCommand = "{0}%{1}".FormatWith(propertyNameOfCommand, id);
 
 
-                        RxnApp.UIScheduler.Run(() =>
+                        RxnAppCfg.UIScheduler.Run(() =>
                             hasCommand.Item1.GetPropertyDef(hasCommand.Item2).SetValue(hasCommand.Item1, new Command(p =>
                             {
                                 try

@@ -1,18 +1,21 @@
 ﻿using System;
 using System.Linq;
 using System.Runtime.Serialization;
-using Rxns.System.Collections.Generic;
+using System.Collections.Generic;
+using Rxns.Interfaces;
 
-namespace Rxns.Commanding
+
+namespace Rxns.DDD.Commanding
 {
     public abstract class ServiceCommand : IServiceCommand
     {
-        [IgnoreDataMember]
-        public Guid Id { get; private set; }
+        //[IgnoreDataMember]
+        public string Id { get; set; }
+
 
         public ServiceCommand()
         {
-            Id = Guid.NewGuid();
+            Id = Guid.NewGuid().ToString();
         }
 
         /// <summary>
@@ -32,18 +35,32 @@ namespace Rxns.Commanding
         /// <param name="command"></param>
         /// <param name="resolver"></param>
         /// <returns></returns>
-        public static IServiceCommand Parse(string command, IServiceCommandFactory resolver)
+        public static IEnumerable<IServiceCommand> Parse(string c, IServiceCommandFactory resolver)
         {
-            var cmdTokens = command.Split(' ');
-            var cmdType = cmdTokens[0];
+            if (c.IsNullOrWhitespace())
+            {
+                yield break;
+            }
 
+            foreach (var command in c.Split(';'))
+            {
+                var cmdTokens = command.Split(new[] {" "}, StringSplitOptions.RemoveEmptyEntries);
+                var cmdType = cmdTokens[0].Trim();
+
+                yield return ParseCommand(cmdType, cmdTokens, resolver);
+            }
+        }
+
+        private static IServiceCommand ParseCommand(string cmdType, string[] cmdTokens, IServiceCommandFactory resolver)
+        {
             try
             {
-                return resolver.Get(cmdType, cmdTokens.Skip(1).ToArray());
+                return resolver.Get(cmdType, cmdTokens.Skip(1).Select(v => v.Trim()).ToArray());
             }
             catch (Exception e)
             {
-                throw new ServiceCommandNotFound("Could not resolve cmd '{0}' with options '{1}' because {2}", cmdType, cmdTokens.Skip(1).ToStringEach(), e.Message);
+                throw new ServiceCommandNotFound("Could not resolve cmd '{0}' with options '{1}' because {2}",
+                    cmdType, cmdTokens.Skip(1).ToStringEach(), e.Message);
             }
         }
     }
@@ -56,9 +73,9 @@ namespace Rxns.Commanding
     //    /// </summary>
     //    /// <param name="cmd"></param>
     //    /// <returns></returns>
-    //    public static RemoteCommandEvent AsRemoteCommand(this IServiceCommand cmd)
+    //    public static RxnQuestion AsQuestion(this IServiceCommand cmd)
     //    {
-    //        return new RemoteCommandEvent
+    //        return new RxnQuestion
     //        {
     //            Action = SystemCommand.ServiceCommand,
     //            Options = cmd.ToString(),

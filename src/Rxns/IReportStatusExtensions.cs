@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using Rxns;
 using Rxns.Interfaces;
 using Rxns.Logging;
+using Rxns.Metrics;
 
-namespace Rxns
+namespace System.Reactive.Linq
 {
     /// <summary>
     /// Some handy fluent orientated extesions for IReportStatus
@@ -24,21 +26,29 @@ namespace Rxns
         {
             var subs = new CompositeDisposable();
 
-            var errorStream = reporter.Errors;
-            var infoStream = reporter.Information;
+            var errorStream = reporter?.Errors;
+            var infoStream = reporter?.Information;
 
             if (errors != null)
-                subs.Add(errorStream.Subscribe(errors));
+                errorStream?.Do(e => errors(e)).Until().DisposedBy(subs);
 
             if (information != null)
-                subs.Add(infoStream.Subscribe(information));
+                infoStream?.Do(e => information(e)).Until().DisposedBy(subs);
 
             return subs;
         }
 
-        public static IEnumerable<IDisposable> ReportToDebug(this IReportStatus reporter)
+        public static CompositeDisposable ReportToDebug(this IReportStatus reporter)
         {
-            return reporter.SubscribeAll(i => Debug.WriteLine(i), e => Debug.WriteLine(e));
+            if(Debugger.IsAttached)
+                return reporter.SubscribeAll(i => Debug.WriteLine(i), e => Debug.WriteLine(e));
+            else
+                return reporter.SubscribeAll(i => Console.WriteLine(i), e => Console.WriteLine(e));
+        }
+
+        public static CompositeDisposable ReportToConsole(this IReportStatus reporter)
+        {
+            return reporter.SubscribeAll(i => Console.WriteLine(i), e => Console.WriteLine(e));
         }
 
         public static CompositeDisposable SubscribeAll(this IEnumerable<IReportStatus> reporters, Action<LogMessage<string>> information = null, Action<LogMessage<Exception>> errors = null)
@@ -402,6 +412,41 @@ namespace Rxns
             another.Information.Subscribe(context.ReportInformation).DisposedBy(resources);
 
             return resources;
+        }
+
+        public static SystemLogMeta FromMessage(this LogMessage<string> msg)
+        {
+            return FromMessage(msg, null);
+        }
+
+        public static SystemLogMeta FromMessage(this LogMessage<string> msg, string systemName)
+        {
+            return new SystemLogMeta()
+            {
+                Level = msg.Level.ToString(),
+                Reporter = msg.Reporter,
+                Message = msg.Message,
+                Timestamp = msg.Timestamp,
+                SystemName = systemName
+            };
+        }
+
+        public static SystemLogMeta FromMessage(this LogMessage<Exception> msg)
+        {
+            return FromMessage(msg, null);
+        }
+
+        public static SystemLogMeta FromMessage(this LogMessage<Exception> msg, string systemName)
+        {
+            return new SystemLogMeta()
+            {
+                Level = msg.Level.ToString(),
+                Reporter = msg.Reporter,
+                Message = msg.Message?.Message,
+                StackTrace = msg.Message?.StackTrace,
+                Timestamp = msg.Timestamp,
+                SystemName = systemName
+            };
         }
     }
 }

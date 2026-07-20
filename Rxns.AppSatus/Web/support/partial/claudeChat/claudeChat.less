@@ -1,0 +1,209 @@
+/* Claude chat pane — mirrors the vanilla support-claude page layout
+   (header + scrolling transcript + composer) in Angular 1.x. */
+.claude-chat-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+    min-height: 480px;
+    padding: 6px 0;
+}
+
+// Light-grey chat area with white-ish bubbles so messages stand out from the
+// canvas and text contrast is preserved. Text colours bumped darker for
+// clearer reading on the lighter surfaces.
+.claude-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f3f5f7;
+    color: #1a1d24;
+    border: 1px solid #b8bdc4;
+    border-radius: 6px 6px 0 0;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .claude-title h2 {
+        font-size: 1.15em;
+        font-weight: 700;
+        margin: 0 0 2px;
+        color: #1a1d24;
+    }
+    .meta {
+        font-size: 0.85em;
+        color: #2d3340;
+
+        .muted { color: #5a6271; }
+
+        .engine-pill,
+        .model-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            border: 1px solid #b8bdc4;
+            border-radius: 12px;
+            padding: 1px 8px;
+            margin-right: 4px;
+
+            select {
+                background: transparent;
+                border: 0;
+                font-size: inherit;
+                color: #1a1d24;
+                font-weight: 600;
+                padding: 0 0 0 2px;
+                outline: none;
+                max-width: 220px;
+            }
+        }
+        .model-pill {
+            border-color: #c5cad1;
+            background: #f7f8fa;
+            em { color: #5a6271; font-style: normal; }
+        }
+    }
+
+    .claude-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .claude-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85em;
+        font-weight: normal;
+        margin: 0;
+        cursor: not-allowed;
+        color: #2d3340;
+    }
+}
+
+.claude-chat-area {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    background: #d8dce0;
+    color: #1a1d24;
+    border: 1px solid #b8bdc4;
+    border-top: 0;
+    padding: 18px;
+    min-height: 0;
+
+    .placeholder {
+        text-align: center;
+        padding: 50px 20px;
+        color: #2d3340;
+
+        h3 { font-size: 1.1em; margin: 0 0 8px; color: #0f1419; }
+    }
+}
+
+.claude-message {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    color: #1a1d24;
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: white;
+        font-size: 0.8em;
+        background: #94a3b8;
+    }
+    &.user .avatar { background: #2563eb; }
+    &.assistant .avatar { background: #059669; }
+    &.tool .avatar { background: #94a3b8; font-size: 0.65em; }
+
+    .body {
+        background: #ffffff;
+        color: #1a1d24;
+        border: 1px solid #b8bdc4;
+        border-radius: 8px;
+        padding: 10px 14px;
+        max-width: 80%;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    &.user .body { background: #c7defb; color: #0b2545; border-color: #93b5e0; }
+    &.tool .body {
+        background: #f3f5f7;
+        color: #1a1d24;
+        font-family: Consolas, Menlo, monospace;
+        font-size: 0.8em;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .muted { opacity: 0.7; color: #2d3340; }
+}
+
+.tool-call {
+    background: #fff3c0;
+    border: 1px solid #d4a017;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    font-size: 0.83em;
+    font-family: Consolas, Menlo, monospace;
+    color: #4a3000;
+
+    .name { font-weight: 700; color: #6e3900; }
+}
+
+.claude-composer {
+    padding: 12px 16px;
+    background: #f3f5f7;
+    color: #1a1d24;
+    border: 1px solid #b8bdc4;
+    border-radius: 0 0 6px 6px;
+    border-top: 0;
+    flex: 0 0 auto;
+
+    .row-input {
+        display: flex;
+        gap: 8px;
+    }
+    textarea {
+        flex: 1;
+        padding: 10px 14px;
+        background: #ffffff;
+        color: #1a1d24;
+        border: 1px solid #8a93a3;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.9em;
+        resize: vertical;
+        min-height: 50px;
+        max-height: 200px;
+    }
+    .btn-send {
+        padding: 0 22px;
+        background: #047857;
+        color: white;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+    }
+    .btn-send[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .hint {
+        font-size: 0.75em;
+        color: #2d3340;
+        margin-top: 6px;
+    }
+}

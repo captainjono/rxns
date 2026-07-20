@@ -2,18 +2,18 @@
 using System.Reactive;
 using System.Reactive.Linq;
 
-namespace Rxns.Commanding
+namespace Rxns.DDD.Commanding
 {
     /// <summary>
     /// Helper class for asynchronous requests that return a void response
     /// </summary>
     /// <typeparam name="TMessage">The type of void request being handled</typeparam>
-    public abstract class AsyncRequestHandler<TMessage> : IAsyncRequestHandler<TMessage, Unit>
+    public abstract class AsyncRequestHandler<TMessage> : IRxnMediatorPipeline<TMessage, Unit>
         where TMessage : IAsyncRequest
     {
         public IObservable<Unit> Handle(TMessage message)
         {
-            return RxObservable.Create(() => HandleCore(message).Wait());
+            return Rxn.Create(() => HandleCore(message));
         }
 
         /// <summary>

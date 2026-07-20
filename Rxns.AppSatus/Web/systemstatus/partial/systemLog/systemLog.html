@@ -1,0 +1,19 @@
+<div class="col-md-12" ng-controller="SystemLogCtrl">
+    <table class="table table-hover table-striped table-condensed h6">
+        <thead>
+        <th>Timestamp</th>
+        <th>Reporter</th>
+        <th>Level</th>
+        <th>Message</th>
+        </thead>
+        <tbody>
+
+            <tr ng-class="{error: entry.level === 'Error', infor: entry.level === 'Info', verbose: entry.level === 'Verbose'}" ng-repeat="entry in log">
+                <td>{{entry.timestamp | amDateFormat:'hh:mm:ss.SSS'}}</td>
+                <td>{{entry.reporter}}</td>
+                <td>{{entry.level}}</td>
+                <td>{{entry.message}}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

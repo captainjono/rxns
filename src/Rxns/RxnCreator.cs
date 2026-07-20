@@ -1,13 +1,19 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Security;
+using Rxns.DDD.Commanding;
+using Rxns.DDD.CQRS;
 using Rxns.Health;
 using Rxns.Interfaces;
-using Rxns.System.Collections.Generic;
+using Rxns.Logging;
+
 
 namespace Rxns
 {
@@ -17,6 +23,42 @@ namespace Rxns
     /// </summary>
     public class RxnCreator
     {
+        private static readonly string[] _allRoutes = new[]
+        {
+            typeof(IRxnProcessor<>).Name,
+            typeof(IDomainCommandHandler<,>).Name,
+            typeof(IDomainQueryHandler<,>).Name,
+            typeof(IReactTo<>).Name
+        };
+
+        public static Type[] DiscoverRoutes(string name, IResolveTypes container)
+        {
+            var reactorMolecules = container.Resolve<IRxnCfg[]>().Where(c => c.Reactor?.ToLower() == name.ToLower());
+            var reactor = container.Resolve<IManageReactors>().GetOrCreate(name);
+
+            return reactorMolecules.SelectMany(r => DiscoverRoutes(r)).Concat(reactor.Reactor.Molecules.SelectMany(r => DiscoverRoutes(r))).Distinct().ToArray();
+        }
+
+        public static Type[] DiscoverRoutes(object rxn)
+        {
+            var types = new List<Type>();
+
+
+            
+            types.Add(typeof(RxnQuestion));
+            //all these types listen for events which seperate the eventstream into what is essentially topics
+            //these topics map to routes
+
+
+            foreach (var route in _allRoutes)
+            {
+                types.AddRange(rxn.GetType().GetInterfaces().Where(i => i.Name.Equals(route, StringComparison.OrdinalIgnoreCase))
+                    .Select(pr => pr.GenericTypeArguments.First()).ToArray());
+            }
+
+            return types.ToArray();
+        }
+
         public static IDisposable AttachPublisher<TEvent>(object IRxnPublisher, Type evt, IReactor<TEvent> reactor)
         {
             var p = IRxnPublisher;
@@ -28,7 +70,7 @@ namespace Rxns
             }
             catch (Exception e)
             {
-                reactor.OnError(e, "Cannot configure publisher because of: {0}", e.Message);
+                reactor.OnError( new Exception("Cannot configure publisher because of: {0}".FormatWith(e.Message)));
                 return Disposable.Empty;
             }
 
@@ -68,7 +110,6 @@ namespace Rxns
                 if (p.ImplementsInterface(inputConfigInterface))
                 {
                     reactor.OnVerbose("Found configuration interface'");
-
                     //configure input stream
                     inputStream = reactor.Input.Where(e => e.GetType().IsAssignableTo(evt));
 
@@ -97,7 +138,7 @@ namespace Rxns
                         : inputStream.Subscribe(e => input.OnNext(e), reactor.OnError);
 
                 if (output != null)
-                    outputResource = output.Subscribe((processor as IReportStatus ?? reactor), e => reactor.Output.OnNext(e), (evnt,e) => OnError((processor as IReportStatus ?? reactor), processor, evnt, e));
+                    outputResource = output.Subscribe((processor as IReportStatus ?? reactor), e => reactor.Output.OnNext(e), (evnt, e) => OnError((processor as IReportStatus ?? reactor), processor, evnt, e));
 
                 return new CompositeDisposable(inputResource, outputResource);
             };
@@ -121,6 +162,7 @@ namespace Rxns
         public static Func<object, Type, IReactor<IRxn>, IScheduler, IDisposable> StartProcessorImpl =
             (processor, processorType, reactor, inputScheduler) =>
             {
+
                 IObservable<IRxn> inputStream = reactor.Input;
                 var shouldMonitorHealth = false;
                 string processorName = null;
@@ -139,14 +181,16 @@ namespace Rxns
                     var allProcessors = processor.GetType().GetInterfaces().Where(i => i.Name.Equals(interfaceName));
                     var allProcessorTypes = allProcessors.Select(pr => pr.GenericTypeArguments.First()).ToArray();
 
+                    reactor.Handles(allProcessorTypes);
+
                     if (!allProcessorTypes.AnyItems()) throw new NotSupportedException("processors must implement IRxnProcess<T :IRxn> to be connected with this method");
 
                     inputStream = inputStream.Where(e => allProcessorTypes.Any(evnt => e.GetType().IsAssignableTo(evnt)));
 
                     if (allProcessorTypes.Length > 1)
                         reactor.OnVerbose("Combining '{0}' interfaces into a single pipeline", allProcessorTypes.Length);
-                    else if(allProcessorTypes.Length == 1)
-                        reactor.OnVerbose("Creating single pipeline for IrxnProcessor<{0}>", allProcessorTypes.First().Name);
+                    else if (allProcessorTypes.Length == 1)
+                        reactor.OnVerbose("Creating single pipeline for IRxnProcessor<{0}>", allProcessorTypes.First().Name);
                 }
                 else
                 {
@@ -160,6 +204,8 @@ namespace Rxns
 
                 if (cfg != null)
                 {
+
+
                     reactor.OnVerbose("Found configuration interface");
 
                     inputStream = cfg.ConfigureInput(inputStream);
@@ -167,8 +213,10 @@ namespace Rxns
                     shouldMonitorHealth = cfg.MonitorHealth;
 
                     var healthReporter = processor as IReportHealth;
-                    processorName = healthReporter != null ? healthReporter.ReporterName : processor.GetType().Name;
+                    if (healthReporter != null) processorName = healthReporter.ReporterName;
                 }
+
+                if (processorName.IsNullOrWhitespace()) processorName = processor.GetType().Name;
 
 
                 Func<IRxn, IObservable<IRxn>> doDelivery;
@@ -178,7 +226,7 @@ namespace Rxns
                     doDelivery = e => processor.Invoke("Process", new object[] { e }) as IObservable<IRxn>; //p.Invoke("Process", new object[] {e}) as IObservable<IRxn>;
 
                 //todo: make integration neater
-                if (shouldMonitorHealth)
+                if (true)
                 {
                     var health = HealthMonitor.ForQueue<IRxn>(reactor, processorName);
                     inputStream = inputStream.Monitor(health.Select(h => h.Before()).ToArray());
@@ -193,6 +241,7 @@ namespace Rxns
                             var result = doDelivery(evnt);
 
                             //publish all events that resulted from the processing
+
                             if (result != null)
                                 result
                                     .MonitorR(health.Select(h => h.After()).ToArray())
@@ -222,6 +271,38 @@ namespace Rxns
                     });
                 }
             };
+
+        public static IObservable<IRxn> MonitorHealth<T>(IReportHealth doctor, string processorName,out Func<IEnumerable<IMonitorAction<IRxn>>> before, Func<IObservable<IRxn>> doDelivery)
+        {
+            var health = HealthMonitor.ForQueue<IRxn>(doctor, processorName);
+            before = () => health.Select(h => h.Before());
+
+            //let them hook it up
+            //if (inputScheduler != null) inputStream = inputStream.ObserveOn(inputScheduler);
+
+            //return inputStream.Subscribe(processor as IReportStatus ?? reactor, evnt =>
+            //{
+            try
+            {
+                var result = doDelivery();
+
+                //publish all events that resulted from the processing
+
+                if (result != null)
+                    return result
+                        .MonitorR(health.Select(h => h.After()).ToArray());
+
+
+            }
+            catch (Exception e)
+            {
+
+                OnError(ReportStatus.Log, doctor, null, e);
+            }
+            //});
+            return Rxn.Empty();
+
+        }
 
         /// <summary>
         /// Called each time an error occours during a reaction. Override this static method if you wish to override the default behaviour
@@ -255,6 +336,240 @@ namespace Rxns
             }
 
             return getReactorByName(ReactorManager.DefaultReactorName);
+        }
+
+        public static bool? IsIsolatedProcess(IRxnFilterCfg cfg, string reactorName)
+        {
+            if (reactorName == ReactorManager.DefaultReactorName) return null;
+            if (!cfg.IsolateReactors.AnyItems()) return null;
+
+            return cfg.IsolateReactors.Contains(reactorName, new CaseInsensitveEqualityComparer());
+        }
+        public static Func<string, RxnMode, IResolveTypes, IReactor<IRxn>> getReactorByName = (reactorName, cfg, con) => con.Resolve<IManageReactors>().StartReactor(reactorName, cfg).Reactor;
+
+        public static IDisposable StartRxnPublishers(IReportStatus logger, IResolveTypes container, Type[] events)
+        {
+            var startedProcessors = new List<dynamic>();
+            var resources = new CompositeDisposable();
+            var cfg = container.Resolve<IRxnFilterCfg>();
+
+            foreach (var @event in events.EmptyIfNull())
+            {
+                try
+                {
+                    //now we create an rxnProcessor of each IRxn discovered, then ask the container
+                    //for any interfaces which implement them.
+                    var processorForEvent = typeof(IRxnPublisher<>).MakeGenericType(@event);
+                    var allProcessorsForEventType = typeof(IEnumerable<>).MakeGenericType(processorForEvent);
+                    var allProcessors = (IEnumerable<dynamic>)container.Resolve(allProcessorsForEventType);
+
+                    var distinctProcessors = allProcessors.Distinct().ToArray();
+                    //now register any processors found with the subscription to the events they are interested in
+                    foreach (var publisher in distinctProcessors)
+                    {
+                        var pcfg = publisher as IRxnCfg;
+
+                        var mode = pcfg?.Mode ?? RxnMode.InProcess;
+                        var reactor = RxnCreator.GetReactorFor(publisher as object, name => getReactorByName(name, mode, container));
+
+                        var isOutOfProcess = mode == RxnMode.OutOfProcess;
+                        var outOfProcessReactor = pcfg?.Reactor;
+
+                        var isolationState = IsIsolatedProcess(cfg, reactor.Name);
+                        if (isolationState == null)
+                        {
+                            //normal
+                        }
+                        else if (!isolationState.Value)
+                        {
+                            logger.OnVerbose($"Bypassing '{publisher.GetType().Name}' due to isolation mode being active {cfg.IsolateReactors.ToStringEach()}");
+                            return Disposable.Empty;
+                        }
+
+                        if (isOutOfProcess && outOfProcessReactor.IsNullOrWhitespace())
+                        {
+                            throw new Exception("Cant out of process on default reactor");
+                        }
+                        else if (isOutOfProcess)
+                        {
+
+                            IDisposableExtensions.DisposedBy(reactor.Connect(publisher), resources);
+
+                            var startupReactor = getReactorByName(pcfg.Reactor, RxnMode.OutOfProcess, container);
+                            return Disposable.Empty;
+                        }
+
+                        IDisposableExtensions.DisposedBy(reactor.Connect(publisher), resources);
+                    }
+                    startedProcessors.AddRange(distinctProcessors); //so we need to keep a list processors we see so we dont attach them twice
+
+                }
+                catch (Exception e)
+                {
+                    logger.OnError(e);
+                }
+            }
+
+            return resources;
+        }
+
+        public static IDisposable StartReactions(IReportStatus logger, IResolveTypes container, Type[] events, IScheduler eventDelivery)
+        {
+            var reactors = new CompositeDisposable();
+            var cfg = container.Resolve<IRxnFilterCfg>();
+
+            foreach (var @event in events.EmptyIfNull())
+            {
+                try
+                {
+                    var processorForEvent = typeof(IReactTo<>).MakeGenericType(@event);
+                    var allProcessorsForEventType = typeof(IEnumerable<>).MakeGenericType(processorForEvent);
+                    var allProcessors = (IEnumerable<dynamic>)container.Resolve(allProcessorsForEventType);
+
+                    //now attach any processors found with the subscription to the events they are interested in
+                    foreach (object reaction in allProcessors.Distinct())
+                    {
+                        var pcfg = reaction as IRxnCfg;
+
+                        var mode = pcfg?.Mode ?? RxnMode.InProcess;
+                        var isOutOfProcess = mode == RxnMode.OutOfProcess;
+                        var outOfProcessReactor = pcfg?.Reactor;
+
+                        var reactor = RxnCreator.GetReactorFor(reaction, name => getReactorByName(name, mode, container));
+
+                        var isolationState = IsIsolatedProcess(cfg, reactor.Name);
+                        if (isolationState == null)
+                        {
+                            //normal
+                        }
+                        else if (!isolationState.Value)
+                        {
+                            logger.OnVerbose($"Bypassing '{reaction.GetType().Name}' due to isolation mode being active {cfg.IsolateReactors.ToStringEach()}");
+                            return Disposable.Empty;
+                        }
+
+                        if (isOutOfProcess && outOfProcessReactor.IsNullOrWhitespace())
+                        {
+                            throw new Exception("Cant out of process on default reactor");
+                        }
+                        else if (isOutOfProcess)
+                        {
+                            reactor.Handles(reaction.GetType().GenericTypeArguments.First());
+
+                            return getReactorByName(outOfProcessReactor, RxnMode.OutOfProcess, container);
+                        }
+
+                        IDisposableExtensions.DisposedBy(reactor.Connect((IReactTo<IRxn>)reaction, eventDelivery), reactors);
+
+                        reactors.Add(reactor);
+                    }
+                }
+                catch (Exception e)
+                {
+                    logger.OnError(e);
+                }
+            }
+
+            return reactors;
+        }
+
+        public static IDisposable StartRxnProcessors(IReportStatus logger, IResolveTypes container, Type[] events, IScheduler eventDelivery)
+        {
+            var startedProcessors = new List<dynamic>();
+            var resources = new CompositeDisposable();
+            var cfg = container.Resolve<IRxnFilterCfg>();
+
+            foreach (var @event in events.EmptyIfNull().Concat(new[] { typeof(IDomainCommand), typeof(IDomainQuery) }))
+            {
+                try
+                {
+                    //now we create an rxnProcessor of each IRxn discovered, then ask the container
+                    //for any interfaces which implement them.
+                    var processorForEvent = typeof(IRxnProcessor<>).MakeGenericType(@event);
+                    var allProcessorsForEventType = typeof(IEnumerable<>).MakeGenericType(processorForEvent);
+                    dynamic[] allProcessors;
+                    try
+                    {
+                        allProcessors = ((IEnumerable<dynamic>)container.Resolve(allProcessorsForEventType)).ToArray();
+                    }
+                    catch (Exception resolveEx)
+                    {
+                        // IEnumerable resolution failed — one bad processor kills the collection.
+                        // Try to resolve the known concrete types individually as a fallback.
+                        logger.OnWarning($"Bulk resolve failed for {@event.Name}: {resolveEx.Message}. Attempting individual resolution.");
+                        var recovered = new System.Collections.Generic.List<dynamic>();
+                        var ableToBeCreated = container.Resolve<Hosting.IListKnownTypes>();
+                        foreach (var svcType in System.Linq.Enumerable.Where(ableToBeCreated.Services, s => processorForEvent.IsAssignableFrom(s)))
+                        {
+                            try
+                            {
+                                var p = container.Resolve(svcType);
+                                if (p != null) recovered.Add(p);
+                            }
+                            catch { /* skip unresolvable processor */ }
+                        }
+                        allProcessors = recovered.ToArray();
+                        if (allProcessors.Length > 0)
+                            logger.OnInformation($"Recovered {allProcessors.Length} processor(s) for {@event.Name}");
+                    }
+
+                    //now register any processors found with the subscription to the events they are interested in
+                    var distinctProcessors = allProcessors.Distinct().ToArray();
+                    foreach (var p in distinctProcessors.Except(startedProcessors))
+                    {
+                        try
+                        {
+                            var pcfg = p as IRxnCfg;
+                            var outOfProcessReactor = pcfg?.Reactor;
+
+                            var reactor = RxnCreator.GetReactorFor((object)p, name => getReactorByName(name, pcfg?.Mode ?? RxnMode.InProcess, container));
+
+
+                            var isolationState = IsIsolatedProcess(cfg, reactor.Name);
+                            var isOutOfProcess = (pcfg?.Mode == RxnMode.OutOfProcess) && (isolationState.HasValue && !isolationState.Value);
+
+                            if (isolationState == null)
+                            {
+                                //normal
+                            }
+                            else if (!isolationState.Value)
+                            {
+                                logger.OnVerbose($"Bypassing '{p.GetType().Name}' due to isolation mode being active {cfg.IsolateReactors.ToStringEach()}");
+                                continue;
+                            }
+
+                            if (isOutOfProcess && outOfProcessReactor.IsNullOrWhitespace())
+                            {
+                                logger.OnWarning($"Cannot run '{p.GetType().Name}' out of process on default reactor, skipping");
+                                continue;
+                            }
+                            else if (isOutOfProcess)
+                            {
+                                var startupReactor = getReactorByName(pcfg?.Reactor, RxnMode.OutOfProcess, container);
+                                continue;
+                            }
+
+                            logger.OnInformation($"Connecting {reactor.Name}");
+
+                            //this method will hookup ALL process methods of a processor in one call
+                            IDisposableExtensions.DisposedBy(reactor.Connect((object)p, eventDelivery), resources);
+                        }
+                        catch (Exception pe)
+                        {
+                            // Log and skip this processor — don't kill other processors for the same event type
+                            logger.OnError(new Exception($"Failed to wire processor '{p.GetType().Name}' for event {@event.Name}: {pe.Message}", pe));
+                        }
+                    }
+
+                    startedProcessors.AddRange(distinctProcessors); //so we need to keep a list processors we see so we dont attach them twice
+                }
+                catch (Exception e)
+                {
+                    logger.OnError(new Exception($"StartRxnProcessors failed for event {@event.Name}: {e.Message}", e));
+                }
+            }
+
+            return resources;
         }
 
     }

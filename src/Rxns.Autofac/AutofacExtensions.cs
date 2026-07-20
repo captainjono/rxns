@@ -5,7 +5,9 @@ using System.Reflection;
 using Autofac.Builder;
 using Autofac.Core;
 using Rxns.Interfaces;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
+using Rxns.Logging;
+using Rxns.Scheduling;
 
 namespace Autofac
 {
@@ -62,6 +64,31 @@ namespace Autofac
             }
         }
 
+
+        /// <summary>
+        /// Registers all ScheduableTasks from the assembly containing the specified type so that they can be resolved
+        /// via the container and as a named instance from json shorthand aka tasks.json
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cb"></param>
+        /// <param name="c"></param>
+        /// <returns></returns>
+        public static void RegisterTasks<T>(
+            this ContainerBuilder cb)
+        {
+
+            //register all SchedulableTask's as they are created dynamically in various places from the container
+            foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<SchedulableTask>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
+            {
+                cb.RegisterType(type).AsImplementedInterfaces().AsSelf().Named<ISchedulableTask>(type.Name).InstancePerDependency();
+            }
+        }
+
+        public static void RegisterEvent<T>(this ContainerBuilder cb)
+        {
+            cb.RegisterType<T>().AsSelf().InstancePerDependency();
+        }
+
         public static void RegisterEvents(this ContainerBuilder cb, Type assembly)
         {
             foreach (var type in assembly.GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IRxn>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
@@ -74,7 +101,7 @@ namespace Autofac
         {
             foreach (var type in typeof(T).GetTypeInfo().Assembly.GetTypes().Where(t => t.IsAssignableTo<IServiceCommand>() && !t.GetTypeInfo().IsAbstract && t.GetTypeInfo().IsClass))
             {
-                cb.RegisterType(type).As<IServiceCommand>().Named<IServiceCommand>(type.Name).InstancePerDependency();
+                cb.RegisterType(type).AsSelf().As<IServiceCommand>().Named<IServiceCommand>(type.Name.ToLower().LogDebug("REGISTERED")).InstancePerDependency();
             }
         }
 
@@ -99,9 +126,9 @@ namespace Autofac
         internal class StartableBootstrap<T> : IStartable
         {
             private readonly IComponentContext _context;
-            private readonly IContainerEvents _systemEvents;
+            private readonly IAppEvents _systemEvents;
 
-            public StartableBootstrap(IComponentContext context, IContainerEvents systemEvents)
+            public StartableBootstrap(IComponentContext context, IAppEvents systemEvents)
             {
                 _context = context;
                 _systemEvents = systemEvents;

@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net.Http;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading;
+using System.Threading.Tasks;
 using Rxns;
 
 namespace System.Reactive
@@ -15,99 +17,8 @@ namespace System.Reactive
     /// <summary>
     /// Extensions for the observable namespace
     /// </summary>
-    public static class IObservableExtensions
+    public static partial class IObservableExtensions
     {
-        /// <summary>
-        /// Throttles the source sequence to the specified number of items,
-        /// resetting the count each time a signal is observed
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="source"></param>
-        /// <param name="signal">The signaling sequence that resets the item count</param>
-        /// <param name="itemsForEachSignal">The maximum number of items passed through for each signal</param>
-        /// <returns></returns>
-        public static IObservable<T> Throttle<T>(this IObservable<T> source, IObservable<Unit> signal, int itemsForEachSignal)
-        {
-            var deferred = new ConcurrentQueue<T>();
-            var items = new ReplaySubject<T>();
-            var sentItems = 0;
-
-            Func<T, bool> send = fm =>
-            {
-                if (Interlocked.Increment(ref sentItems) <= (itemsForEachSignal))
-                {
-                    items.OnNext(fm);
-                    return true;
-                }
-                else
-                {
-                    deferred.Enqueue(fm);
-                    return false;
-                }
-            };
-
-            var signalSub = signal.Subscribe(_ =>
-            {
-                try
-                {
-                    Interlocked.Exchange(ref sentItems, 0);
-
-                    while (true)
-                    {
-                        T next;
-                        if (deferred.TryDequeue(out next))
-                        {
-                            if (!send(next))
-                                break;
-                        }
-                        else
-                        {
-                            if (deferred.IsEmpty)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    items.OnError(e);
-                }
-            });
-
-            var sourceSub = source.Subscribe(fm =>
-            {
-                send(fm);
-            },
-                error =>
-                {
-                    items.OnError(error);
-                    signalSub.Dispose();
-                },
-                onCompleted: () =>
-                {
-                    items.OnCompleted();
-                    signalSub.Dispose();
-                });
-
-            return items;
-        }
-
-        public static IObservable<T> DoBuffered<T>(this IObservable<T> source, Action<T> @do, TimeSpan doEvery)
-        {
-            return RxObservable.DfrCreate<T>(o => source.Subscribe(o))
-                               .Throttle(doEvery)
-                               .Do(@do);
-        }
-        
-        public static IObservable<T> Throttle<T>(this IObservable<T> source, IObservable<Unit> signal, int initalPool, int itemsForEachSignal)
-        {
-            if (initalPool < 1) throw new ArgumentException("must be greater then zero", "initalPool");
-
-            var pool = source.Take(initalPool - 1);
-            return source.Skip(initalPool - 1).Throttle(signal, itemsForEachSignal).Merge(pool);
-        }
-
         public static IObservable<T> ToObservable<T>(this T obj)
         {
             return Observable.Return(obj);
@@ -121,6 +32,11 @@ namespace System.Reactive
         public static T WaitR<T>(this IObservable<T> obj)
         {
             return obj == null ? default(T) : obj.ToArray().Wait().FirstOrDefault();
+        }
+
+        public static Task<T> ToResult<T>(this T t)
+        {
+            return Task.FromResult(t);
         }
 
 
@@ -141,6 +57,11 @@ namespace System.Reactive
 
                 return Disposable.Empty;
             });
+        }
+
+        public static IObservable<T> ToObservable<T>(this Func<T> action, TimeSpan tick, IScheduler ticks = null)
+        {
+            return Observable.Interval(TimeSpan.FromSeconds(1), ticks ?? RxnSchedulers.Default).Select(_ => action()).Publish().RefCount();
         }
 
         public static IObservable<TResult> ContinueWith<TSource, TResult>(this IObservable<TSource> source, Func<IObservable<TResult>> continuation)
@@ -289,7 +210,7 @@ namespace System.Reactive
         /// <returns></returns>
         public static IObservable<T> BufferFirstLast<T>(this IObservable<T> source, TimeSpan ignorePeriod, bool notifyFirst = true, bool notifyLast = true, IScheduler ignoreScheduler = null)
         {
-            return Observable.Defer<T>(() => RxObservable.Create<T>(o =>
+            return Observable.Defer<T>(() => Rxn.Create<T>(o =>
             {
                 T last = default(T);
                 IDisposable timer = null;
@@ -378,12 +299,14 @@ namespace System.Reactive
             return source.SelectMany(t => trigger.When(t) ? trigger.Do(t) : new[] { t });
         }
 
+
+
         public static BufferedObservable<T> BufferFirstLastDistinct<T>(this IObservable<T> source, Func<T, object> distinctSelector, TimeSpan ignorePeriod, bool notifyFirst = true, bool notifyLast = true, IScheduler ignoreScheduler = null)
         {
             Action doFlush = null;
             Action flushBuffer = () => { if (doFlush != null) doFlush(); }; //omg what a hack but meh, it works!
 
-            return new BufferedObservable<T>(Observable.Defer<T>(() => RxObservable.Create<T>(o =>
+            return new BufferedObservable<T>(Observable.Defer<T>(() => Rxn.Create<T>(o =>
             {
                 T last = default(T);
                 object distinct = null;
@@ -465,6 +388,101 @@ namespace System.Reactive
             {
                 return _wrapped.Subscribe(observer);
             }
+        }
+    }
+
+    public interface IAmStateful
+    {
+        IObservable<bool> IsRunning { get; }
+    }
+    public static partial class IObservableExtensions
+    {
+        /// <summary>
+        /// Returns a value only when all the groups IsRunning condition is
+        /// the same as the input value
+        /// </summary>
+        /// <param name="groups">The groups to watch</param>
+        /// <param name="isRunning">The state to watch for</param>
+        /// <returns>When the state is true for all groups</returns>
+        public static IObservable<bool> WhenAllRunning(this IEnumerable<IAmStateful> groups, bool isRunning)
+        {
+            if (!groups.Any())
+                return Observable.Return(true);
+
+            return groups.Select(g => g.IsRunning)
+                .CombineLatest(a => a.All(isrunning => isrunning == isRunning)) //make sure all are not running
+                .SkipWhile(cond => !cond)
+                .FirstAsync(); //only produce a value when all arnt running
+        }
+
+        public static IObservable<T> CancelsWith<T>(this IObservable<T> task, IObservable<T> cancelObservable, T cancelationValue)
+        {
+            return Observable.Create<T>(o =>
+            {
+                var c = new CompositeDisposable();
+
+                cancelObservable.Subscribe(value =>
+                {
+                    if (value.Equals(cancelationValue))
+                        o.OnError(new TaskCanceledException("Cancelled"));
+                }).DisposedBy(c);
+
+                return task.Subscribe(o).DisposedBy(c);
+            });
+        }
+
+
+        public static IObservable<T> CancelsWith<T>(this IObservable<T> task, IObservable<T> cancelObservable, Predicate<T> whereClause = null)
+        {
+            return Observable.Create<T>(o =>
+            {
+                var c = new CompositeDisposable();
+
+                cancelObservable.Subscribe(value =>
+                {
+                    if (whereClause == null || whereClause(value))
+                        o.OnError(new TaskCanceledException("Cancelled"));
+                }).DisposedBy(c);
+
+                return task.Subscribe(o).DisposedBy(c);
+            });
+        }
+
+        public static T Value<T>(this IObservable<T> item)
+        {
+
+            return item.Take(1).Wait();
+        }
+
+        public static void SetValue<T>(this BehaviorSubject<T> item, T newValue)
+        {
+            item.OnNext(newValue);
+        }
+
+        public static IDisposable SubscribeWeakly<T, TTarget>(this IObservable<T> observable, TTarget target, Action<TTarget, T> onNext) where TTarget : class
+        {
+            var reference = new WeakReference(target);
+
+            if (onNext.Target != null)
+            {
+                throw new ArgumentException("onNext must refer to a static method, or else the subscription will still hold a strong reference to target");
+            }
+
+            IDisposable subscription = null;
+            subscription = observable.Subscribe(item =>
+            {
+                var currentTarget = reference.Target as TTarget;
+                if (currentTarget != null)
+                {
+                    onNext(currentTarget, item);
+                }
+                else
+                {
+                    subscription.Dispose();
+                }
+            });
+
+            return subscription;
         }
     }
 }

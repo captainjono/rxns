@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using System.Windows.Input;
 using Rxns.Interfaces;
-using Rxns.System.Collections.Generic;
 
-namespace Rxns.Commanding
+
+namespace Rxns.DDD.Commanding
 {
     public class RxnCommand : IRxnCommand
     {

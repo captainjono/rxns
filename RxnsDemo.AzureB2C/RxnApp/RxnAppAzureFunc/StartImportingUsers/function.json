@@ -1,0 +1,11 @@
+﻿{
+  "bindings": [
+    {
+      "name": "StartImportOfUsersIntoTenantCmd",
+      "type": "ImportController",
+      "direction": "in",
+      "queueName": "start-import-users",
+      "connection": "rxnsfuncapps_STORAGE"
+    }
+  ]
+}

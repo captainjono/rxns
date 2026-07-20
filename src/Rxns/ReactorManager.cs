@@ -1,11 +1,17 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using Rxns.Commanding;
+using Rxns.DDD.Commanding;
+using Rxns.Hosting;
+using Rxns.Hosting.Cluster;
 using Rxns.Interfaces;
 using Rxns.Logging;
-using Rxns.System.Collections.Generic;
+
 
 namespace Rxns
 {
@@ -48,6 +54,53 @@ namespace Rxns
         }
     }
 
+    public interface IRxnFilterCfg
+    {
+        /// <summary>
+        /// a ; seprated list of reactors to start only
+        /// will always start the default reactor
+        /// </summary>
+        string[] IsolateReactors { get; }
+    }
+
+    public class AllowAllReactions : IRxnFilterCfg
+    {
+        public string[] IsolateReactors => new string[] {};
+    }
+
+    public class OnlyStartTheseReactors : IRxnFilterCfg
+    {
+        public OnlyStartTheseReactors(params string[] isolateReactors)
+        {
+            IsolateReactors = isolateReactors;
+        }
+
+        public string[] IsolateReactors { get; }
+    }
+
+
+    public enum RxnMode
+    {
+        InProcess,
+        OutOfProcess,
+        Cloud,
+        Main,
+        Supervisor
+    }
+
+    public class CaseInsensitveEqualityComparer : EqualityComparer<string>
+    {
+        public override bool Equals(string x, string y)
+        {
+            return String.Equals(x, y, StringComparison.CurrentCultureIgnoreCase);
+        }
+
+        public override int GetHashCode(string obj)
+        {
+            return obj.ToLower().GetHashCode();
+        }
+    }
+    
     /// <summary>
     /// An implementation of a reactor manager targeted at an rxn sourced system. This reactor manager can start and stop reactors at your becon command,
     /// as well as historicall replay events into specific ones as the your needs dictate.
@@ -57,15 +110,23 @@ namespace Rxns
         private readonly IRxnManager<IRxn> _rxnManager;
         private readonly Func<string, IReactor<IRxn>> _reactorFactory;
         private readonly IRxnHistoryProvider _eventHistory;
+        private readonly IRxnFilterCfg _cfg;
+        private readonly IRxnClusterHost _cluster;
+        private readonly IRxnHostableApp _app;
+        private readonly IRxnCfg[] _rxnCfgs;
 
-        public readonly Dictionary<string, ReactorConnection> Reactors = new Dictionary<string, ReactorConnection>();
-        public static string DefaultReactorName = "default"; //i want to let users configure this, so no const
+        public Dictionary<string, ReactorConnection> Reactors { get; } = new Dictionary<string, ReactorConnection>();
+        public static string DefaultReactorName = "main"; //i want to let users configure this, so no const
 
-        public ReactorManager(IServiceCommandFactory cmdFactory, IRxnManager<IRxn> defaultReactorInputOutputStream, Func<string, Rxns.Interfaces.IReactor<IRxn>> reactorFactory, IRxnHistoryProvider eventHistory)
+        public ReactorManager(IRxnManager<IRxn> defaultReactorInputOutputStream, Func<string, IReactor<IRxn>> reactorFactory, IRxnHistoryProvider eventHistory, IRxnFilterCfg cfg, IRxnHostableApp app, IRxnCfg[] rxnCfgs, IRxnClusterHost cluster = null)
         {
             _rxnManager = defaultReactorInputOutputStream;
             _reactorFactory = reactorFactory;
             _eventHistory = eventHistory;
+            _cfg = cfg;
+            _cluster = cluster;
+            _app = app;
+            _rxnCfgs = rxnCfgs;
 
             //we want raw access to the eventManager, not via IrxnProcessor/IReactTo
             _rxnManager.CreateSubscription<StopReactor>().Do(r => StopReactor(r.Name)).Until().DisposedBy(this);
@@ -84,7 +145,7 @@ namespace Rxns
         //todo: convert to Run syntax
         public override IObservable<CommandResult> Start(string @from = null, string options = null)
         {
-            return RxObservable.Create(() =>
+            return Rxn.Create(() =>
             {
                 var @default = GetOrCreate(DefaultReactorName);
                 if (@default.Connection != null) return CommandResult.Success();
@@ -94,20 +155,36 @@ namespace Rxns
                 return CommandResult.Success();
             });
         }
-        
+
+
         public override IObservable<CommandResult> Stop(string @from = null)
         {
             return CommandResult.Failure("Cannot stop the reaction manager").ToObservable();
         }
 
-        public ReactorConnection StartReactor(string reactorName, Rxns.Interfaces.IReactor<IRxn> parent = null)
+        public ReactorConnection StartReactor(string reactorName, RxnMode mode = RxnMode.InProcess, IReactor<IRxn> parent = null)
         {
             OnVerbose("Locating reactor '{0}'", reactorName);
-
+            
+            var @new = GetOrCreate(reactorName);
             parent = parent ?? GetOrCreate(DefaultReactorName).Reactor;
 
-            var @new = GetOrCreate(reactorName);
             if (@new.Connection != null || reactorName == DefaultReactorName) return @new;
+            
+            mode = mode == RxnMode.OutOfProcess && !_cfg.IsolateReactors.Contains(reactorName, new CaseInsensitveEqualityComparer())
+                ? RxnMode.OutOfProcess
+                : RxnMode.InProcess;
+
+            OnVerbose($"{reactorName} set to {mode}");
+            
+            //we are the master node
+            if (mode == RxnMode.OutOfProcess)
+            {
+                OnInformation("Starting reactor in another process");
+                @new.Connection = _cluster.SpawnOutOfProcess(_app, reactorName, @new.Reactor.Route).Until();
+                return @new;
+            }
+
             @new.Connection = parent.Chain(@new.Reactor);
 
             OnInformation("Successfully started '{0}'", @new.Reactor.Name);
