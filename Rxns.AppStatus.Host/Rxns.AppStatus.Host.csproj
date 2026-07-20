@@ -7,6 +7,8 @@
     <RootNamespace>Rxns.AppStatus.Host</RootNamespace>
     <AssemblyName>Rxns.AppStatus.Host</AssemblyName>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Web SDK defaults IsPackable=false; this project ships as a library package. -->
+    <IsPackable>true</IsPackable>
     <Version>4.0.0</Version>
     <PackageReleaseNotes>4.0.0 — AppStatus.Host + Ai subsystems shipped as BETA. See PLAN.md.</PackageReleaseNotes>
     <OutputType>Library</OutputType>
