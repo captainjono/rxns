@@ -120,6 +120,42 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             Connect().Until(OnError);
         }
 
+        // Startup race. A worker boots before the arena is listening, so the first
+        // connect is refused. The error path retries - but that retry can land while
+        // the client is still transitioning (Connecting), and a deferred attempt used
+        // to return Disposable.Empty, which abandoned the chain permanently: nothing
+        // ever rescheduled. The worker then settled on the AppStatus fallback channel,
+        // so the arena never saw its status, WorkerDiscovered never fired, the worker
+        // pool stayed empty, and every dispatch hung with no error (VMSS 2026-08-25).
+        public const int ConnectRetrySeconds = 2;
+
+        /// <summary>
+        /// True while the transport is mid-transition, so an attempt now would be a
+        /// no-op. Deferring is correct; abandoning is not.
+        /// </summary>
+        public static bool ShouldDeferConnect(HubConnectionState state)
+        {
+            return state != HubConnectionState.Disconnected;
+        }
+
+        /// <summary>
+        /// Re-arms a deferred attempt: wait, look again, and fire as soon as the
+        /// transport is Disconnected. Stops the moment it reaches Connected, so a
+        /// healthy fleet pays nothing for this.
+        /// </summary>
+        public static IDisposable DeferConnect(IScheduler scheduler, Func<HubConnectionState> currentState, Action attempt, TimeSpan delay)
+        {
+            return Observable.Interval(delay, scheduler)
+                .TakeWhile(_ => currentState() != HubConnectionState.Connected)
+                .Where(_ => !ShouldDeferConnect(currentState()))
+                .Take(1)
+                .Do(_ => attempt())
+                // Until, not Subscribe: a throw out of attempt() is reported rather than
+                // surfacing as an unobserved exception - which is the exact failure mode this
+                // whole retry path exists to recover from.
+                .Until(e => $"SignalR deferred connect attempt failed: {e}".LogDebug());
+        }
+
         /// <summary>
         /// Connects to the SignalR hub specified in the Url
         /// </summary>
@@ -142,8 +178,9 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         connect = () =>
                         {
 
-                            //already connecting?
-                            if (client.State != HubConnectionState.Disconnected) return Disposable.Empty;
+                            //already connecting? defer and look again - never abandon.
+                            if (ShouldDeferConnect(client.State))
+                                return DeferConnect(DefaultScheduler, () => client.State, () => connect(), TimeSpan.FromSeconds(ConnectRetrySeconds));
 
                             lock (_isConnectedResources)
                             {

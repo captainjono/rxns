@@ -73,7 +73,7 @@ namespace Rxns.Redis
         {
             _streamName = streamName;
             _consumerGroup = consumerGroup ?? $"{streamName}-group";
-            _consumerId = $"{Environment.MachineName}-{Guid.NewGuid():N}".Substring(0, 20);
+            _consumerId = MakeConsumerId(Environment.MachineName);
             // Mode wins when explicitly set; otherwise fall back to the legacy
             // publishOnly bool so existing call-sites keep working unchanged.
             _mode = mode ?? (publishOnly ? RedisStreamMode.PublishOnly : RedisStreamMode.Bidirectional);
@@ -117,6 +117,24 @@ namespace Rxns.Redis
                 _cts = new CancellationTokenSource();
                 Task.Run(() => PollStream(_cts.Token));
             }
+        }
+
+        /// <summary>
+        /// Per-process consumer id. MUST be unique: the poll loop treats an entry whose
+        /// <c>from</c> equals this id as self-published and skip-and-acks it silently.
+        /// <para>The old form was <c>$"{MachineName}-{Guid}".Substring(0, 20)</c>, which threw the
+        /// GUID away entirely whenever the machine name was >= 20 chars. Every VMSS instance is
+        /// named <c>&lt;cluster&gt;00000N</c> (23 chars), so all of them collapsed to the SAME id -
+        /// e.g. <c>pwa-load-sequence000</c>. The arena then read all 187 worker heartbeats off the
+        /// stream, judged each one its own, acked it and delivered nothing. No error, no log: the
+        /// worker pool stayed empty and StartUnitTest was dispatched into nothing, so the run hung
+        /// after upload. Truncate the HOST part if you must, never the entropy.</para>
+        /// </summary>
+        public static string MakeConsumerId(string machineName)
+        {
+            var host = string.IsNullOrWhiteSpace(machineName) ? "host" : machineName;
+            if (host.Length > 12) host = host.Substring(0, 12);
+            return $"{host}-{Guid.NewGuid():N}";
         }
 
         public IObservable<T> Setup(IDeliveryScheme<T> postman)

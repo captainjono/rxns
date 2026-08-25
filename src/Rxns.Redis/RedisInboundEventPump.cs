@@ -1,4 +1,5 @@
 using System;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Rxns.DDD.Commanding;
@@ -53,6 +54,23 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
+        // A source fault used to kill the pump for good: Subscribe had no onError,
+        // so a Redis blip terminated the sequence and nothing ever resubscribed.
+        // Lossless mode then looked healthy while silently carrying nothing - the
+        // same shape as the SignalR startup race, one layer down.
+        public const int ResubscribeSeconds = 2;
+
+        /// <summary>
+        /// Resubscribes to <paramref name="source"/> after a fault, so the pump
+        /// survives a transport blip instead of dying silently.
+        /// </summary>
+        public static IObservable<T> KeepSubscribed<T>(Func<IObservable<T>> source, IScheduler scheduler, TimeSpan delay)
+        {
+            return Rxn.DfrCreate(source)
+                .Catch<T, Exception>(e => Observable.Throw<T>(e).DelaySubscription(delay, scheduler))
+                .Retry();
+        }
+
         public IObservable<CommandResult> Start(string from = null, string options = null)
         {
             // Only Redis-backed clients expose an Incoming observable; SignalR
@@ -63,24 +81,18 @@ namespace Rxns.Redis
             if (_appStatus is RedisAppStatusServiceClient redisClient)
             {
                 OnInformation("RedisInboundEventPump: piping RedisAppStatusServiceClient.Incoming -> local IRxnManager");
-                var sub = redisClient.Incoming
-                    .Subscribe(rxn =>
-                    {
-                        try
-                        {
-                            // Publish onto the local bus so type-based
-                            // subscriptions (RedisEventHub.WorkerHeartbeat,
-                            // command handlers, UI bridges) fire as if the
-                            // event had arrived in-process. .Until handles
-                            // any errors from downstream subscribers without
-                            // killing the pump.
-                            _localBus.Publish(rxn).Until(e => OnError(new Exception("Local bus republish failed", e)));
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError(new Exception("RedisInboundEventPump dispatch failed", ex));
-                        }
-                    });
+                var sub = KeepSubscribed(() => redisClient.Incoming, TaskPoolScheduler.Default, TimeSpan.FromSeconds(ResubscribeSeconds))
+                    // Publish onto the local bus so type-based subscriptions
+                    // (RedisEventHub.WorkerHeartbeat, command handlers, UI bridges) fire as if
+                    // the event had arrived in-process.
+                    .Do(rxn => _localBus.Publish(rxn)
+                        .Until(e => OnError(new Exception("Local bus republish failed", e))))
+                    // Until, not Subscribe: it catches and reports faults instead of letting one
+                    // bad event tear the pump down, which is the whole point of the resubscribe
+                    // above. A raw Subscribe with a hand-rolled try/catch duplicates what the
+                    // primitive already guarantees.
+                    .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
+
                 _resources.Add(sub);
             }
             else
