@@ -54,10 +54,8 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
-        // A source fault used to kill the pump for good: Subscribe had no onError,
-        // so a Redis blip terminated the sequence and nothing ever resubscribed.
-        // Lossless mode then looked healthy while silently carrying nothing - the
-        // same shape as the SignalR startup race, one layer down.
+        // A source fault must not end the pump: without a resubscribe, a Redis blip leaves
+        // lossless mode looking healthy while carrying nothing.
         public const int ResubscribeSeconds = 2;
 
         /// <summary>
@@ -87,10 +85,8 @@ namespace Rxns.Redis
                     // the event had arrived in-process.
                     .Do(rxn => _localBus.Publish(rxn)
                         .Until(e => OnError(new Exception("Local bus republish failed", e))))
-                    // Until, not Subscribe: it catches and reports faults instead of letting one
-                    // bad event tear the pump down, which is the whole point of the resubscribe
-                    // above. A raw Subscribe with a hand-rolled try/catch duplicates what the
-                    // primitive already guarantees.
+                    // Until, not Subscribe: reports a fault instead of letting one bad event tear
+                    // the pump down.
                     .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
 
                 _resources.Add(sub);

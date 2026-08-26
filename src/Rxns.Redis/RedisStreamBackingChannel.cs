@@ -122,13 +122,10 @@ namespace Rxns.Redis
         /// <summary>
         /// Per-process consumer id. MUST be unique: the poll loop treats an entry whose
         /// <c>from</c> equals this id as self-published and skip-and-acks it silently.
-        /// <para>The old form was <c>$"{MachineName}-{Guid}".Substring(0, 20)</c>, which threw the
-        /// GUID away entirely whenever the machine name was >= 20 chars. Every VMSS instance is
-        /// named <c>&lt;cluster&gt;00000N</c> (23 chars), so all of them collapsed to the SAME id -
-        /// e.g. <c>pwa-load-sequence000</c>. The arena then read all 187 worker heartbeats off the
-        /// stream, judged each one its own, acked it and delivered nothing. No error, no log: the
-        /// worker pool stayed empty and StartUnitTest was dispatched into nothing, so the run hung
-        /// after upload. Truncate the HOST part if you must, never the entropy.</para>
+        /// <para>Collisions are silent, so truncate the host part if you must - never the entropy.
+        /// Hosts sharing a prefix are the common case (a VMSS names its instances
+        /// <c>&lt;cluster&gt;00000N</c>), and a collision leaves every node discarding the others'
+        /// events as its own echo.</para>
         /// </summary>
         public static string MakeConsumerId(string machineName)
         {
