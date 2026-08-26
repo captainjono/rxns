@@ -120,23 +120,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             Connect().Until(OnError);
         }
 
-        // Startup race: a client that boots before its server is listening is refused, and the
-        // retry can land while the transport is still Connecting. Deferring must re-arm - a
-        // deferral that drops the chain leaves the client silently on the fallback channel.
         public const int ConnectRetrySeconds = 2;
 
-        /// <summary>
-        /// True while the transport is mid-transition, so an attempt now would be a no-op.
-        /// </summary>
         public static bool ShouldDeferConnect(HubConnectionState state)
         {
             return state != HubConnectionState.Disconnected;
         }
 
-        /// <summary>
-        /// Re-arms a deferred attempt: wait, look again, fire once the transport is Disconnected.
-        /// Stops on Connected, so a healthy fleet pays nothing for it.
-        /// </summary>
         public static IDisposable DeferConnect(IScheduler scheduler, Func<HubConnectionState> currentState, Action attempt, TimeSpan delay)
         {
             return Observable.Interval(delay, scheduler)
@@ -144,8 +134,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 .Where(_ => !ShouldDeferConnect(currentState()))
                 .Take(1)
                 .Do(_ => attempt())
-                // Until, not Subscribe: a throw out of attempt() is reported rather than becoming
-                // an unobserved exception.
                 .Until(e => $"SignalR deferred connect attempt failed: {e}".LogDebug());
         }
 
@@ -171,7 +159,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         connect = () =>
                         {
 
-                            //already connecting? defer and look again
+                            //already connecting?
                             if (ShouldDeferConnect(client.State))
                                 return DeferConnect(DefaultScheduler, () => client.State, () => connect(), TimeSpan.FromSeconds(ConnectRetrySeconds));
 

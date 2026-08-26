@@ -54,20 +54,7 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
-        // A source fault must not end the pump: without a resubscribe, a Redis blip leaves
-        // lossless mode looking healthy while carrying nothing.
         public const int ResubscribeSeconds = 2;
-
-        /// <summary>
-        /// Resubscribes to <paramref name="source"/> after a fault, so the pump
-        /// survives a transport blip instead of dying silently.
-        /// </summary>
-        public static IObservable<T> KeepSubscribed<T>(Func<IObservable<T>> source, IScheduler scheduler, TimeSpan delay)
-        {
-            return Rxn.DfrCreate(source)
-                .Catch<T, Exception>(e => Observable.Throw<T>(e).DelaySubscription(delay, scheduler))
-                .Retry();
-        }
 
         public IObservable<CommandResult> Start(string from = null, string options = null)
         {
@@ -79,14 +66,12 @@ namespace Rxns.Redis
             if (_appStatus is RedisAppStatusServiceClient redisClient)
             {
                 OnInformation("RedisInboundEventPump: piping RedisAppStatusServiceClient.Incoming -> local IRxnManager");
-                var sub = KeepSubscribed(() => redisClient.Incoming, TaskPoolScheduler.Default, TimeSpan.FromSeconds(ResubscribeSeconds))
-                    // Publish onto the local bus so type-based subscriptions
-                    // (RedisEventHub.WorkerHeartbeat, command handlers, UI bridges) fire as if
-                    // the event had arrived in-process.
+                var sub = Rxn.DfrCreate(() => redisClient.Incoming)
+                    .Catch<IRxn, Exception>(e => Observable.Throw<IRxn>(e)
+                        .DelaySubscription(TimeSpan.FromSeconds(ResubscribeSeconds), TaskPoolScheduler.Default))
+                    .Retry()
                     .Do(rxn => _localBus.Publish(rxn)
                         .Until(e => OnError(new Exception("Local bus republish failed", e))))
-                    // Until, not Subscribe: reports a fault instead of letting one bad event tear
-                    // the pump down.
                     .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
 
                 _resources.Add(sub);
