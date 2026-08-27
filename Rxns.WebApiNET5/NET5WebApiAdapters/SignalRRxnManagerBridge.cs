@@ -120,7 +120,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             Connect().Until(OnError);
         }
 
-        public const int ConnectRetrySeconds = 2;
+        public static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromSeconds(2);
 
         public static bool ShouldDeferConnect(HubConnectionState state)
         {
@@ -161,7 +161,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
 
                             //already connecting?
                             if (ShouldDeferConnect(client.State))
-                                return DeferConnect(DefaultScheduler, () => client.State, () => connect(), TimeSpan.FromSeconds(ConnectRetrySeconds));
+                                return DeferConnect(DefaultScheduler, () => client.State, () => connect(), ConnectRetryDelay);
 
                             lock (_isConnectedResources)
                             {

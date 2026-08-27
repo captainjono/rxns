@@ -54,7 +54,7 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
-        public const int ResubscribeSeconds = 2;
+        public static readonly TimeSpan ResubscribeDelay = TimeSpan.FromSeconds(2);
 
         public IObservable<CommandResult> Start(string from = null, string options = null)
         {
@@ -68,7 +68,7 @@ namespace Rxns.Redis
                 OnInformation("RedisInboundEventPump: piping RedisAppStatusServiceClient.Incoming -> local IRxnManager");
                 var sub = Rxn.DfrCreate(() => redisClient.Incoming)
                     .Catch<IRxn, Exception>(e => Observable.Throw<IRxn>(e)
-                        .DelaySubscription(TimeSpan.FromSeconds(ResubscribeSeconds), TaskPoolScheduler.Default))
+                        .DelaySubscription(ResubscribeDelay, TaskPoolScheduler.Default))
                     .Retry()
                     .Do(rxn => _localBus.Publish(rxn)
                         .Until(e => OnError(new Exception("Local bus republish failed", e))))
