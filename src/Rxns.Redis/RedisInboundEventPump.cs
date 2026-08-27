@@ -54,7 +54,7 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
-        public static readonly TimeSpan ResubscribeDelay = TimeSpan.FromSeconds(2);
+        public TimeSpan ResubscribeDelay { get; set; } = TimeSpan.FromSeconds(2);
 
         public IObservable<CommandResult> Start(string from = null, string options = null)
         {

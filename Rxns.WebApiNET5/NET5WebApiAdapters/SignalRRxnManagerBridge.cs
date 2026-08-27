@@ -120,7 +120,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             Connect().Until(OnError);
         }
 
-        public static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromSeconds(2);
+        public TimeSpan ConnectRetryDelay { get; set; } = TimeSpan.FromSeconds(2);
 
         public static bool ShouldDeferConnect(HubConnectionState state)
         {
