@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reactive;
 using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
@@ -49,7 +49,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 var host = Host.CreateDefaultBuilder(args)
                     .UseEnvironment("Development")
                     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
-                    .ConfigureLogging((a, l) => { l.ClearProviders(); l.AddProvider(new RxnsLogDebugProvider()); l.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information); })
+                    .ConfigureLogging((a, l) => { l.ClearProviders(); l.AddProvider(new RxnsLogDebugProvider()); /* Trace, so the host filters nothing and RxnsLogVerbosity decides - see RxnsLogVerbosity for why the level has to stay changeable at runtime. */ l.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace); })
                     .ConfigureWebHostDefaults(webHostBuilder =>
                     {
                         webHostBuilder
