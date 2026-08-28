@@ -56,7 +56,11 @@ namespace Rxns.Health.AppStatus
         public IObservable<IRxn> Process(IRxnQuestion command)
         {
             OnVerbose("Saw: {0}", command.Options);
-            if (!command.Destination.IsNullOrWhitespace() && command.Destination != _local.GetLocalBaseRoute())
+            // Compare NORMALISED routes. Senders lowercase the destination via AsRoute(), and the
+            // sibling IsFor() normalises both sides - this site did not, so a worker identifying as
+            // NoTenant\W1_0 rejected every command addressed to notenant\w1_0 and queued it forever.
+            // Live symptom: theBFG arena dispatched StartUnitTest, no worker accepted it, no test ran.
+            if (!command.Destination.IsNullOrWhitespace() && command.Destination.AsRoute() != _local.GetLocalBaseRoute().AsRoute())
             {
                 if (_statusStore == null) return null;
 
