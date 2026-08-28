@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Rxns.Health.AppStatus;
@@ -24,6 +24,18 @@ namespace Rxns.Hosting.Updates
         IEnumerable<IRxnQuestion> FlushCommands(string route);
 
         void Add(IRxnQuestion cmds);
+
+        /// <summary>
+        /// Whether this node can actually deliver <paramref name="cmds"/> to its destination - that
+        /// is, whether some registered channel owns a matching route.
+        ///
+        /// <para>Callers need this because <see cref="Add"/> queues anything it cannot place, betting
+        /// a future registration will claim it. That is right on a hub, which owns channels to every
+        /// node and may simply be racing a reconnect. It is wrong anywhere else: a worker handed a
+        /// command for a sibling has no channel to that sibling and never will, so the command sits
+        /// pending forever while the sender counts it as delivered.</para>
+        /// </summary>
+        bool CanRoute(IRxnQuestion cmds);
 
         /// <summary>
         /// Records that <paramref name="commandId"/> originated from

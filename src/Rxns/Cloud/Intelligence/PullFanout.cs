@@ -135,23 +135,38 @@ namespace Rxns.Cloud.Intelligence
         private readonly ConcurrentDictionary<string, byte> _knownMachines =
             new ConcurrentDictionary<string, byte>();
 
+        // Items this machine has taken over the run. Cumulative, not in-flight: work that spreads
+        // only while a machine is busy does not spread at all when items are short, because the
+        // first machine is idle again before the next item arrives and legitimately wins the race.
+        // Load generation wants the opposite - each item is a machine's worth of load, so it should
+        // land somewhere new whether or not the last one has finished.
+        private readonly ConcurrentDictionary<string, int> _takenByMachine =
+            new ConcurrentDictionary<string, int>();
+
         /// <summary>
-        /// True when this worker's machine is already running something and some other known machine
-        /// is not. Such a worker holds back briefly so the idle machine wins the next item - a bias,
-        /// not a lock: if nobody else takes it, this worker still does after the grace period, so no
-        /// item can strand and no deadlock is possible.
+        /// True when another known machine has taken less work than this one, or is idle while this
+        /// one is busy. Such a worker holds back briefly so the other machine wins the next item.
+        ///
+        /// <para>A bias, not a lock: if nobody else takes it, this worker still does once the grace
+        /// elapses, so no item can strand and there is no deadlock. Ordering by total taken gives
+        /// round-robin across machines for short items and honours busyness for long ones.</para>
         /// </summary>
-        private bool ShouldYieldToAnIdleMachine(string machine)
+        private bool ShouldYieldToAnotherMachine(string machine)
         {
             if (_getWorkerMachine == null || string.IsNullOrEmpty(machine)) return false;
-            if (_inFlightByMachine.TryGetValue(machine, out var mine) && mine <= 0) return false;
-            if (!_inFlightByMachine.ContainsKey(machine)) return false;
+
+            _takenByMachine.TryGetValue(machine, out var mineTaken);
+            _inFlightByMachine.TryGetValue(machine, out var mineBusy);
 
             foreach (var other in _knownMachines.Keys)
             {
                 if (other == machine) continue;
-                _inFlightByMachine.TryGetValue(other, out var theirs);
-                if (theirs <= 0) return true;
+
+                _takenByMachine.TryGetValue(other, out var theirsTaken);
+                if (theirsTaken < mineTaken) return true;
+
+                _inFlightByMachine.TryGetValue(other, out var theirsBusy);
+                if (mineBusy > 0 && theirsBusy <= 0) return true;
             }
 
             return false;
@@ -199,6 +214,10 @@ namespace Rxns.Cloud.Intelligence
                 _inFlightByMachine.TryAdd(machine, 0);
             }
 
+            // Say which machine a worker was placed on. Spreading silently degrades to not spreading
+            // when this is empty, and that is invisible without saying so once per registration.
+            $"PullFanout.RegisterWorker: {worker.Name} machine='{machine ?? "(none)"}' knownMachines={_knownMachines.Count} instance={GetHashCode()} workers={Workers.Count}".LogDebug();
+
             // Snapshot subscribed keys at registration. If the caller's
             // tag set changes mid-flight (unusual), they should re-register
             // the worker. Distinct() so duplicate keys don't double-await.
@@ -226,14 +245,17 @@ namespace Rxns.Cloud.Intelligence
                 {
                     while (!cts.IsCancellationRequested)
                     {
-                        if (ShouldYieldToAnIdleMachine(machine))
+                        if (ShouldYieldToAnotherMachine(machine))
                             await Task.Delay(_busyMachineGrace, cts.Token).ConfigureAwait(false);
 
                         var work = await TryTakeWork(subscribedKeys, cts.Token).ConfigureAwait(false);
                         if (work.IsEmpty) continue;          // canceled / no work matched
 
                         if (!string.IsNullOrEmpty(machine))
+                        {
                             _inFlightByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                            _takenByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                        }
                         try
                         {
                             await RunDispatch(worker, work.Value, cts.Token).ConfigureAwait(false);

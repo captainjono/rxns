@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Rxns.DDD.Commanding;   // for IRxnQuestion.IsFor extension
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -93,6 +94,33 @@ namespace Rxns.Hosting.Updates
             return drained;
         }
 
+        /// <summary>
+        /// Channels holding the destination exactly, before those that match it only loosely. Without
+        /// this the first loose match wins and a command addressed to one node goes to another.
+        /// </summary>
+        private static IEnumerable<IEventHub> Ordered(IEventHub[] channels, IRxnQuestion cmds)
+        {
+            var destination = (cmds.Destination ?? string.Empty).AsRoute();
+
+            return channels.OrderByDescending(ch =>
+                ch.Routes.Keys.Any(k => (k ?? string.Empty).AsRoute() == destination) ? 1 : 0);
+        }
+
+        public bool CanRoute(IRxnQuestion cmds)
+        {
+            if (cmds == null) return false;
+
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.ToArray();
+
+            foreach (var ch in snapshot)
+                foreach (var kv in ch.Routes)
+                    if (cmds.IsFor(kv.Key))
+                        return true;
+
+            return false;
+        }
+
         public void Add(IRxnQuestion cmds)
         {
             if (cmds == null) return;
@@ -103,9 +131,14 @@ namespace Rxns.Hosting.Updates
             // First channel that owns a matching route wins. Registration
             // order = priority (SignalR registers first in current DI →
             // in-process delivery preferred over Redis stream).
-            foreach (var ch in snapshot)
+            // Most specific route wins, then registration order. IsFor is a substring test, so a
+            // channel registered under a broader key - a tenant, or any route that is a prefix -
+            // also matches a command addressed to one particular node. Taking the first such match
+            // handed another worker's work to whichever channel registered earliest, and the real
+            // addressee never saw it: on a two-VM cluster, one VM ran everything and the other idled.
+            foreach (var ch in Ordered(snapshot, cmds))
             {
-                foreach (var kv in ch.Routes)
+                foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
                 {
                     if (!cmds.IsFor(kv.Key)) continue;
 

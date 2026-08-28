@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
@@ -63,6 +63,15 @@ namespace Rxns.Health.AppStatus
             if (!command.Destination.IsNullOrWhitespace() && command.Destination.AsRoute() != _local.GetLocalBaseRoute().AsRoute())
             {
                 if (_statusStore == null) return null;
+
+                // Only take custody of someone else's command if this node can actually deliver it.
+                // Commands reach every node on the shared transport and each decides whose it is, so
+                // the addressee already has its own copy - there is nothing to forward. A worker that
+                // queued it anyway parked it against a route it has no channel to, where nothing ever
+                // drains it: on a two-VM cluster that silently swallowed half a dispatch while the
+                // orchestrator reported a clean firing. A hub, which does own channels to other
+                // nodes, still queues and still flushes on registration.
+                if (!_statusStore.CanRoute(command)) return null;
 
                 OnWarning($"Queued command to {command.Destination} because its not local {_local.GetLocalBaseRoute()}");
                 _statusStore.Add(command);
