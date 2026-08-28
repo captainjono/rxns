@@ -120,7 +120,13 @@ namespace Rxns.Cloud.Intelligence
             _getWorkQueueKey = getWorkQueueKey ?? (_ => UntaggedQueueKey);
             _getWorkerQueueKeys = getWorkerQueueKeys ?? (_ => new[] { UntaggedQueueKey });
             _getWorkerMachine = getWorkerMachine;
-            _busyMachineGrace = busyMachineGrace ?? TimeSpan.FromMilliseconds(250);
+            // A second is generous on purpose. The yielding worker has to lose the race, which means
+            // the other machine's read loop has to wake from its semaphore, poll, and dequeue - and
+            // at 250ms it often did not, so the machine that was already ahead took the item anyway
+            // and two dispatches landed on one VM about half the time. Each item here is a whole
+            // machine's workload lasting minutes, so biasing its start by a second costs nothing,
+            // and a machine with no peer to defer to never waits at all.
+            _busyMachineGrace = busyMachineGrace ?? TimeSpan.FromSeconds(1);
         }
 
         private readonly Func<IClusterWorker<T, TR>, string> _getWorkerMachine;
@@ -177,9 +183,50 @@ namespace Rxns.Cloud.Intelligence
 
         public void ConfigiurePublishFunc(Action<IRxn> publish) => _publish = publish;
 
+        /// <summary>Queue key naming one machine's share of untagged work.</summary>
+        private static string MachineQueueKey(string machine) => "_machine:" + machine;
+
+        /// <summary>
+        /// The known machine that has been given the least work, or null when machines are not in
+        /// play. Chosen at enqueue rather than left to a race between workers: biasing the race with
+        /// a delay only spread the work about half the time, because losing it depends on how fast
+        /// another machine's read loop happens to wake. Assignment does not depend on timing.
+        /// </summary>
+        private string LeastLoadedMachine()
+        {
+            if (_getWorkerMachine == null) return null;
+
+            string chosen = null;
+            var fewest = int.MaxValue;
+
+            foreach (var machine in _knownMachines.Keys)
+            {
+                _takenByMachine.TryGetValue(machine, out var taken);
+                if (taken >= fewest) continue;
+                fewest = taken;
+                chosen = machine;
+            }
+
+            return chosen;
+        }
+
         public void Fanout(T work)
         {
             var key = _getWorkQueueKey(work);
+
+            // Untagged work is work that could run anywhere, which is exactly the work worth
+            // spreading. Tagged work has been aimed somewhere deliberately and is left alone.
+            if (string.IsNullOrEmpty(key) || key == UntaggedQueueKey)
+            {
+                var machine = LeastLoadedMachine();
+                if (machine != null)
+                {
+                    _takenByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                    key = MachineQueueKey(machine);
+                    $"PullFanout.Fanout: {typeof(T).Name} -> machine '{machine}'".LogDebug();
+                }
+            }
+
             if (string.IsNullOrEmpty(key)) key = UntaggedQueueKey;
 
             var (queue, signal) = EnsureQueue(key);
@@ -230,6 +277,11 @@ namespace Rxns.Cloud.Intelligence
                 .ToArray();
             if (subscribedKeys.Length == 0) subscribedKeys = new[] { UntaggedQueueKey };
 
+            // Plus this machine's own queue, which is where its share of untagged work is placed.
+            var machineForKeys = _getWorkerMachine?.Invoke(worker);
+            if (!string.IsNullOrEmpty(machineForKeys))
+                subscribedKeys = subscribedKeys.Concat(new[] { MachineQueueKey(machineForKeys) }).Distinct().ToArray();
+
             // Pre-create queues + signals so the read loop never races a
             // first-enqueue creation between WaitAsync and TryDequeue.
             foreach (var k in subscribedKeys) EnsureQueue(k);
@@ -248,9 +300,6 @@ namespace Rxns.Cloud.Intelligence
                 {
                     while (!cts.IsCancellationRequested)
                     {
-                        if (ShouldYieldToAnotherMachine(machine))
-                            await Task.Delay(_busyMachineGrace, cts.Token).ConfigureAwait(false);
-
                         var work = await TryTakeWork(subscribedKeys, cts.Token).ConfigureAwait(false);
                         if (work.IsEmpty) continue;          // canceled / no work matched
 

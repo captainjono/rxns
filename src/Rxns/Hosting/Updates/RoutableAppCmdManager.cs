@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Rxns.DDD.Commanding;   // for IRxnQuestion.IsFor extension
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -102,8 +103,45 @@ namespace Rxns.Hosting.Updates
         {
             var destination = (cmds.Destination ?? string.Empty).AsRoute();
 
-            return channels.OrderByDescending(ch =>
-                ch.Routes.Keys.Any(k => (k ?? string.Empty).AsRoute() == destination) ? 1 : 0);
+            // Exact route first, then a durable transport over an in-memory one.
+            //
+            // The durable preference matters more than it looks. A hub send to a connection id that
+            // has since dropped succeeds silently - there is no exception to observe and no ack - so
+            // the command is gone and the dispatcher counts it delivered. A stream consumer group
+            // keyed by route holds the message until that route actually reads it. Measured: with the
+            // hub preferred, one of two dispatches vanished in three runs out of four.
+            return channels
+                .OrderByDescending(ch => ch.Routes.Keys.Any(k => (k ?? string.Empty).AsRoute() == destination) ? 1 : 0)
+                .ThenByDescending(ch => IsDurable(ch) ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Whether a channel redelivers rather than dropping when the far end is not listening right
+        /// now. Matched by name to avoid a reference from this assembly to the Redis one.
+        /// </summary>
+        private static bool IsDurable(IEventHub channel) =>
+            channel != null && channel.GetType().Name.IndexOf("Redis", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>
+        /// Re-attempts delivery on every channel except the one that just failed, queuing if none
+        /// of them owns the route - the same fate the command would have had if the failed channel
+        /// had never claimed it.
+        /// </summary>
+        private void RetryElsewhere(IRxnQuestion cmds, string failedChannelType)
+        {
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.Where(c => c.GetType().Name != failedChannelType).ToArray();
+
+            foreach (var ch in snapshot)
+                foreach (var kv in ch.Routes)
+                    if (cmds.IsFor(kv.Key))
+                    {
+                        $"RoutableAppCmdManager: re-routing '{cmds.Destination}' via {ch.GetType().Name}".LogDebug();
+                        _ = ch.SendToClientAsync(kv.Value, "Subscribe", cmds.Serialise().ResolveAs(cmds.GetType()));
+                        return;
+                    }
+
+            _pending.GetOrAdd(cmds.Destination ?? string.Empty, _ => new ConcurrentQueue<IRxnQuestion>()).Enqueue(cmds);
         }
 
         public bool CanRoute(IRxnQuestion cmds)
@@ -142,8 +180,28 @@ namespace Rxns.Hosting.Updates
                 {
                     if (!cmds.IsFor(kv.Key)) continue;
 
+                    // The success path was silent while the failure path logged, so a command that
+                    // went to the wrong channel looked identical to one that went to the right one.
+                    $"RoutableAppCmdManager.Add: {cmds.GetType().Name} dest='{cmds.Destination}' -> {ch.GetType().Name} route='{kv.Key}'".LogDebug();
+
                     var payload = cmds.Serialise().ResolveAs(cmds.GetType());
-                    _ = ch.SendToClientAsync(kv.Value, "Subscribe", payload);
+
+                    // Observe the send. It used to be fire-and-forget, so a channel that owned the
+                    // route but could no longer reach the client - a dropped SignalR connection whose
+                    // route mapping outlived it - swallowed the command and reported nothing. The
+                    // work then never ran and the dispatcher counted it as delivered. On failure,
+                    // fall back through the remaining channels rather than giving up on the first.
+                    var attempt = ch.SendToClientAsync(kv.Value, "Subscribe", payload);
+                    if (attempt != null)
+                    {
+                        var failedOn = ch.GetType().Name;
+                        var destination = cmds.Destination;
+                        attempt.ContinueWith(sent =>
+                        {
+                            $"RoutableAppCmdManager.Add: {failedOn} could not deliver to '{destination}' ({sent.Exception?.GetBaseException().Message}) - retrying on other channels".LogDebug();
+                            RetryElsewhere(cmds, failedOn);
+                        }, TaskContinuationOptions.OnlyOnFaulted);
+                    }
 
                     // Drain any prior queued cmds for this route now that we
                     // have a live channel for it. Mirrors the per-hub Add()
