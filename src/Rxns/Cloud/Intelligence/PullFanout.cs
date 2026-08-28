@@ -96,9 +96,65 @@ namespace Rxns.Cloud.Intelligence
         public PullFanout(
             Func<T, string> getWorkQueueKey,
             Func<IClusterWorker<T, TR>, IEnumerable<string>> getWorkerQueueKeys)
+            : this(getWorkQueueKey, getWorkerQueueKeys, null)
+        {
+        }
+
+        /// <summary>
+        /// As above, plus <paramref name="getWorkerMachine"/>: which physical host a worker runs on.
+        ///
+        /// <para>Supply it when several worker processes share a machine and the point of adding
+        /// machines is to add capacity. Workers compete for a shared queue, so without it the first
+        /// processes to wake take everything - measured on a two-VM cluster, one VM ran the entire
+        /// dispatch while the other sat idle with both its workers registered and free. Asking for two
+        /// machines' worth of load quietly got one.</para>
+        ///
+        /// <para>Null keeps the plain race, which is correct when workers are interchangeable.</para>
+        /// </summary>
+        public PullFanout(
+            Func<T, string> getWorkQueueKey,
+            Func<IClusterWorker<T, TR>, IEnumerable<string>> getWorkerQueueKeys,
+            Func<IClusterWorker<T, TR>, string> getWorkerMachine,
+            TimeSpan? busyMachineGrace = null)
         {
             _getWorkQueueKey = getWorkQueueKey ?? (_ => UntaggedQueueKey);
             _getWorkerQueueKeys = getWorkerQueueKeys ?? (_ => new[] { UntaggedQueueKey });
+            _getWorkerMachine = getWorkerMachine;
+            _busyMachineGrace = busyMachineGrace ?? TimeSpan.FromMilliseconds(250);
+        }
+
+        private readonly Func<IClusterWorker<T, TR>, string> _getWorkerMachine;
+        private readonly TimeSpan _busyMachineGrace;
+
+        // In-flight dispatches per machine. Only maintained when a machine selector was supplied.
+        private readonly ConcurrentDictionary<string, int> _inFlightByMachine =
+            new ConcurrentDictionary<string, int>();
+
+        // Machines with a registered worker, so "is another machine idle?" can be answered without
+        // walking Workers under a lock on every pull.
+        private readonly ConcurrentDictionary<string, byte> _knownMachines =
+            new ConcurrentDictionary<string, byte>();
+
+        /// <summary>
+        /// True when this worker's machine is already running something and some other known machine
+        /// is not. Such a worker holds back briefly so the idle machine wins the next item - a bias,
+        /// not a lock: if nobody else takes it, this worker still does after the grace period, so no
+        /// item can strand and no deadlock is possible.
+        /// </summary>
+        private bool ShouldYieldToAnIdleMachine(string machine)
+        {
+            if (_getWorkerMachine == null || string.IsNullOrEmpty(machine)) return false;
+            if (_inFlightByMachine.TryGetValue(machine, out var mine) && mine <= 0) return false;
+            if (!_inFlightByMachine.ContainsKey(machine)) return false;
+
+            foreach (var other in _knownMachines.Keys)
+            {
+                if (other == machine) continue;
+                _inFlightByMachine.TryGetValue(other, out var theirs);
+                if (theirs <= 0) return true;
+            }
+
+            return false;
         }
 
         public void ConfigiurePublishFunc(Action<IRxn> publish) => _publish = publish;
@@ -136,6 +192,13 @@ namespace Rxns.Cloud.Intelligence
             var connection = new WorkerConnection<T, TR>() { Worker = worker };
             Workers.Add(worker.Name, connection);
 
+            var machine = _getWorkerMachine?.Invoke(worker);
+            if (!string.IsNullOrEmpty(machine))
+            {
+                _knownMachines[machine] = 0;
+                _inFlightByMachine.TryAdd(machine, 0);
+            }
+
             // Snapshot subscribed keys at registration. If the caller's
             // tag set changes mid-flight (unusual), they should re-register
             // the worker. Distinct() so duplicate keys don't double-await.
@@ -163,9 +226,23 @@ namespace Rxns.Cloud.Intelligence
                 {
                     while (!cts.IsCancellationRequested)
                     {
+                        if (ShouldYieldToAnIdleMachine(machine))
+                            await Task.Delay(_busyMachineGrace, cts.Token).ConfigureAwait(false);
+
                         var work = await TryTakeWork(subscribedKeys, cts.Token).ConfigureAwait(false);
                         if (work.IsEmpty) continue;          // canceled / no work matched
-                        await RunDispatch(worker, work.Value, cts.Token).ConfigureAwait(false);
+
+                        if (!string.IsNullOrEmpty(machine))
+                            _inFlightByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                        try
+                        {
+                            await RunDispatch(worker, work.Value, cts.Token).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            if (!string.IsNullOrEmpty(machine))
+                                _inFlightByMachine.AddOrUpdate(machine, 0, (_, n) => n > 0 ? n - 1 : 0);
+                        }
                     }
                 }
                 catch (OperationCanceledException)
