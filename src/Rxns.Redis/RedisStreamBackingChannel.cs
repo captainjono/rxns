@@ -64,6 +64,9 @@ namespace Rxns.Redis
         private IDeliveryScheme<T> _deliveryScheme;
         private readonly RedisStreamMode _mode;
 
+        /// <summary>How often the consumer's backlog is sampled, in ms.</summary>
+        private const int BacklogSampleMs = 5000;
+
         public RedisStreamBackingChannel(
             string redisConnectionString,
             string streamName,
@@ -116,6 +119,7 @@ namespace Rxns.Redis
             {
                 _cts = new CancellationTokenSource();
                 Task.Run(() => PollStream(_cts.Token));
+                Task.Run(() => SampleBacklog(_cts.Token));
             }
         }
 
@@ -313,6 +317,64 @@ namespace Rxns.Redis
             {
                 $"Redis reconnect failed [{_streamName}]: {ex.Message}".LogDebug();
             }
+        }
+
+        /// <summary>
+        /// Publishes how far behind the consumer is, every few seconds, as plain time-series metrics.
+        ///
+        /// <para>Backpressure is invisible without this. When the arena cannot keep up, work does not
+        /// fail - it queues, which is the whole reason to prefer a stream over synchronous HTTP - but
+        /// a queue nobody measures looks the same as a healthy system right up until it does not. The
+        /// stream depth and the group's unacknowledged count are the two numbers that say whether the
+        /// cluster is keeping pace, and they belong on the same timeline as the client latency the
+        /// perf report already plots.</para>
+        ///
+        /// <para>Emitted onto the inbound stream rather than published back to Redis: these describe
+        /// the transport, so routing them through the transport they describe would add to the load
+        /// being measured and risk the self-loop the poll path guards against.</para>
+        /// </summary>
+        private async Task SampleBacklog(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(BacklogSampleMs, ct).ConfigureAwait(false);
+                    if (_db == null) continue;
+
+                    Emit("redis.stream.depth", _db.StreamLength(_streamName));
+
+                    try
+                    {
+                        Emit("redis.stream.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
+                    }
+                    catch
+                    {
+                        // No consumer group yet, or a server without XPENDING. Depth alone still says
+                        // whether the stream is growing, so do not lose the sample over it.
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    $"Redis backlog sample failed [{_streamName}]: {ex.Message}".LogDebug();
+                }
+            }
+        }
+
+        private void Emit(string name, double value)
+        {
+            if (!(new Rxns.Metrics.TimeSeriesData
+            {
+                Name = name,
+                TimeStamp = DateTime.UtcNow,
+                Value = value
+            } is T sample)) return;
+
+            try { _incoming.OnNext(sample); } catch { /* shutting down */ }
         }
 
         public void Dispose()
