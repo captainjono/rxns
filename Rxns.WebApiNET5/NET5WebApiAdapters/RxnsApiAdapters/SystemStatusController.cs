@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -33,7 +33,12 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         {
             this.TryCatch(() =>
             {
-                OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName);
+                // Verbose, not Info: in rxns a log message is itself a published event, so at Info
+                // every heartbeat cost a second event through the same channel it arrived on. At a
+                // fleet's heartbeat rate that amplification is the dominant load, and the arena stops
+                // accepting HTTP with nothing in the log to say why. Liveness is already in the store
+                // this call updates, so nothing is lost by dropping the announcement a level.
+                OnVerbose("Received status from '{0}\\{1}'", status.Tenant, status.SystemName);
 
                 status.IpAddress = GetRequestIP();
 
