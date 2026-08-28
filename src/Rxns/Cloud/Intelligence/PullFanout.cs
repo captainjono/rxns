@@ -124,6 +124,9 @@ namespace Rxns.Cloud.Intelligence
         }
 
         private readonly Func<IClusterWorker<T, TR>, string> _getWorkerMachine;
+        // Stable per-instance id: GetHashCode can collide, and "is this the same fanout?" is
+        // exactly the question these diagnostics exist to answer.
+        private readonly string _instanceId = Guid.NewGuid().ToString("N").Substring(0, 6);
         private readonly TimeSpan _busyMachineGrace;
 
         // In-flight dispatches per machine. Only maintained when a machine selector was supplied.
@@ -216,7 +219,7 @@ namespace Rxns.Cloud.Intelligence
 
             // Say which machine a worker was placed on. Spreading silently degrades to not spreading
             // when this is empty, and that is invisible without saying so once per registration.
-            $"PullFanout.RegisterWorker: {worker.Name} machine='{machine ?? "(none)"}' knownMachines={_knownMachines.Count} instance={GetHashCode()} workers={Workers.Count}".LogDebug();
+            $"PullFanout.RegisterWorker: {worker.Name} machine='{machine ?? "(none)"}' machines=[{string.Join(",", _knownMachines.Keys)}] instance={_instanceId} pool=[{string.Join(",", Workers.Keys)}]".LogDebug();
 
             // Snapshot subscribed keys at registration. If the caller's
             // tag set changes mid-flight (unusual), they should re-register
