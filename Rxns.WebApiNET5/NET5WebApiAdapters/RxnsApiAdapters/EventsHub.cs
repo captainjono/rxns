@@ -226,20 +226,29 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             //      SignalR drops silently (acceptable).
             //   3. `route` is real but lives on another channel — hand off
             //      via IAppCmdManager.Add for cross-channel delivery.
-            if (_routes.TryGetValue(route, out var connId))
+            // Results go out the same way commands do: through IAppCmdManager, which picks the most
+            // specific route, prefers a channel that redelivers over one that forgets, and queues
+            // when nothing owns the route yet.
+            //
+            // This used to SendAsync straight to the connection when the route was on this hub. A
+            // hub send to a connection that has since dropped succeeds with no exception and no ack,
+            // so the result was gone - and a lost result is worse than a lost command, because the
+            // work already ran. Every rung this session finished on the worker and then hung the
+            // orchestrator waiting for a result that no longer existed, which is why runs had to be
+            // recovered by exporting tapes by hand.
+            if (route.Contains("\\"))
             {
-                try
+                _appCmds.Add(new RxnQuestion
                 {
-                    _context.Clients.Client(connId).SendAsync("Subscribe", cr.Serialise().ResolveAs(cr.GetType()));
-                    OnInformation("EventsHub.RouteCommandResultToInitiator: route-resolved InResponseTo={0} type={1} route='{2}' → SignalR connId={3}",
-                        cr.InResponseTo, cr.GetType().Name, route, connId);
-                }
-                catch (Exception ex)
-                {
-                    OnError(new Exception($"EventsHub: failed routing CommandResult InResponseTo={cr.InResponseTo} to {connId} (route={route})", ex));
-                }
+                    Destination = route,
+                    Options     = cr.Serialise().ResolveAs(cr.GetType()),
+                    Id          = Guid.NewGuid().ToString()
+                });
+
+                OnInformation("EventsHub.RouteCommandResultToInitiator: InResponseTo={0} type={1} route='{2}' handed to IAppCmdManager",
+                    cr.InResponseTo, cr.GetType().Name, route);
             }
-            else if (!route.Contains("\\"))
+            else
             {
                 // No backslash → likely a raw connId tracked by EventsHub.SendCommand
                 // for an unregistered UI client. Best-effort SendAsync; if the
@@ -254,19 +263,6 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 {
                     OnError(new Exception($"EventsHub: failed connId-fallback for InResponseTo={cr.InResponseTo} → {route}", ex));
                 }
-            }
-            else
-            {
-                // Real route, but not on this hub — hand off to IAppCmdManager
-                // for cross-channel dispatch (e.g. SignalR cmd, Redis worker).
-                OnInformation("EventsHub.RouteCommandResultToInitiator: route '{0}' not on SignalR — handing to IAppCmdManager for cross-channel delivery (InResponseTo={1})",
-                    route, cr.InResponseTo);
-                _appCmds.Add(new RxnQuestion
-                {
-                    Destination = route,
-                    Options     = cr.Serialise().ResolveAs(cr.GetType()),
-                    Id          = Guid.NewGuid().ToString()
-                });
             }
         }
 
