@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Rxns.Cloud;
 using Rxns.Interfaces;
 
@@ -71,7 +71,30 @@ namespace Rxns.DDD.Commanding
         /// <returns>The the command is intended for the given tenant or system</returns>
         public static bool IsFor(this IRxnQuestion cmd, string route)
         {
-            return String.IsNullOrWhiteSpace(cmd.Destination) || cmd.Destination.AsRoute().Contains(route.AsRoute());
+            if (String.IsNullOrWhiteSpace(cmd.Destination)) return true;   // broadcast
+
+            return RouteContains(cmd.Destination, route);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="route"/> addresses <paramref name="destination"/> - the same route,
+        /// or an ancestor of it in the tenant\system\app hierarchy.
+        ///
+        /// <para>Segment-aware on purpose. This was a raw substring test, so any route that happened
+        /// to read as part of another matched it: a channel registered for <c>notenant\w1</c> claimed
+        /// commands bound for <c>notenant\w1_0</c>, and the node that should have run the work never
+        /// saw it. Whole segments only - <c>notenant</c> still addresses everything beneath it, which
+        /// is what tenant-wide commands rely on.</para>
+        /// </summary>
+        public static bool RouteContains(string destination, string route)
+        {
+            if (String.IsNullOrWhiteSpace(destination) || String.IsNullOrWhiteSpace(route)) return false;
+
+            var dest = destination.AsRoute();
+            var candidate = route.AsRoute();
+
+            return dest == candidate
+                || dest.StartsWith(candidate + "\\", StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -82,7 +105,7 @@ namespace Rxns.DDD.Commanding
         /// <returns>The the command is intended for the given tenant or system</returns>
         public static bool IsFor(this SystemStatusEvent status, string route)
         {
-            return RxnQuestion.ForTenant<RxnQuestion>(status.Tenant, status.SystemName).Destination.AsRoute().Contains(route.AsRoute());
+            return RouteContains(RxnQuestion.ForTenant<RxnQuestion>(status.Tenant, status.SystemName).Destination, route);
         }
 
 
