@@ -56,6 +56,17 @@ namespace Rxns.Hosting.Updates
         /// command for a sibling has no channel to that sibling and never will, so the command sits
         /// pending forever while the sender counts it as delivered.</para>
         /// </summary>
+        /// <summary>
+        /// Note that <paramref name="route"/> collects its commands by asking, rather than by being
+        /// pushed to. A node connected over HTTP alone has no channel here for anything to be sent
+        /// down; it heartbeats, and the reply carries whatever queued for it since last time.
+        ///
+        /// <para>Without this <see cref="CanRoute"/> reads "no channel owns it" as "nothing here can
+        /// ever deliver it" and the command is dropped on the floor. True for a worker holding a
+        /// sibling's command; false for the arena those workers poll.</para>
+        /// </summary>
+        void RegisterPollingRoute(string route);
+
         bool CanRoute(IRxnQuestion cmds);
 
         /// <summary>

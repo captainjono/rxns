@@ -68,6 +68,13 @@ namespace Rxns.Hosting.Updates
         private readonly ConcurrentDictionary<string, ConcurrentQueue<IRxn>> _pendingResults =
             new ConcurrentDictionary<string, ConcurrentQueue<IRxn>>();
 
+        // Routes that come and collect rather than being pushed to - an HTTP-only node has no channel
+        // here, it heartbeats and the reply carries what queued for it. Kept apart from the channels
+        // because Add must NOT try to send down one of these: falling through to the pending queue is
+        // precisely the delivery mechanism.
+        private readonly ConcurrentDictionary<string, byte> _polling =
+            new ConcurrentDictionary<string, byte>();
+
         public void RegisterChannel(IEventHub channel)
         {
             if (channel == null) return;
@@ -79,6 +86,12 @@ namespace Rxns.Hosting.Updates
                     $"RoutableAppCmdManager: registered channel {channel.GetType().Name} (total={_channels.Count})".LogDebug();
                 }
             }
+        }
+
+        public void RegisterPollingRoute(string route)
+        {
+            if (string.IsNullOrWhiteSpace(route)) return;
+            _polling[route.AsRoute()] = 1;
         }
 
         public void TrackOriginator(string commandId, string originatorRoute)
@@ -209,6 +222,13 @@ namespace Rxns.Hosting.Updates
                 foreach (var kv in ch.Routes)
                     if (cmds.IsFor(kv.Key))
                         return true;
+
+            // A node that polls is reachable too, just not by pushing: Add queues, and its next
+            // heartbeat carries the command away. Three integration tests dispatch to an httponly
+            // worker and went silent when this only counted channels.
+            foreach (var route in _polling.Keys)
+                if (cmds.IsFor(route))
+                    return true;
 
             return false;
         }
