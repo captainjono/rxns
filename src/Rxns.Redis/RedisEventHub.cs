@@ -95,6 +95,13 @@ namespace Rxns.Redis
                 RoutedCmdsStream,
                 consumerGroup);
 
+            // Backlog samples onto the bus, where the tape repo records them and the perf report can
+            // chart them. Without this they land on the channel's inbound, which this hub reads while
+            // looking for routed commands and discards for anything else - so the one number that says
+            // whether the cluster is keeping pace was measured and then thrown away.
+            _channel.MetricSink = m => _rxnManager.Publish(m).Until(e =>
+                OnError(new Exception("Failed to publish a redis backlog sample", e)));
+
             OnInformation("RedisEventHub: stream='{0}' group='{1}'", RoutedCmdsStream, consumerGroup);
             // Phase 7n4 refactor: register THIS channel with the cmd manager
             // so its Add() can dispatch via SendToClientAsync when a route

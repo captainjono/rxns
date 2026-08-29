@@ -342,11 +342,11 @@ namespace Rxns.Redis
                     await Task.Delay(BacklogSampleMs, ct).ConfigureAwait(false);
                     if (_db == null) continue;
 
-                    Emit("redis.stream.depth", _db.StreamLength(_streamName));
+                    Emit($"redis.{_streamName}.depth", _db.StreamLength(_streamName));
 
                     try
                     {
-                        Emit("redis.stream.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
+                        Emit($"redis.{_streamName}.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
                     }
                     catch
                     {
@@ -365,6 +365,16 @@ namespace Rxns.Redis
             }
         }
 
+        /// <summary>
+        /// Where backlog samples go. Default is this channel's inbound, which is wrong for every
+        /// real owner: the arena's channel belongs to the routed-command hub, which reads Incoming
+        /// looking for commands and drops anything else, and a worker's status client is publish-only
+        /// so it never reads at all. Emitted samples therefore existed and reached nobody - every
+        /// lossless run printed "redis backlog: no samples" and no exported arena carried one.
+        /// The owner sets this to put them on a bus something records.
+        /// </summary>
+        public Action<T> MetricSink { get; set; }
+
         private void Emit(string name, double value)
         {
             if (!(new Rxns.Metrics.TimeSeriesData
@@ -374,7 +384,9 @@ namespace Rxns.Redis
                 Value = value
             } is T sample)) return;
 
-            try { _incoming.OnNext(sample); } catch { /* shutting down */ }
+            var sink = MetricSink;
+            try { if (sink != null) sink(sample); else _incoming.OnNext(sample); }
+            catch { /* shutting down */ }
         }
 
         public void Dispose()
