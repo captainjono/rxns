@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -77,7 +77,12 @@ namespace Rxns.Reliability
                                 .Handle<TimeoutException>()
                                 .Or<HttpException>(ex => IsTransient(ex.StatusCode));
 
-            SqlStratery = HttpStratergy = Policy
+            // Assigning HttpStratergy here as well threw away the policy built directly above, so
+            // every HTTP call in the system retried on TimeoutException alone. A transient 5xx - a
+            // busy arena answering a fleet that is all shipping its tapes at once - was never
+            // retried, and the reliability layer looked present while doing nothing for the case it
+            // was written for.
+            SqlStratery = Policy
                                 .Handle<TimeoutException>();
         }
 
