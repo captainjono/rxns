@@ -64,10 +64,10 @@ namespace Rxns.DDD.Commanding
         }
 
         /// <summary>
-        /// Determins if this command is for the given tenant and/or system
+        /// Determins if this command is for the given tenant and/or system.
         /// </summary>
         /// <param name="cmd">The command</param>
-        /// <param name="route">The tenant, systemName, or tenant\systenName, or tenant\systemName\app</param>
+        /// <param name="route">A whole route: the tenant, tenant\systemName, or tenant\systemName\app. A bare system name does not match - see RouteContains.</param>
         /// <returns>The the command is intended for the given tenant or system</returns>
         public static bool IsFor(this IRxnQuestion cmd, string route)
         {
@@ -101,7 +101,7 @@ namespace Rxns.DDD.Commanding
         /// Determins if this status message is for the given tenant and/or system
         /// </summary>
         /// <param name="cmd">The command</param>
-        /// <param name="route">The tenant, systemName, or tenant\systenName, or tenant\systemName\app</param>
+        /// <param name="route">A whole route: the tenant, tenant\systemName, or tenant\systemName\app. A bare system name does not match - see RouteContains.</param>
         /// <returns>The the command is intended for the given tenant or system</returns>
         public static bool IsFor(this SystemStatusEvent status, string route)
         {
