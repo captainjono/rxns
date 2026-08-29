@@ -238,15 +238,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             // recovered by exporting tapes by hand.
             if (route.Contains("\\"))
             {
-                _appCmds.Add(new RxnQuestion
-                {
-                    Destination = route,
-                    Options     = cr.Serialise().ResolveAs(cr.GetType()),
-                    Id          = Guid.NewGuid().ToString()
-                });
+                var delivered = _appCmds.RouteResult(route, cr);
 
-                OnInformation("EventsHub.RouteCommandResultToInitiator: InResponseTo={0} type={1} route='{2}' handed to IAppCmdManager",
-                    cr.InResponseTo, cr.GetType().Name, route);
+                OnInformation("EventsHub.RouteCommandResultToInitiator: InResponseTo={0} type={1} route='{2}' {3}",
+                    cr.InResponseTo, cr.GetType().Name, route,
+                    delivered ? "delivered" : "queued until that route registers");
             }
             else
             {
@@ -478,6 +474,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             foreach (var c in _appCmds.FlushCommands(route))
             {
                 _context.Clients.Client(clientId).SendAsync("Subscribe", c.Serialise().ResolveAs(c.GetType()));
+            }
+
+            // And any results that arrived while it was away. A result outlives the connection it was
+            // meant for, because the work it reports has already run - dropping it hangs whoever asked.
+            foreach (var r in _appCmds.FlushResults(route))
+            {
+                _context.Clients.Client(clientId).SendAsync("Subscribe", r.Serialise());
             }
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Rxns.Health.AppStatus;
+using Rxns.Interfaces;
 using Rxns.Logging;
 
 namespace Rxns.Hosting.Updates
@@ -24,6 +25,26 @@ namespace Rxns.Hosting.Updates
         IEnumerable<IRxnQuestion> FlushCommands(string route);
 
         void Add(IRxnQuestion cmds);
+
+        /// <summary>
+        /// Deliver a result to whoever owns <paramref name="destination"/>, choosing a channel the
+        /// same way <see cref="Add"/> does: the most specific route, and one that redelivers
+        /// preferred over one that forgets.
+        ///
+        /// <para>A result is not a command and must not travel as one. Wrapping it in
+        /// a routed question puts a serialised object in Options, which is a command line -
+        /// so it arrives intact and then fails to parse, and the initiator waits forever on work that
+        /// already ran.</para>
+        /// </summary>
+        /// <returns>True when a channel took it; false when it was queued for a route nothing owns yet.</returns>
+        bool RouteResult(string destination, IRxn result);
+
+        /// <summary>
+        /// Results that queued while <paramref name="route"/> had no channel. Drained when the route
+        /// registers again - a reconnect gets a fresh connection id, and the result was addressed to
+        /// the route precisely so it could survive that.
+        /// </summary>
+        IEnumerable<IRxn> FlushResults(string route);
 
         /// <summary>
         /// Whether this node can actually deliver <paramref name="cmds"/> to its destination - that

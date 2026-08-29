@@ -60,6 +60,14 @@ namespace Rxns.Hosting.Updates
         private readonly ConcurrentDictionary<string, ConcurrentQueue<IRxnQuestion>> _pending =
             new ConcurrentDictionary<string, ConcurrentQueue<IRxnQuestion>>();
 
+        // Results waiting on a route with no channel. Separate from _pending because a result
+        // travels as itself, not as a command: the far end publishes it onto its bus, where whoever
+        // asked the question is listening. Putting one in the command queue sends it as an
+        // RxnQuestion, and Options is a command line - the far end cannot parse a serialised object
+        // out of it.
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<IRxn>> _pendingResults =
+            new ConcurrentDictionary<string, ConcurrentQueue<IRxn>>();
+
         public void RegisterChannel(IEventHub channel)
         {
             if (channel == null) return;
@@ -99,9 +107,9 @@ namespace Rxns.Hosting.Updates
         /// Channels holding the destination exactly, before those that match it only loosely. Without
         /// this the first loose match wins and a command addressed to one node goes to another.
         /// </summary>
-        private static IEnumerable<IEventHub> Ordered(IEventHub[] channels, IRxnQuestion cmds)
+        private static IEnumerable<IEventHub> Ordered(IEventHub[] channels, string route)
         {
-            var destination = (cmds.Destination ?? string.Empty).AsRoute();
+            var destination = (route ?? string.Empty).AsRoute();
 
             // Exact route first, then a durable transport over an in-memory one.
             //
@@ -144,6 +152,52 @@ namespace Rxns.Hosting.Updates
             _pending.GetOrAdd(cmds.Destination ?? string.Empty, _ => new ConcurrentQueue<IRxnQuestion>()).Enqueue(cmds);
         }
 
+        public bool RouteResult(string destination, IRxn result)
+        {
+            if (result == null || string.IsNullOrWhiteSpace(destination)) return false;
+
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.ToArray();
+
+            foreach (var ch in Ordered(snapshot, destination))
+            {
+                foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
+                {
+                    if (!RemoteCommandExtensions.RouteContains(destination, kv.Key)) continue;
+
+                    $"RoutableAppCmdManager.RouteResult: {result.GetType().Name} dest='{destination}' -> {ch.GetType().Name} route='{kv.Key}'".LogDebug();
+
+                    var attempt = ch.SendToClientAsync(kv.Value, "Subscribe", result.Serialise());
+                    if (attempt != null)
+                    {
+                        var failedOn = ch.GetType().Name;
+                        attempt.ContinueWith(sent =>
+                        {
+                            $"RoutableAppCmdManager.RouteResult: {failedOn} could not deliver to '{destination}' ({sent.Exception?.GetBaseException().Message}) - queued for its next registration".LogDebug();
+                            _pendingResults.GetOrAdd(destination, _ => new ConcurrentQueue<IRxn>()).Enqueue(result);
+                        }, TaskContinuationOptions.OnlyOnFaulted);
+                    }
+
+                    return true;
+                }
+            }
+
+            var queue = _pendingResults.GetOrAdd(destination, _ => new ConcurrentQueue<IRxn>());
+            queue.Enqueue(result);
+            $"RoutableAppCmdManager.RouteResult: no channel owns route '{destination}' - queued (pending={queue.Count})".LogDebug();
+            return false;
+        }
+
+        public IEnumerable<IRxn> FlushResults(string route)
+        {
+            if (string.IsNullOrEmpty(route)) return Enumerable.Empty<IRxn>();
+            if (!_pendingResults.TryRemove(route, out var queue)) return Enumerable.Empty<IRxn>();
+
+            var drained = new List<IRxn>();
+            while (queue.TryDequeue(out var result)) drained.Add(result);
+            return drained;
+        }
+
         public bool CanRoute(IRxnQuestion cmds)
         {
             if (cmds == null) return false;
@@ -175,7 +229,7 @@ namespace Rxns.Hosting.Updates
             // first handed another worker's work to whichever channel registered earliest, and the
             // real addressee never saw it: on a two-VM cluster, one VM ran everything and the other
             // idled.
-            foreach (var ch in Ordered(snapshot, cmds))
+            foreach (var ch in Ordered(snapshot, cmds.Destination))
             {
                 foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
                 {
