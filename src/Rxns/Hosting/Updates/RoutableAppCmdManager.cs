@@ -169,11 +169,12 @@ namespace Rxns.Hosting.Updates
             // First channel that owns a matching route wins. Registration
             // order = priority (SignalR registers first in current DI →
             // in-process delivery preferred over Redis stream).
-            // Most specific route wins, then registration order. IsFor is a substring test, so a
-            // channel registered under a broader key - a tenant, or any route that is a prefix -
-            // also matches a command addressed to one particular node. Taking the first such match
-            // handed another worker's work to whichever channel registered earliest, and the real
-            // addressee never saw it: on a two-VM cluster, one VM ran everything and the other idled.
+            // Most specific route wins, then registration order. A channel registered under an
+            // ancestor route - a tenant, or the system above an app - legitimately matches a command
+            // addressed to one node beneath it, so several channels can match at once. Taking the
+            // first handed another worker's work to whichever channel registered earliest, and the
+            // real addressee never saw it: on a two-VM cluster, one VM ran everything and the other
+            // idled.
             foreach (var ch in Ordered(snapshot, cmds))
             {
                 foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
