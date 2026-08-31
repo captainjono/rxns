@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -66,15 +66,53 @@ namespace Rxns.Hosting
             return Connection.Call(client => client.DeleteAsync(WithBaseUrl($"errors/{id}"))).Select(_ => new Unit());
         }
 
+        /// <summary>
+        /// Ships a run's log zip - the tapes and TRX a perf report is built from.
+        ///
+        /// <para>Connection.Call retries, and this call used to build its content once and hand the
+        /// same instance to every attempt. HttpClient disposes request content when it sends it and
+        /// the underlying stream is forward-only, so a second attempt uploaded nothing or threw on
+        /// content that was already consumed. The retry meant to protect the evidence was the thing
+        /// that lost it, and a run whose upload blipped came back green with no tapes - which is
+        /// indistinguishable, from the report, from a run that generated no load.</para>
+        /// </summary>
         public IObservable<string> PublishLog(Stream zippedLog)
         {
             var fileName = $"{DateTime.Now:dd-MM-yy-hhmmssfff}";
             OnVerbose("Publishing Log File : {0}", fileName);
 
-            var uploadStream = new MultipartFormDataContent();
-            uploadStream.Add(new StreamContent(zippedLog), fileName, fileName + ".zip");
+            // Each attempt needs its own content over a rewound payload. Prefer seeking - a log zip
+            // from a big run is worth not holding twice in memory - and buffer only when the stream
+            // cannot be rewound.
+            var canRewind = zippedLog.CanSeek;
+            var origin = canRewind ? zippedLog.Position : 0L;
+            byte[] buffered = null;
 
-            return Connection.Call(client => client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), uploadStream)).Select(_ => $"{_credentials.Tenant}/{_systemInfo.Name}_{fileName}");
+            if (!canRewind)
+            {
+                using (var copy = new MemoryStream())
+                {
+                    zippedLog.CopyTo(copy);
+                    buffered = copy.ToArray();
+                }
+            }
+
+            return Connection.Call(client =>
+            {
+                var upload = new MultipartFormDataContent();
+
+                if (canRewind)
+                {
+                    zippedLog.Position = origin;
+                    upload.Add(new StreamContent(zippedLog), fileName, fileName + ".zip");
+                }
+                else
+                {
+                    upload.Add(new ByteArrayContent(buffered), fileName, fileName + ".zip");
+                }
+
+                return client.PostAsync(WithBaseUrl($"systemstatus/logs/{_credentials.Tenant}/{_systemInfo.Name}/publish"), upload);
+            }).Select(_ => $"{_credentials.Tenant}/{_systemInfo.Name}_{fileName}");
         }
 
         public virtual IObservable<IRxnQuestion[]> PublishSystemStatus(SystemStatusEvent status, AppStatusInfo[] meta)

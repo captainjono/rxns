@@ -64,6 +64,9 @@ namespace Rxns.Redis
         private IDeliveryScheme<T> _deliveryScheme;
         private readonly RedisStreamMode _mode;
 
+        /// <summary>How often the consumer's backlog is sampled, in ms.</summary>
+        private const int BacklogSampleMs = 5000;
+
         public RedisStreamBackingChannel(
             string redisConnectionString,
             string streamName,
@@ -73,7 +76,7 @@ namespace Rxns.Redis
         {
             _streamName = streamName;
             _consumerGroup = consumerGroup ?? $"{streamName}-group";
-            _consumerId = $"{Environment.MachineName}-{Guid.NewGuid():N}".Substring(0, 20);
+            _consumerId = MakeConsumerId(Environment.MachineName);
             // Mode wins when explicitly set; otherwise fall back to the legacy
             // publishOnly bool so existing call-sites keep working unchanged.
             _mode = mode ?? (publishOnly ? RedisStreamMode.PublishOnly : RedisStreamMode.Bidirectional);
@@ -116,7 +119,23 @@ namespace Rxns.Redis
             {
                 _cts = new CancellationTokenSource();
                 Task.Run(() => PollStream(_cts.Token));
+                Task.Run(() => SampleBacklog(_cts.Token));
             }
+        }
+
+        /// <summary>
+        /// Per-process consumer id. MUST be unique: the poll loop treats an entry whose
+        /// <c>from</c> equals this id as self-published and skip-and-acks it silently.
+        /// <para>Collisions are silent, so truncate the host part if you must - never the entropy.
+        /// Hosts sharing a prefix are the common case (a VMSS names its instances
+        /// <c>&lt;cluster&gt;00000N</c>), and a collision leaves every node discarding the others'
+        /// events as its own echo.</para>
+        /// </summary>
+        public static string MakeConsumerId(string machineName)
+        {
+            var host = string.IsNullOrWhiteSpace(machineName) ? "host" : machineName;
+            if (host.Length > 12) host = host.Substring(0, 12);
+            return $"{host}-{Guid.NewGuid():N}";
         }
 
         public IObservable<T> Setup(IDeliveryScheme<T> postman)
@@ -298,6 +317,76 @@ namespace Rxns.Redis
             {
                 $"Redis reconnect failed [{_streamName}]: {ex.Message}".LogDebug();
             }
+        }
+
+        /// <summary>
+        /// Publishes how far behind the consumer is, every few seconds, as plain time-series metrics.
+        ///
+        /// <para>Backpressure is invisible without this. When the arena cannot keep up, work does not
+        /// fail - it queues, which is the whole reason to prefer a stream over synchronous HTTP - but
+        /// a queue nobody measures looks the same as a healthy system right up until it does not. The
+        /// stream depth and the group's unacknowledged count are the two numbers that say whether the
+        /// cluster is keeping pace, and they belong on the same timeline as the client latency the
+        /// perf report already plots.</para>
+        ///
+        /// <para>Emitted onto the inbound stream rather than published back to Redis: these describe
+        /// the transport, so routing them through the transport they describe would add to the load
+        /// being measured and risk the self-loop the poll path guards against.</para>
+        /// </summary>
+        private async Task SampleBacklog(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(BacklogSampleMs, ct).ConfigureAwait(false);
+                    if (_db == null) continue;
+
+                    Emit($"redis.{_streamName}.depth", _db.StreamLength(_streamName));
+
+                    try
+                    {
+                        Emit($"redis.{_streamName}.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
+                    }
+                    catch
+                    {
+                        // No consumer group yet, or a server without XPENDING. Depth alone still says
+                        // whether the stream is growing, so do not lose the sample over it.
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    $"Redis backlog sample failed [{_streamName}]: {ex.Message}".LogDebug();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Where backlog samples go. Default is this channel's inbound, which is wrong for every
+        /// real owner: the arena's channel belongs to the routed-command hub, which reads Incoming
+        /// looking for commands and drops anything else, and a worker's status client is publish-only
+        /// so it never reads at all. Emitted samples therefore existed and reached nobody - every
+        /// lossless run printed "redis backlog: no samples" and no exported arena carried one.
+        /// The owner sets this to put them on a bus something records.
+        /// </summary>
+        public Action<T> MetricSink { get; set; }
+
+        private void Emit(string name, double value)
+        {
+            if (!(new Rxns.Metrics.TimeSeriesData
+            {
+                Name = name,
+                TimeStamp = DateTime.UtcNow,
+                Value = value
+            } is T sample)) return;
+
+            var sink = MetricSink;
+            try { if (sink != null) sink(sample); else _incoming.OnNext(sample); }
+            catch { /* shutting down */ }
         }
 
         public void Dispose()

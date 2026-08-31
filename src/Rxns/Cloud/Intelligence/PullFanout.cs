@@ -96,16 +96,137 @@ namespace Rxns.Cloud.Intelligence
         public PullFanout(
             Func<T, string> getWorkQueueKey,
             Func<IClusterWorker<T, TR>, IEnumerable<string>> getWorkerQueueKeys)
+            : this(getWorkQueueKey, getWorkerQueueKeys, null)
+        {
+        }
+
+        /// <summary>
+        /// As above, plus <paramref name="getWorkerMachine"/>: which physical host a worker runs on.
+        ///
+        /// <para>Supply it when several worker processes share a machine and the point of adding
+        /// machines is to add capacity. Workers compete for a shared queue, so without it the first
+        /// processes to wake take everything - measured on a two-VM cluster, one VM ran the entire
+        /// dispatch while the other sat idle with both its workers registered and free. Asking for two
+        /// machines' worth of load quietly got one.</para>
+        ///
+        /// <para>Null keeps the plain race, which is correct when workers are interchangeable.</para>
+        /// </summary>
+        public PullFanout(
+            Func<T, string> getWorkQueueKey,
+            Func<IClusterWorker<T, TR>, IEnumerable<string>> getWorkerQueueKeys,
+            Func<IClusterWorker<T, TR>, string> getWorkerMachine,
+            TimeSpan? busyMachineGrace = null)
         {
             _getWorkQueueKey = getWorkQueueKey ?? (_ => UntaggedQueueKey);
             _getWorkerQueueKeys = getWorkerQueueKeys ?? (_ => new[] { UntaggedQueueKey });
+            _getWorkerMachine = getWorkerMachine;
+            // A second is generous on purpose. The yielding worker has to lose the race, which means
+            // the other machine's read loop has to wake from its semaphore, poll, and dequeue - and
+            // at 250ms it often did not, so the machine that was already ahead took the item anyway
+            // and two dispatches landed on one VM about half the time. Each item here is a whole
+            // machine's workload lasting minutes, so biasing its start by a second costs nothing,
+            // and a machine with no peer to defer to never waits at all.
+            _busyMachineGrace = busyMachineGrace ?? TimeSpan.FromSeconds(1);
+        }
+
+        private readonly Func<IClusterWorker<T, TR>, string> _getWorkerMachine;
+        // Stable per-instance id: GetHashCode can collide, and "is this the same fanout?" is
+        // exactly the question these diagnostics exist to answer.
+        private readonly string _instanceId = Guid.NewGuid().ToString("N").Substring(0, 6);
+        private readonly TimeSpan _busyMachineGrace;
+
+        // In-flight dispatches per machine. Only maintained when a machine selector was supplied.
+        private readonly ConcurrentDictionary<string, int> _inFlightByMachine =
+            new ConcurrentDictionary<string, int>();
+
+        // Machines with a registered worker, so "is another machine idle?" can be answered without
+        // walking Workers under a lock on every pull.
+        private readonly ConcurrentDictionary<string, byte> _knownMachines =
+            new ConcurrentDictionary<string, byte>();
+
+        // Items this machine has taken over the run. Cumulative, not in-flight: work that spreads
+        // only while a machine is busy does not spread at all when items are short, because the
+        // first machine is idle again before the next item arrives and legitimately wins the race.
+        // Load generation wants the opposite - each item is a machine's worth of load, so it should
+        // land somewhere new whether or not the last one has finished.
+        private readonly ConcurrentDictionary<string, int> _takenByMachine =
+            new ConcurrentDictionary<string, int>();
+
+        /// <summary>
+        /// True when another known machine has taken less work than this one, or is idle while this
+        /// one is busy. Such a worker holds back briefly so the other machine wins the next item.
+        ///
+        /// <para>A bias, not a lock: if nobody else takes it, this worker still does once the grace
+        /// elapses, so no item can strand and there is no deadlock. Ordering by total taken gives
+        /// round-robin across machines for short items and honours busyness for long ones.</para>
+        /// </summary>
+        private bool ShouldYieldToAnotherMachine(string machine)
+        {
+            if (_getWorkerMachine == null || string.IsNullOrEmpty(machine)) return false;
+
+            _takenByMachine.TryGetValue(machine, out var mineTaken);
+            _inFlightByMachine.TryGetValue(machine, out var mineBusy);
+
+            foreach (var other in _knownMachines.Keys)
+            {
+                if (other == machine) continue;
+
+                _takenByMachine.TryGetValue(other, out var theirsTaken);
+                if (theirsTaken < mineTaken) return true;
+
+                _inFlightByMachine.TryGetValue(other, out var theirsBusy);
+                if (mineBusy > 0 && theirsBusy <= 0) return true;
+            }
+
+            return false;
         }
 
         public void ConfigiurePublishFunc(Action<IRxn> publish) => _publish = publish;
 
+        /// <summary>Queue key naming one machine's share of untagged work.</summary>
+        private static string MachineQueueKey(string machine) => "_machine:" + machine;
+
+        /// <summary>
+        /// The known machine that has been given the least work, or null when machines are not in
+        /// play. Chosen at enqueue rather than left to a race between workers: biasing the race with
+        /// a delay only spread the work about half the time, because losing it depends on how fast
+        /// another machine's read loop happens to wake. Assignment does not depend on timing.
+        /// </summary>
+        private string LeastLoadedMachine()
+        {
+            if (_getWorkerMachine == null) return null;
+
+            string chosen = null;
+            var fewest = int.MaxValue;
+
+            foreach (var machine in _knownMachines.Keys)
+            {
+                _takenByMachine.TryGetValue(machine, out var taken);
+                if (taken >= fewest) continue;
+                fewest = taken;
+                chosen = machine;
+            }
+
+            return chosen;
+        }
+
         public void Fanout(T work)
         {
             var key = _getWorkQueueKey(work);
+
+            // Untagged work is work that could run anywhere, which is exactly the work worth
+            // spreading. Tagged work has been aimed somewhere deliberately and is left alone.
+            if (string.IsNullOrEmpty(key) || key == UntaggedQueueKey)
+            {
+                var machine = LeastLoadedMachine();
+                if (machine != null)
+                {
+                    _takenByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                    key = MachineQueueKey(machine);
+                    $"PullFanout.Fanout: {typeof(T).Name} -> machine '{machine}'".LogDebug();
+                }
+            }
+
             if (string.IsNullOrEmpty(key)) key = UntaggedQueueKey;
 
             var (queue, signal) = EnsureQueue(key);
@@ -136,6 +257,17 @@ namespace Rxns.Cloud.Intelligence
             var connection = new WorkerConnection<T, TR>() { Worker = worker };
             Workers.Add(worker.Name, connection);
 
+            var machine = _getWorkerMachine?.Invoke(worker);
+            if (!string.IsNullOrEmpty(machine))
+            {
+                _knownMachines[machine] = 0;
+                _inFlightByMachine.TryAdd(machine, 0);
+            }
+
+            // Say which machine a worker was placed on. Spreading silently degrades to not spreading
+            // when this is empty, and that is invisible without saying so once per registration.
+            $"PullFanout.RegisterWorker: {worker.Name} machine='{machine ?? "(none)"}' machines=[{string.Join(",", _knownMachines.Keys)}] instance={_instanceId} pool=[{string.Join(",", Workers.Keys)}]".LogDebug();
+
             // Snapshot subscribed keys at registration. If the caller's
             // tag set changes mid-flight (unusual), they should re-register
             // the worker. Distinct() so duplicate keys don't double-await.
@@ -144,6 +276,11 @@ namespace Rxns.Cloud.Intelligence
                 .Distinct()
                 .ToArray();
             if (subscribedKeys.Length == 0) subscribedKeys = new[] { UntaggedQueueKey };
+
+            // Plus this machine's own queue, which is where its share of untagged work is placed.
+            var machineForKeys = _getWorkerMachine?.Invoke(worker);
+            if (!string.IsNullOrEmpty(machineForKeys))
+                subscribedKeys = subscribedKeys.Concat(new[] { MachineQueueKey(machineForKeys) }).Distinct().ToArray();
 
             // Pre-create queues + signals so the read loop never races a
             // first-enqueue creation between WaitAsync and TryDequeue.
@@ -165,7 +302,21 @@ namespace Rxns.Cloud.Intelligence
                     {
                         var work = await TryTakeWork(subscribedKeys, cts.Token).ConfigureAwait(false);
                         if (work.IsEmpty) continue;          // canceled / no work matched
-                        await RunDispatch(worker, work.Value, cts.Token).ConfigureAwait(false);
+
+                        if (!string.IsNullOrEmpty(machine))
+                        {
+                            _inFlightByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                            _takenByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
+                        }
+                        try
+                        {
+                            await RunDispatch(worker, work.Value, cts.Token).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            if (!string.IsNullOrEmpty(machine))
+                                _inFlightByMachine.AddOrUpdate(machine, 0, (_, n) => n > 0 ? n - 1 : 0);
+                        }
                     }
                 }
                 catch (OperationCanceledException)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reactive;
 using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
@@ -46,10 +46,14 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             try
             {
 
+                // Before the host builds: the pool floor governs how a burst is served, and the pool
+                // cannot be usefully raised once requests are already queueing for a thread.
+                RxnsHostTuning.ApplyThreadFloor();
+
                 var host = Host.CreateDefaultBuilder(args)
                     .UseEnvironment("Development")
                     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
-                    .ConfigureLogging((a, l) => { l.ClearProviders(); l.AddProvider(new RxnsLogDebugProvider()); l.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information); })
+                    .ConfigureLogging((a, l) => { l.ClearProviders(); l.AddProvider(new RxnsLogDebugProvider()); /* Trace, so the host filters nothing and RxnsLogVerbosity decides - see RxnsLogVerbosity for why the level has to stay changeable at runtime. */ l.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace); })
                     .ConfigureWebHostDefaults(webHostBuilder =>
                     {
                         webHostBuilder
@@ -64,6 +68,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                             // Html5Root directly via its own FileProvider.
                             .UseWebRoot(cfg.Html5Root)
                             .CaptureStartupErrors(true)
+                            // A longer accept backlog so a host that falls behind queues its pending
+                            // connections instead of having the kernel drop them - a dropped SYN is
+                            // invisible here and costs the client a multi-second TCP retransmit.
+                            .UseSockets(sock => sock.Backlog = RxnsHostTuning.AcceptBacklog)
                             .UseKestrel(opts => {
                                 // Default Kestrel cap is 30 MB. 250 MB matches the
                                 // per-route RequestSizeLimit attribute on

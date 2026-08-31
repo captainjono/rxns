@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Rxns.Logging;
 using Rxns.Interfaces.Reliability;
@@ -77,7 +79,12 @@ namespace Rxns.Reliability
                                 .Handle<TimeoutException>()
                                 .Or<HttpException>(ex => IsTransient(ex.StatusCode));
 
-            SqlStratery = HttpStratergy = Policy
+            // Assigning HttpStratergy here as well threw away the policy built directly above, so
+            // every HTTP call in the system retried on TimeoutException alone. A transient 5xx - a
+            // busy arena answering a fleet that is all shipping its tapes at once - was never
+            // retried, and the reliability layer looked present while doing nothing for the case it
+            // was written for.
+            SqlStratery = Policy
                                 .Handle<TimeoutException>();
         }
 
@@ -112,6 +119,28 @@ namespace Rxns.Reliability
         /// </summary>
         /// <param name="statusCode">The status code to examine</param>
         /// <returns></returns>
+        /// <summary>
+        /// Whether a failed http attempt is worth repeating. A 404 or a malformed request will
+        /// fail identically every time, and retrying it only delays the real error.
+        /// </summary>
+        public bool IsWorthRetrying(Exception e)
+        {
+            switch (e)
+            {
+                case null: return false;
+                case TimeoutException _: return true;
+                // The status carries the verdict - see IsTransient.
+                case HttpException http: return IsTransient(http.StatusCode);
+                // A socket, DNS or connection-refused blip. Common and worth another go: a worker
+                // often calls while the arena is still coming up.
+                case HttpRequestException _: return true;
+                // ThrowExceptions rethrows a faulted task's AggregateException, so the reason we
+                // care about is usually one level down.
+                case AggregateException agg: return agg.InnerExceptions.Any(IsWorthRetrying);
+                default: return false;
+            }
+        }
+
         public bool IsTransient(HttpStatusCode statusCode)
         {
             //any server error, caused by a db fault, outage, etc
@@ -142,9 +171,19 @@ namespace Rxns.Reliability
         /// <returns>A sequence that produces a single value, the result of the task. if the value is null, the task failed and was aborted.</returns>
         public IObservable<T> CallOverHttp<T>(Func<Task<T>> action, IScheduler scheduler = null)
         {
-            var policy = HttpStratergy.Retry(RetryCount, (exception, count) => DoRetry("HttpRetry", exception, count));
-
-            return CallWithPolicy(async () => await action.ThrowExceptions(), policy, scheduler ?? DefaultScheduler).SelectMany(tsk => tsk);;
+            // Rx, not Polly-over-a-task. The previous form handed an async lambda to a
+            // SYNCHRONOUS policy: the lambda returns its Task at the first await, so the policy
+            // got a Task back before it faulted, never saw the failure, and never retried. The
+            // fault then surfaced through SelectMany, outside the policy. Every http call in the
+            // system was affected, so the reliability layer looked present while doing nothing.
+            //
+            // The observable path below is honest about this: Defer builds a fresh task per
+            // attempt, and a failure is an OnError the retry can actually observe.
+            return CallWithPolicy(
+                () => Observable.Defer(() => action.ThrowExceptions().ToObservable()),
+                onRetry: null,
+                scheduler: scheduler ?? DefaultScheduler,
+                shouldRetry: IsWorthRetrying);
         }
 
         //public IObservable<T> CallOverHttp<T>(Func<IObservable<T>> action, IScheduler scheduler)
@@ -170,9 +209,14 @@ namespace Rxns.Reliability
         /// <returns>A sequence that produces a single value, the result of the task. Null signifies a task that failed.</returns>
         public IObservable<T> CallOverHttpForever<T>(Func<Task<T>> action, IScheduler scheduler)
         {
-            var policy = AnyErrorStratergy.RetryForever((exception, count) => DoRetry("HttpForever", exception, count));
-
-            return CallWithPolicy(async () => await action.ThrowExceptions(), policy, scheduler ?? DefaultScheduler).SelectMany(tsk => tsk); ;
+            // Same reason as CallOverHttp: a synchronous policy cannot see an async lambda fail.
+            // "Forever" retries anything, which is what AnyErrorStratergy meant.
+            return CallWithPolicy(
+                () => Observable.Defer(() => action.ThrowExceptions().ToObservable()),
+                onRetry: null,
+                scheduler: scheduler ?? DefaultScheduler,
+                shouldRetry: _ => true,
+                maxRetries: int.MaxValue);
         }
 
         public IObservable<T> CallDatabase<T>(Func<T> action, IScheduler scheduler = null)
@@ -195,7 +239,9 @@ namespace Rxns.Reliability
             return IsEnabled ? Observable.Start(() => retryPolicy.Execute(action), scheduler ?? DefaultScheduler) : Observable.Start(action, scheduler ?? DefaultScheduler);
         }
 
-        public IObservable<T> CallWithPolicy<T>(Func<IObservable<T>> action, Action<Exception> onRetry = null, IScheduler scheduler = null)
+        /// <param name="shouldRetry">Which failures are worth repeating. Null retries anything.</param>
+        /// <param name="maxRetries">Attempts after the first. Null uses the configured RetryCount.</param>
+        public IObservable<T> CallWithPolicy<T>(Func<IObservable<T>> action, Action<Exception> onRetry = null, IScheduler scheduler = null, Func<Exception, bool> shouldRetry = null, int? maxRetries = null)
         {
             return Observable.Create<T>(o =>
             {
@@ -212,16 +258,22 @@ namespace Rxns.Reliability
                     {
                         try
                         {
-                            if (count >= RetryCount)
+                            var limit = maxRetries ?? RetryCount;
+
+                            if (count >= limit || (shouldRetry != null && !shouldRetry(ex)))
                             {
                                 o.OnError(ex);
                             }
                             else
                             {
-                                var backOff = GetBackoffForCount(count);
+                                // Clamp the index: the schedule is finite and a caller may ask for more
+                                // attempts than it has entries - "forever" certainly does.
+                                var slot = Math.Min(count, BackOffSchedule.Count - 1);
+                                var backOff = BackOffSchedule[slot];
                                 OnVerbose("CallWithpolicy: Attempt failed with '{0}' retry '#{1}' in '{2}'", ex.Message, count, backOff);
-                                if (onRetry != null) onRetry(ex); 
-                                Observable.Timer(BackOffSchedule[count++], sched).Subscribe(s => recursive(operation, count, sched));
+                                if (onRetry != null) onRetry(ex);
+                                count++;
+                                Observable.Timer(backOff, sched).Subscribe(s => recursive(operation, count, sched));
                             }
                         }
                         catch (Exception e)
