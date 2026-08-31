@@ -65,7 +65,9 @@ namespace Rxns.Interfaces.Reliability
         /// <param name="action">The action toe execute</param>
         /// <param name="scheduler">The scheduler used to operate the retry delay timer</param>
         /// <returns></returns>
-        IObservable<T> CallWithPolicy<T>(Func<IObservable<T>> action, Action<Exception> onRetry = null, IScheduler scheduler = null);
+        /// <param name="shouldRetry">Which failures are worth repeating. Null retries anything.</param>
+        /// <param name="maxRetries">Attempts after the first. Null uses the configured RetryCount.</param>
+        IObservable<T> CallWithPolicy<T>(Func<IObservable<T>> action, Action<Exception> onRetry = null, IScheduler scheduler = null, Func<Exception, bool> shouldRetry = null, int? maxRetries = null);
         /// <summary>
         /// Reliably executes a function, retrying forver
         /// </summary>
