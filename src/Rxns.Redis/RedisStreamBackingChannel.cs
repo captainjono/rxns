@@ -375,14 +375,18 @@ namespace Rxns.Redis
         /// </summary>
         public Action<T> MetricSink { get; set; }
 
+        /// <summary>
+        /// Publishes one sample as a queue snapshot, which is literally what a stream depth is.
+        ///
+        /// <para>Not as a TimeSeriesData, though that is what ends up in the metrics tape. Nothing
+        /// collects loose TimeSeriesData off the bus: SystemMetricsAggregateView <i>produces</i> it by
+        /// reacting to health events like this one. Publishing the finished article skipped the only
+        /// thing that would have recorded it, which is why the samples existed for weeks, reached the
+        /// bus, and still never appeared in a single export.</para>
+        /// </summary>
         private void Emit(string name, double value)
         {
-            if (!(new Rxns.Metrics.TimeSeriesData
-            {
-                Name = name,
-                TimeStamp = DateTime.UtcNow,
-                Value = value
-            } is T sample)) return;
+            if (!(new Rxns.Health.QueueSnapshotEvent(name, TimeSpan.Zero, (long)value) is T sample)) return;
 
             var sink = MetricSink;
             try { if (sink != null) sink(sample); else _incoming.OnNext(sample); }
