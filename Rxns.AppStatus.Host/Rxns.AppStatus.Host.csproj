@@ -22,6 +22,41 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
+  <!-- The AppStatus portal, shipped with the library that hosts it.
+
+       Consumers used to find the SPA by probing for a sibling rxns checkout - theBFG had nine
+       candidate paths ending in a hard-coded C:\jan\rxns, so a clean clone or a build agent got
+       no shell at all, and whichever stale copy happened to exist locally won instead. Shipping
+       it here means the shell arrives with the reference: no probe, no sibling checkout, no
+       download, and it works offline once restored.
+
+       Only what the page actually loads. build.mjs concatenates every local script and stylesheet
+       into app.full.min.js / app.full.min.css, so dist/index.html references those two plus
+       augment/* and nothing else - the 298 files under bower_components are build inputs, not
+       runtime assets, and are untracked here for that reason. The font-awesome fonts are the
+       exception, reached by url() from the css, and are the only bower_components content the
+       repo tracks. That is ~3.7 MB rather than 16 MB.
+
+       Excluded explicitly rather than globbed loosely: on a developer machine that has run the
+       build, an unfiltered wildcard sweeps in whatever happens to be on disk - 12 MB of restored
+       bower packages, and app.less, which is a build input the repo does not track. The package
+       should not depend on who built it, so the exclusions mirror exactly what is tracked. -->
+  <ItemGroup>
+    <Content Include="..\Rxns.AppSatus\Web\dist\**\*.*"
+             Exclude="..\Rxns.AppSatus\Web\dist\bower_components\**\*.*;..\Rxns.AppSatus\Web\dist\**\*.less"
+             Link="Web\dist\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>contentFiles\any\any\Web\dist\%(RecursiveDir);content\Web\dist\%(RecursiveDir)</PackagePath>
+    </Content>
+    <Content Include="..\Rxns.AppSatus\Web\dist\bower_components\font-awesome\fonts\**\*.*"
+             Link="Web\dist\bower_components\font-awesome\fonts\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>contentFiles\any\any\Web\dist\bower_components\font-awesome\fonts\%(RecursiveDir);content\Web\dist\bower_components\font-awesome\fonts\%(RecursiveDir)</PackagePath>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
     <ProjectReference Include="..\src\Rxns.Autofac\Rxns.Autofac.csproj" />
