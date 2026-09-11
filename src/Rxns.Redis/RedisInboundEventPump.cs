@@ -1,4 +1,5 @@
 using System;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Rxns.DDD.Commanding;
@@ -53,6 +54,8 @@ namespace Rxns.Redis
             _localBus = localBus;
         }
 
+        public TimeSpan ResubscribeDelay { get; set; } = TimeSpan.FromSeconds(2);
+
         public IObservable<CommandResult> Start(string from = null, string options = null)
         {
             // Only Redis-backed clients expose an Incoming observable; SignalR
@@ -63,24 +66,14 @@ namespace Rxns.Redis
             if (_appStatus is RedisAppStatusServiceClient redisClient)
             {
                 OnInformation("RedisInboundEventPump: piping RedisAppStatusServiceClient.Incoming -> local IRxnManager");
-                var sub = redisClient.Incoming
-                    .Subscribe(rxn =>
-                    {
-                        try
-                        {
-                            // Publish onto the local bus so type-based
-                            // subscriptions (RedisEventHub.WorkerHeartbeat,
-                            // command handlers, UI bridges) fire as if the
-                            // event had arrived in-process. .Until handles
-                            // any errors from downstream subscribers without
-                            // killing the pump.
-                            _localBus.Publish(rxn).Until(e => OnError(new Exception("Local bus republish failed", e)));
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError(new Exception("RedisInboundEventPump dispatch failed", ex));
-                        }
-                    });
+                var sub = Rxn.DfrCreate(() => redisClient.Incoming)
+                    .Catch<IRxn, Exception>(e => Observable.Throw<IRxn>(e)
+                        .DelaySubscription(ResubscribeDelay, TaskPoolScheduler.Default))
+                    .Retry()
+                    .Do(rxn => _localBus.Publish(rxn)
+                        .Until(e => OnError(new Exception("Local bus republish failed", e))))
+                    .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
+
                 _resources.Add(sub);
             }
             else

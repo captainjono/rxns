@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Rxns.DDD.Commanding;   // for IRxnQuestion.IsFor extension
 using Rxns.Interfaces;
 using Rxns.Logging;
@@ -58,6 +60,21 @@ namespace Rxns.Hosting.Updates
         private readonly ConcurrentDictionary<string, ConcurrentQueue<IRxnQuestion>> _pending =
             new ConcurrentDictionary<string, ConcurrentQueue<IRxnQuestion>>();
 
+        // Results waiting on a route with no channel. Separate from _pending because a result
+        // travels as itself, not as a command: the far end publishes it onto its bus, where whoever
+        // asked the question is listening. Putting one in the command queue sends it as an
+        // RxnQuestion, and Options is a command line - the far end cannot parse a serialised object
+        // out of it.
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<IRxn>> _pendingResults =
+            new ConcurrentDictionary<string, ConcurrentQueue<IRxn>>();
+
+        // Routes that come and collect rather than being pushed to - an HTTP-only node has no channel
+        // here, it heartbeats and the reply carries what queued for it. Kept apart from the channels
+        // because Add must NOT try to send down one of these: falling through to the pending queue is
+        // precisely the delivery mechanism.
+        private readonly ConcurrentDictionary<string, byte> _polling =
+            new ConcurrentDictionary<string, byte>();
+
         public void RegisterChannel(IEventHub channel)
         {
             if (channel == null) return;
@@ -69,6 +86,12 @@ namespace Rxns.Hosting.Updates
                     $"RoutableAppCmdManager: registered channel {channel.GetType().Name} (total={_channels.Count})".LogDebug();
                 }
             }
+        }
+
+        public void RegisterPollingRoute(string route)
+        {
+            if (string.IsNullOrWhiteSpace(route)) return;
+            _polling[route.AsRoute()] = 1;
         }
 
         public void TrackOriginator(string commandId, string originatorRoute)
@@ -93,6 +116,123 @@ namespace Rxns.Hosting.Updates
             return drained;
         }
 
+        /// <summary>
+        /// Channels holding the destination exactly, before those that match it only loosely. Without
+        /// this the first loose match wins and a command addressed to one node goes to another.
+        /// </summary>
+        private static IEnumerable<IEventHub> Ordered(IEventHub[] channels, string route)
+        {
+            var destination = (route ?? string.Empty).AsRoute();
+
+            // Exact route first, then a durable transport over an in-memory one.
+            //
+            // The durable preference matters more than it looks. A hub send to a connection id that
+            // has since dropped succeeds silently - there is no exception to observe and no ack - so
+            // the command is gone and the dispatcher counts it delivered. A stream consumer group
+            // keyed by route holds the message until that route actually reads it. Measured: with the
+            // hub preferred, one of two dispatches vanished in three runs out of four.
+            return channels
+                .OrderByDescending(ch => ch.Routes.Keys.Any(k => (k ?? string.Empty).AsRoute() == destination) ? 1 : 0)
+                .ThenByDescending(ch => IsDurable(ch) ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Whether a channel redelivers rather than dropping when the far end is not listening right
+        /// now. Matched by name to avoid a reference from this assembly to the Redis one.
+        /// </summary>
+        private static bool IsDurable(IEventHub channel) =>
+            channel != null && channel.GetType().Name.IndexOf("Redis", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>
+        /// Re-attempts delivery on every channel except the one that just failed, queuing if none
+        /// of them owns the route - the same fate the command would have had if the failed channel
+        /// had never claimed it.
+        /// </summary>
+        private void RetryElsewhere(IRxnQuestion cmds, string failedChannelType)
+        {
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.Where(c => c.GetType().Name != failedChannelType).ToArray();
+
+            foreach (var ch in snapshot)
+                foreach (var kv in ch.Routes)
+                    if (cmds.IsFor(kv.Key))
+                    {
+                        $"RoutableAppCmdManager: re-routing '{cmds.Destination}' via {ch.GetType().Name}".LogDebug();
+                        _ = ch.SendToClientAsync(kv.Value, "Subscribe", cmds.Serialise().ResolveAs(cmds.GetType()));
+                        return;
+                    }
+
+            _pending.GetOrAdd(cmds.Destination ?? string.Empty, _ => new ConcurrentQueue<IRxnQuestion>()).Enqueue(cmds);
+        }
+
+        public bool RouteResult(string destination, IRxn result)
+        {
+            if (result == null || string.IsNullOrWhiteSpace(destination)) return false;
+
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.ToArray();
+
+            foreach (var ch in Ordered(snapshot, destination))
+            {
+                foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
+                {
+                    if (!RemoteCommandExtensions.RouteContains(destination, kv.Key)) continue;
+
+                    $"RoutableAppCmdManager.RouteResult: {result.GetType().Name} dest='{destination}' -> {ch.GetType().Name} route='{kv.Key}'".LogDebug();
+
+                    var attempt = ch.SendToClientAsync(kv.Value, "Subscribe", result.Serialise());
+                    if (attempt != null)
+                    {
+                        var failedOn = ch.GetType().Name;
+                        attempt.ContinueWith(sent =>
+                        {
+                            $"RoutableAppCmdManager.RouteResult: {failedOn} could not deliver to '{destination}' ({sent.Exception?.GetBaseException().Message}) - queued for its next registration".LogDebug();
+                            _pendingResults.GetOrAdd(destination, _ => new ConcurrentQueue<IRxn>()).Enqueue(result);
+                        }, TaskContinuationOptions.OnlyOnFaulted);
+                    }
+
+                    return true;
+                }
+            }
+
+            var queue = _pendingResults.GetOrAdd(destination, _ => new ConcurrentQueue<IRxn>());
+            queue.Enqueue(result);
+            $"RoutableAppCmdManager.RouteResult: no channel owns route '{destination}' - queued (pending={queue.Count})".LogDebug();
+            return false;
+        }
+
+        public IEnumerable<IRxn> FlushResults(string route)
+        {
+            if (string.IsNullOrEmpty(route)) return Enumerable.Empty<IRxn>();
+            if (!_pendingResults.TryRemove(route, out var queue)) return Enumerable.Empty<IRxn>();
+
+            var drained = new List<IRxn>();
+            while (queue.TryDequeue(out var result)) drained.Add(result);
+            return drained;
+        }
+
+        public bool CanRoute(IRxnQuestion cmds)
+        {
+            if (cmds == null) return false;
+
+            IEventHub[] snapshot;
+            lock (_channelsLock) snapshot = _channels.ToArray();
+
+            foreach (var ch in snapshot)
+                foreach (var kv in ch.Routes)
+                    if (cmds.IsFor(kv.Key))
+                        return true;
+
+            // A node that polls is reachable too, just not by pushing: Add queues, and its next
+            // heartbeat carries the command away. Three integration tests dispatch to an httponly
+            // worker and went silent when this only counted channels.
+            foreach (var route in _polling.Keys)
+                if (cmds.IsFor(route))
+                    return true;
+
+            return false;
+        }
+
         public void Add(IRxnQuestion cmds)
         {
             if (cmds == null) return;
@@ -103,14 +243,40 @@ namespace Rxns.Hosting.Updates
             // First channel that owns a matching route wins. Registration
             // order = priority (SignalR registers first in current DI →
             // in-process delivery preferred over Redis stream).
-            foreach (var ch in snapshot)
+            // Most specific route wins, then registration order. A channel registered under an
+            // ancestor route - a tenant, or the system above an app - legitimately matches a command
+            // addressed to one node beneath it, so several channels can match at once. Taking the
+            // first handed another worker's work to whichever channel registered earliest, and the
+            // real addressee never saw it: on a two-VM cluster, one VM ran everything and the other
+            // idled.
+            foreach (var ch in Ordered(snapshot, cmds.Destination))
             {
-                foreach (var kv in ch.Routes)
+                foreach (var kv in ch.Routes.OrderByDescending(r => (r.Key ?? string.Empty).Length))
                 {
                     if (!cmds.IsFor(kv.Key)) continue;
 
+                    // The success path was silent while the failure path logged, so a command that
+                    // went to the wrong channel looked identical to one that went to the right one.
+                    $"RoutableAppCmdManager.Add: {cmds.GetType().Name} dest='{cmds.Destination}' -> {ch.GetType().Name} route='{kv.Key}'".LogDebug();
+
                     var payload = cmds.Serialise().ResolveAs(cmds.GetType());
-                    _ = ch.SendToClientAsync(kv.Value, "Subscribe", payload);
+
+                    // Observe the send. It used to be fire-and-forget, so a channel that owned the
+                    // route but could no longer reach the client - a dropped SignalR connection whose
+                    // route mapping outlived it - swallowed the command and reported nothing. The
+                    // work then never ran and the dispatcher counted it as delivered. On failure,
+                    // fall back through the remaining channels rather than giving up on the first.
+                    var attempt = ch.SendToClientAsync(kv.Value, "Subscribe", payload);
+                    if (attempt != null)
+                    {
+                        var failedOn = ch.GetType().Name;
+                        var destination = cmds.Destination;
+                        attempt.ContinueWith(sent =>
+                        {
+                            $"RoutableAppCmdManager.Add: {failedOn} could not deliver to '{destination}' ({sent.Exception?.GetBaseException().Message}) - retrying on other channels".LogDebug();
+                            RetryElsewhere(cmds, failedOn);
+                        }, TaskContinuationOptions.OnlyOnFaulted);
+                    }
 
                     // Drain any prior queued cmds for this route now that we
                     // have a live channel for it. Mirrors the per-hub Add()

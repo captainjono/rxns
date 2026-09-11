@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Rxns.Interfaces;
+using Rxns.Logging;
 
 namespace Rxns.Health.AppStatus
 {
@@ -63,16 +64,42 @@ namespace Rxns.Health.AppStatus
             return _backingStoreV.Get(AsKey(tenant, system, version)).Select(r => r.j.Deserialise<dynamic[]>());
         }
 
+        /// <summary>
+        /// Every system's status, keyed by the system that reported it.
+        ///
+        /// <para>Status lives in two stores and this walks the value store, looking each record up
+        /// in the key store. Those writes are not atomic with respect to each other, so a value
+        /// record can be read before its key record lands - a torn read, which the next status
+        /// publish resolves on its own. A torn read must therefore be skipped, not thrown on: this
+        /// method is subscribed to (see <see cref="Subscribe"/>), so anything it throws terminates
+        /// the status stream and takes command routing down with it. The arena then answers every
+        /// result with "NO ROUTE" and callers hang on work that already succeeded, several minutes
+        /// and one subsystem away from the cause.</para>
+        /// </summary>
         public IObservable<Dictionary<SystemStatusEvent, dynamic[]>> GetAllSystemStatus()
         {
             var dict = new Dictionary<SystemStatusEvent, dynamic[]>();
 
             foreach (var record in _backingStoreV.GetAll().Wait())
             {
-                var split = record.Key.Split('_');
-                var key = AsKey(split[0], split[1], split[2]);
-                var keyRecord = _backingStoreK.Get(key).Wait().j.Deserialise<SystemStatusEvent>();
-                dict.Add(keyRecord, record.Value.j.Deserialise<dynamic[]>());
+                try
+                {
+                    var split = record.Key.Split('_');
+                    if (split.Length < 3) continue;
+
+                    var key = AsKey(split[0], split[1], split[2]);
+                    var keyRecord = _backingStoreK.Get(key).Wait()?.j.Deserialise<SystemStatusEvent>();
+                    if (keyRecord == null) continue;
+
+                    // Indexer, not Add: two records whose key deserialises equal is a duplicate
+                    // report, not a reason to fail the whole snapshot.
+                    dict[keyRecord] = record.Value.j.Deserialise<dynamic[]>();
+                }
+                catch (Exception e)
+                {
+                    // One unreadable record must not cost the caller every other system's status.
+                    $"Skipped status record '{record.Key}': {e.Message}".LogDebug();
+                }
             }
 
             return dict.ToObservable();

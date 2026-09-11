@@ -120,6 +120,23 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             Connect().Until(OnError);
         }
 
+        public TimeSpan ConnectRetryDelay { get; set; } = TimeSpan.FromSeconds(2);
+
+        public static bool ShouldDeferConnect(HubConnectionState state)
+        {
+            return state != HubConnectionState.Disconnected;
+        }
+
+        public static IDisposable DeferConnect(IScheduler scheduler, Func<HubConnectionState> currentState, Action attempt, TimeSpan delay)
+        {
+            return Observable.Interval(delay, scheduler)
+                .TakeWhile(_ => currentState() != HubConnectionState.Connected)
+                .Where(_ => !ShouldDeferConnect(currentState()))
+                .Take(1)
+                .Do(_ => attempt())
+                .Until(e => $"SignalR deferred connect attempt failed: {e}".LogDebug());
+        }
+
         /// <summary>
         /// Connects to the SignalR hub specified in the Url
         /// </summary>
@@ -143,7 +160,8 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         {
 
                             //already connecting?
-                            if (client.State != HubConnectionState.Disconnected) return Disposable.Empty;
+                            if (ShouldDeferConnect(client.State))
+                                return DeferConnect(DefaultScheduler, () => client.State, () => connect(), ConnectRetryDelay);
 
                             lock (_isConnectedResources)
                             {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
@@ -122,6 +122,10 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<IRxnQuestion[]> UpdateSystemStatusWithMeta(string appRoute, SystemStatusEvent status, object meta)
         {
+            // This call IS the poll: whatever queued for appRoute leaves in the reply. Saying so lets
+            // CanRoute tell a node that collects its own commands from one nothing can reach.
+            _appCmds.RegisterPollingRoute(appRoute);
+
             return UpdateSystemStatus(status, meta)
                 .SelectMany(wasAdded => _appCmds.FlushCommands(appRoute).ToArray().ToObservable());//.Merge(UpdateSystemCommandIfOutofDate(status)));
         }
