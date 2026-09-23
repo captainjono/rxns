@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +34,7 @@ namespace Rxns.Cloud.Intelligence
     /// </para>
     ///
     /// <para>
-    /// Tag semantics are owned by the caller (BFG callsites compose
+    /// Tag semantics are owned by the caller (callsites compose
     /// <c>bfgTagWorkflow</c> into the queue-key funcs). The fanout itself
     /// just hashes by string key — it doesn't know about wildcards or
     /// match precedence. Caller responsibility:
@@ -54,7 +54,7 @@ namespace Rxns.Cloud.Intelligence
         /// Queue key used for items with no tag-routing function provided
         /// AND for items the caller's <see cref="_getWorkQueueKey"/> maps
         /// to null/empty. Workers SHOULD include this in their subscribed
-        /// keys to receive default-routed work; the BFG composition does
+        /// keys to receive default-routed work; a composition may choose not to
         /// this automatically.
         /// </summary>
         public const string UntaggedQueueKey = "_untagged";

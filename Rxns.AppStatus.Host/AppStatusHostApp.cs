@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using Rxns.Health.AppStatus;
@@ -34,8 +34,8 @@ namespace Rxns.AppStatus.Host
 
         public override Func<string, Action<IRxnLifecycle>> App { get; } = url => lifecycle =>
         {
-            // Match bfg's proven AppStatus-server loadout (theBFGDef.TestArena lambda).
-            // bfg IS the canonical "self-hosted arena that exposes the portal" — same
+            // The loadout a self-hosted AppStatus server needs, proven in the wild.
+            // This is the canonical "self-host that exposes the portal" shape - same
             // shape this host needs. The earlier attempts to slim this down kept hitting
             // cascading DI failures because the full module graph is what satisfies the
             // ctor chain of LocalAppStatusManager / LocalAppUpdateServer / etc.
@@ -49,7 +49,9 @@ namespace Rxns.AppStatus.Host
 
             // IAppStatusCfg — InMemoryAppStatusStore needs one. Ground its AppRoot
             // under the host's bin dir so tape/log files land next to the binary.
-            var appRoot = Path.Combine(System.AppContext.BaseDirectory, ".bfg");
+            // Grounded under the host binary so state lands beside it rather than in a working
+            // directory that changes with however the process was started.
+            var appRoot = Path.Combine(System.AppContext.BaseDirectory, ".rxns");
             lifecycle.CreatesOncePerApp<IAppStatusCfg>(() => new AppStatusCfg { AppRoot = appRoot, ShouldAutoUnzipLogs = false });
 
             // IStringCodec — AppStatusServerModule's tape repositories need a codec.

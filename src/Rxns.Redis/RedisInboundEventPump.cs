@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -19,7 +19,7 @@ namespace Rxns.Redis
     /// <see cref="RedisAppStatusServiceClient.Incoming"/> observable - the
     /// inbound side that delivers events from OTHER processes - was never
     /// subscribed to anywhere, so heartbeats / route registrations / typed
-    /// events from workers never surfaced on the arena's local bus. The
+    /// events from workers never surfaced on the hub's local bus. The
     /// existing single-worker tests passed because SignalR's bridge was also
     /// running and quietly delivered the same events; multi-worker exposed
     /// the gap because SignalR can carry only one connection's events

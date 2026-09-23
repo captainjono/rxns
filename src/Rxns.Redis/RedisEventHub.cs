@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,14 +22,14 @@ namespace Rxns.Redis
     /// Redis-backed implementation of <see cref="IEventHub"/>. Symmetric
     /// counterpart to the SignalR-backed <c>EventsHub</c> (in
     /// Rxns.WebApiNET5). Wired in by <see cref="RedisTransportModule"/> on
-    /// arena hosts; consumers binding to <see cref="IEventHub"/> /
+    /// hub hosts; consumers binding to <see cref="IEventHub"/> /
     /// <see cref="IAppCmdManager"/> resolve to this instance instead of the
     /// SignalR hub, so cluster-internal command routing rides Redis Streams
     /// instead of SignalR.
     ///
     /// Scope of this scaffold:
-    ///   - Route map (route -> clientId) is in-memory per arena. Single-
-    ///     arena deployments only; multi-arena would need the map in
+    ///   - Route map (route -> clientId) is in-memory per hub. Single-
+    ///     hub deployments only; multi-hub would need the map in
     ///     Redis.
     ///   - <see cref="SendToClientAsync"/> / <see cref="BroadcastAsync"/>
     ///     publish a <see cref="RoutedEnvelope"/> to the host-supplied
@@ -44,7 +44,7 @@ namespace Rxns.Redis
     /// </summary>
     public class RedisEventHub : ReportsStatus, IEventHub, IRxnService, IDisposable
     {
-        // Stream the arena publishes routed commands to. Workers in lossless
+        // Stream the hub publishes routed commands to. Workers in lossless
         // mode subscribe and filter by ClientId. Separate from the typed-events
         // stream (UnitTestResult, AppHeartbeat, ...) so command-routing traffic
         // doesn't interleave with telemetry. Concrete name is host-supplied.
@@ -111,7 +111,7 @@ namespace Rxns.Redis
             _appCmds.RegisterChannel(this);
 
             // Subscribe to worker heartbeat / removal events on the local bus.
-            // They arrive here because the arena's RedisAppStatusServiceClient.Incoming
+            // They arrive here because the hub's RedisAppStatusServiceClient.Incoming
             // is wired into the local bus by the AppStatusBackingChannel -> any
             // IRxn workers publish via the typed-events stream lands locally.
             //
@@ -140,7 +140,7 @@ namespace Rxns.Redis
                     // Heartbeat = registration: register on first sighting,
                     // refresh _lastHeartbeat on every subsequent tick. The
                     // first heartbeat is what populates _routes - arrives
-                    // ~200ms after worker boot. Self-healing: if the arena
+                    // ~200ms after worker boot. Self-healing: if the hub
                     // restarts while a worker stays alive, the next heartbeat
                     // re-registers the route automatically.
                     //
@@ -385,11 +385,11 @@ namespace Rxns.Redis
     ///
     /// Workers consuming the stream filter by <see cref="Route"/> first and
     /// fall back to <see cref="ClientId"/>. Filtering by route closes the
-    /// ~700ms in-flight gap between worker death and the arena's heartbeat-
+    /// ~700ms in-flight gap between worker death and the hub's heartbeat-
     /// driven clientId update — a cmd dispatched in that window carries the
     /// dead clientId, but the route still matches the live consumer that
     /// respawned under the same systemName. Pre-route-field envelopes
-    /// (older arena builds) leave Route null; consumers fall back to
+    /// (older hub builds) leave Route null; consumers fall back to
     /// clientId match for back-compat.
     /// </summary>
     public class RoutedEnvelope : IRxn

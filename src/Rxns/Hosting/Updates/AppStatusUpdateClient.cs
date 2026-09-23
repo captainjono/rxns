@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -63,7 +63,7 @@ namespace Rxns.Hosting.Updates
             // DotNetZip asks for code page 437 - the zip format's historic default for entry
             // names - and .NET Core does not carry that page unless the provider is registered.
             // ZipOutputStream asks for it in its constructor, where ZipFile did not, so switching
-            // to it broke the arena's export on Linux with "'IBM437' is not a supported encoding
+            // to it broke the hub's export on Linux with "'IBM437' is not a supported encoding
             // name" while every test on this Windows box passed. Registering it here covers the
             // read path too, which has the same default and the same blind spot.
             try { Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); }
@@ -143,7 +143,7 @@ namespace Rxns.Hosting.Updates
                 // Eliminates the "Autofac.dll already exists" race seen during
                 // 2026-04-26 2x50 cluster runs (multiple workers per VM each
                 // racing to extract the same zip into the same dir, half-
-                // extracting state visible to in-process students → dotnet test
+                // extracting state visible to in-process clients -> dotnet test
                 // fails to load deps → no UnitTestOutcome emitted).
                 //
                 // - Sentinel <targetPath>/.complete is the trustable "fully
@@ -318,7 +318,7 @@ namespace Rxns.Hosting.Updates
 
                     if (ms.Length < 1)
                     {
-                        // Empty stream from arena = upload was rejected/truncated server-side
+                        // Empty stream from hub = upload was rejected/truncated server-side
                         // (catalogued 2026-04-27 — 30MB default cap silently truncated 41MB
                         // uploads to byte[0]). Throw so the caller knows + the sentinel below
                         // doesn't get written, otherwise we cache-poison: every subsequent
@@ -326,7 +326,7 @@ namespace Rxns.Hosting.Updates
                         // though no files exist on disk.
                         "Update not found".LogDebug();
                         Progress(system, version, "Failed", total, 0, sw.ElapsedMilliseconds, "Update not found");
-                        throw new InvalidDataException($"Update '{system}@{version}' returned 0 bytes from arena — upload may have been rejected (size cap?) or the version is missing.");
+                        throw new InvalidDataException($"Update '{system}@{version}' returned 0 bytes from the server - upload may have been rejected (size cap?) or the version is missing.");
                     }
 
                     ms.Seek(0, SeekOrigin.Begin);
@@ -386,7 +386,7 @@ namespace Rxns.Hosting.Updates
             var dirname = new DirectoryInfo(dir).Name;
             // Spilled to a temp file, not a MemoryStream. A MemoryStream is capped at about 2 GB by
             // its single backing array and holds the whole archive on the managed heap while it
-            // builds - on an arena packing a 15 GB tape directory that is both a hard ceiling and a
+            // builds - on an hub packing a 15 GB tape directory that is both a hard ceiling and a
             // large-object-heap problem. DeleteOnClose means the caller's existing Dispose() still
             // cleans it up, so the returned-Stream contract is unchanged.
             var spillPath = Path.Combine(Path.GetTempPath(), "rxns-update-" + Guid.NewGuid().ToString("n") + ".zip");
@@ -411,7 +411,7 @@ namespace Rxns.Hosting.Updates
             using (var zip = new ZipOutputStream(destination, true))
             {
                 zip.EnableZip64 = Zip64Option.AsNecessary;
-                // UTF-8 for entry names, always. The archive is written on a Linux arena and read
+                // UTF-8 for entry names, always. The archive is written on a Linux hub and read
                 // on a Windows client, and code page 437 cannot spell most of what a run names.
                 zip.AlternateEncoding = Encoding.UTF8;
                 zip.AlternateEncodingUsage = ZipOption.Always;

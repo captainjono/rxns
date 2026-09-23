@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -25,10 +25,10 @@ namespace Rxns.Redis
     ///      handler subscribed to the type fires (same shape as a SignalR
     ///      "Subscribe" callback would).
     ///   4. Publishes <see cref="WorkerRouteRegistered"/> on start so the
-    ///      arena's <see cref="RedisEventHub"/> learns the route -> clientId
+    ///      hub's <see cref="RedisEventHub"/> learns the route -> clientId
     ///      mapping. Replaces SignalR's RegisterAsService Hub method call.
     ///   5. Heartbeats every ~5 s via <see cref="WorkerHeartbeat"/> so the
-    ///      arena can detect disconnects passively.
+    ///      hub can detect disconnects passively.
     ///   6. Publishes <see cref="WorkerRouteRemoved"/> on Dispose for
     ///      graceful unregistration.
     ///
@@ -39,12 +39,12 @@ namespace Rxns.Redis
     public class RedisRoutedCmdConsumer : ReportsStatus, IRxnService, IDisposable
     {
         // First heartbeat fires fast (doubles as the route-registration message
-        // - arena's RedisEventHub auto-registers any heartbeat with an unknown
+        // - hub's RedisEventHub auto-registers any heartbeat with an unknown
         // route). The 200ms delay gives RedisAppStatusServiceClient's publish
         // chain a moment to warm up before the first message lands; longer
         // delays just slow boot, shorter ones risk the publish silently
         // dropping pre-warmup. Steady-state cadence stays at 5s for
-        // stale-route detection (arena evicts after 20s of silence).
+        // stale-route detection (hub evicts after 20s of silence).
         private static readonly TimeSpan FirstHeartbeatDelay = TimeSpan.FromMilliseconds(200);
         private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(5);
 
@@ -97,7 +97,7 @@ namespace Rxns.Redis
             //
             // Route-first is the in-flight reconnect fix (catalogued open
             // 2026-05-04 from phase 7n3): a cmd dispatched in the ~700ms
-            // window between worker process death and the arena's heartbeat-
+            // window between worker process death and the hub's heartbeat-
             // driven _routes clientId-update carries the DEAD consumer's
             // clientId in its envelope. The respawned consumer (this one)
             // would otherwise skip it because its _clientId is freshly
@@ -106,10 +106,10 @@ namespace Rxns.Redis
             // the in-flight cmd and dispatches it.
             //
             // ClientId fallback covers two cases:
-            //   1. Pre-route-field arena builds (RoutedEnvelope.Route null).
+            //   1. Pre-route-field hub builds (RoutedEnvelope.Route null).
             //   2. CommandResult-back-to-source publishes for clients with
             //      no registered route (e.g. one-shot browser cmds), where
-            //      arena can't reverse-lookup a route from clientId.
+            //      hub can't reverse-lookup a route from clientId.
             var inbound = _channel.Setup(new IdentityDelivery())
                 .OfType<RoutedEnvelope>()
                 .Where(e => ShouldDispatch(e, _route, _clientId))
@@ -126,13 +126,13 @@ namespace Rxns.Redis
                 });
             _resources.Add(inbound);
 
-            // Heartbeat doubles as route-registration: the arena's
+            // Heartbeat doubles as route-registration: the hub's
             // RedisEventHub auto-registers on first heartbeat for an unknown
             // route, so a separate WorkerRouteRegistered event was redundant
             // and racy at boot - it fired before RedisAppStatusServiceClient's
             // publish chain was fully warm and silently dropped under
             // concurrent worker spawn. First heartbeat at 200ms means the
-            // arena learns the route in ~250ms instead of 5s.
+            // hub learns the route in ~250ms instead of 5s.
             var heartbeat = Observable.Timer(FirstHeartbeatDelay, HeartbeatInterval)
                 .Subscribe(_ =>
                 {
@@ -169,8 +169,8 @@ namespace Rxns.Redis
             !string.IsNullOrEmpty(workerRoute) &&
             string.Equals(e.Route, workerRoute, StringComparison.OrdinalIgnoreCase);
 
-        // ClientId fallback path - matches the legacy arena envelope shape
-        // (no Route field) and CommandResult back-routing where the arena
+        // ClientId fallback path - matches the legacy hub envelope shape
+        // (no Route field) and CommandResult back-routing where the hub
         // couldn't resolve a route.
         public static bool ClientIdMatches(RoutedEnvelope e, string workerClientId) =>
             e != null &&

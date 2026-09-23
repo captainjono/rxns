@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive;
@@ -59,7 +59,7 @@ namespace Rxns.Health.AppStatus
             // Compare NORMALISED routes. Senders lowercase the destination via AsRoute(), and the
             // sibling IsFor() normalises both sides - this site did not, so a worker identifying as
             // NoTenant\W1_0 rejected every command addressed to notenant\w1_0 and queued it forever.
-            // Live symptom: theBFG arena dispatched StartUnitTest, no worker accepted it, no test ran.
+            // Live symptom: theBFG hub dispatched StartUnitTest, no worker accepted it, no test ran.
             if (!command.Destination.IsNullOrWhitespace() && command.Destination.AsRoute() != _local.GetLocalBaseRoute().AsRoute())
             {
                 if (_statusStore == null) return null;

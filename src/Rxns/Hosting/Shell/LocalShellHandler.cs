@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
@@ -31,7 +31,7 @@ namespace Rxns.Hosting.Shell
     /// cwd plus any fatal error; its Stdout/Stderr are empty so the UI
     /// doesn't double-render the last partial.
     ///
-    /// Registered as a singleton IServiceCommandHandler on BOTH the arena
+    /// Registered as a singleton IServiceCommandHandler on BOTH the hub
     /// and worker defs so the ServiceCommandExecutor can resolve a handler
     /// regardless of which role is the target. Not gated on cluster-worker
     /// availability — shell is diagnostic, not "work."

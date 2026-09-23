@@ -72,7 +72,7 @@ namespace Rxns.Health.AppStatus
         /// record can be read before its key record lands - a torn read, which the next status
         /// publish resolves on its own. A torn read must therefore be skipped, not thrown on: this
         /// method is subscribed to (see <see cref="Subscribe"/>), so anything it throws terminates
-        /// the status stream and takes command routing down with it. The arena then answers every
+        /// the status stream and takes command routing down with it. The hub then answers every
         /// result with "NO ROUTE" and callers hang on work that already succeeded, several minutes
         /// and one subsystem away from the cause.</para>
         /// </summary>

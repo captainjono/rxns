@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -62,9 +62,9 @@ namespace Rxns.Redis
         {
             _httpFallback = httpFallback;
             // Mode controls whether the inbound poll loop starts:
-            // - Arena: Bidirectional / Subscribe — needs to consume worker-published
+            // - Hub: Bidirectional / Subscribe — needs to consume worker-published
             //   events (heartbeats, results) and re-emit them onto the local bus.
-            // - Worker: PublishOnly — only writes events for the arena to read; doesn't
+            // - Worker: PublishOnly — only writes events for the hub to read; doesn't
             //   need to receive other workers' events on the typed-events stream.
             // Eager-start in the channel constructor closes the publish-before-listening
             // race that loses concurrent-boot worker heartbeats.
@@ -127,7 +127,7 @@ namespace Rxns.Redis
             // Binary log uploads always traverse HTTP. Redis Streams is for
             // structured events; pushing zipped tape archives through stream
             // entries is wasteful (each entry is a string-keyed map) and
-            // we'd need base64 framing on top. The arena's
+            // we'd need base64 framing on top. The hub's
             // /systemstatus/logs/.../publish multipart endpoint works
             // identically under both transports — only the event bus changed.
             //

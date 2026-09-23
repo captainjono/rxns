@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reactive.Disposables;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -27,14 +27,14 @@ namespace Rxns.Redis
     ///
     /// - <see cref="PublishOnly"/>: write-only side of the wire. No poll loop
     ///   is started, Setup returns Empty. Use for nodes that only emit onto
-    ///   the stream (e.g. a worker writing typed events to the arena's
+    ///   the stream (e.g. a worker writing typed events to the hub's
     ///   inbound stream).
     ///
     /// - <see cref="Subscribe"/>: read-only side. Poll loop starts immediately
     ///   in the constructor, so the consumer group's reader is alive BEFORE
     ///   any local component can publish - eliminates the "publish before
     ///   anything's listening" race that left every-other event lost on
-    ///   concurrent worker boot. Use for the arena's inbound side of the
+    ///   concurrent worker boot. Use for the hub's inbound side of the
     ///   typed-events stream / a worker's inbound side of the routed-cmds
     ///   stream.
     ///
@@ -105,7 +105,7 @@ namespace Rxns.Redis
             _mode = mode ?? (publishOnly ? RedisStreamMode.PublishOnly : RedisStreamMode.Bidirectional);
 
             // AbortOnConnectFail=false + LinearRetry(30000) = never stop, 30s
-            // between attempts. Worker processes that boot before the arena's
+            // between attempts. Worker processes that boot before the hub's
             // redis-server is bound stay alive and silently retry forever
             // until redis comes up — same behaviour we want for transient
             // network hiccups in steady-state. With the default (abort=true,
@@ -130,7 +130,7 @@ namespace Rxns.Redis
             // AbortOnConnectFail=false the multiplexer returns immediately
             // even when redis is unreachable; calling StreamCreateConsumerGroup
             // here would throw on a fresh worker that booted before the
-            // arena's redis-server. The poll loop retries until it succeeds.
+            // hub's redis-server. The poll loop retries until it succeeds.
             // Publish-only mode never reads, so it doesn't need the group.
 
             // Start the poll loop eagerly for any subscribe-capable mode so
@@ -348,7 +348,7 @@ namespace Rxns.Redis
         /// <summary>
         /// Publishes how far behind the consumer is, every few seconds, as plain time-series metrics.
         ///
-        /// <para>Backpressure is invisible without this. When the arena cannot keep up, work does not
+        /// <para>Backpressure is invisible without this. When the hub cannot keep up, work does not
         /// fail - it queues, which is the whole reason to prefer a stream over synchronous HTTP - but
         /// a queue nobody measures looks the same as a healthy system right up until it does not. The
         /// stream depth and the group's unacknowledged count are the two numbers that say whether the
@@ -393,10 +393,10 @@ namespace Rxns.Redis
 
         /// <summary>
         /// Where backlog samples go. Default is this channel's inbound, which is wrong for every
-        /// real owner: the arena's channel belongs to the routed-command hub, which reads Incoming
+        /// real owner: the hub's channel belongs to the routed-command hub, which reads Incoming
         /// looking for commands and drops anything else, and a worker's status client is publish-only
         /// so it never reads at all. Emitted samples therefore existed and reached nobody - every
-        /// lossless run printed "redis backlog: no samples" and no exported arena carried one.
+        /// lossless run printed "redis backlog: no samples" and no exported hub carried one.
         /// The owner sets this to put them on a bus something records.
         /// </summary>
         public Action<T> MetricSink { get; set; }
@@ -426,8 +426,8 @@ namespace Rxns.Redis
             // Without this, every restart leaves a ghost consumer in the
             // group and Redis load-balances new messages across all of them
             // (alive AND dead). Half the messages get delivered to dead
-            // consumers, never ACK, and never reach the live arena.
-            // Symptom: arena seeing only every-other worker's heartbeats
+            // consumers, never ACK, and never reach the live hub.
+            // Symptom: hub seeing only every-other worker's heartbeats
             // after a few test-class iterations.
             try
             {
