@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reactive;
+using System.Text;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading;
@@ -56,6 +57,18 @@ namespace Rxns.Hosting.Updates
         private readonly IFileSystemService _fileSystem;
         private readonly IStoreAppUpdates _cmdService;
         private readonly IRxnAppCfg _cfg;
+
+        static AppUpdateServiceClient()
+        {
+            // DotNetZip asks for code page 437 - the zip format's historic default for entry
+            // names - and .NET Core does not carry that page unless the provider is registered.
+            // ZipOutputStream asks for it in its constructor, where ZipFile did not, so switching
+            // to it broke the arena's export on Linux with "'IBM437' is not a supported encoding
+            // name" while every test on this Windows box passed. Registering it here covers the
+            // read path too, which has the same default and the same blind spot.
+            try { Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); }
+            catch (Exception e) { $"Could not register code page encodings: {e.Message}".LogDebug(); }
+        }
 
         public AppUpdateServiceClient(IUpdateStorageClient updateService, IFileSystemService fileSystem, IStoreAppUpdates cmdService, IRxnAppCfg forDownloadVersionCheck)
         {
@@ -371,24 +384,46 @@ namespace Rxns.Hosting.Updates
             }
 
             var dirname = new DirectoryInfo(dir).Name;
-            var memoryStream = new MemoryStream();
+            // Spilled to a temp file, not a MemoryStream. A MemoryStream is capped at about 2 GB by
+            // its single backing array and holds the whole archive on the managed heap while it
+            // builds - on an arena packing a 15 GB tape directory that is both a hard ceiling and a
+            // large-object-heap problem. DeleteOnClose means the caller's existing Dispose() still
+            // cleans it up, so the returned-Stream contract is unchanged.
+            var spillPath = Path.Combine(Path.GetTempPath(), "rxns-update-" + Guid.NewGuid().ToString("n") + ".zip");
+            var destination = new FileStream(spillPath, FileMode.Create, FileAccess.ReadWrite,
+                                             FileShare.None, 81920, FileOptions.DeleteOnClose);
             //use folder as index in .zip if no slash
             var shouldNest = !(dir.EndsWith("/") || !dir.EndsWith("\\"));
 
             exclusions = exclusions.Concat(new [] {"%%"}).ToArray();
 
-            using (var zipFile = new ZipFile())
+            var root = dir.TrimEnd('/', '\\');
+            var added = 0;
+            var skipped = 0;
+            var bytesRead = 0L;
+
+            // ZipOutputStream, not ZipFile. ZipFile holds a ZipEntry per file until Save() and
+            // compresses them all there; a run of 45,000 tapes is 45,000 live entries before a
+            // single byte is deflated. This writes each entry through as it is read, so the memory
+            // cost is one entry's buffers whatever the run size. Zip64 stays on for the same
+            // reason it was turned on for Save(): past about 4 GB the classic format silently
+            // produced an empty archive.
+            using (var zip = new ZipOutputStream(destination, true))
             {
-                foreach (string pathToFile in _fileSystem.GetFiles(dir.TrimEnd('/', '\\'), searchPattern, true)
+                zip.EnableZip64 = Zip64Option.AsNecessary;
+                // UTF-8 for entry names, always. The archive is written on a Linux arena and read
+                // on a Windows client, and code page 437 cannot spell most of what a run names.
+                zip.AlternateEncoding = Encoding.UTF8;
+                zip.AlternateEncodingUsage = ZipOption.Always;
+
+                foreach (string pathToFile in _fileSystem.GetFiles(root, searchPattern, true)
                     .Select(fm => fm.Fullname))
                 {
-                    var absolute = _fileSystem.GetDirectoryPart(pathToFile);
-                    
-                    var relative = absolute.Replace(dir.TrimEnd('/', '\\'), "").LogDebug(pathToFile);
+                    var relative = _fileSystem.GetDirectoryPart(pathToFile).Replace(root, "");
+
                     if (exclusions.Any(e => relative.BasicallyContains(e)))
                     {
-                        //todo make detection more formal/optional
-                        "detected nested update, skipping".LogDebug();
+                        skipped++;
                         continue;
                     }
 
@@ -397,14 +432,24 @@ namespace Rxns.Hosting.Updates
                         relative = $"{dirname}{relative}";
                     }
 
-                    zipFile.AddFile(pathToFile, relative);
-                }
+                    var entry = $"{relative.Replace('\\', '/').Trim('/')}/{Path.GetFileName(pathToFile)}".TrimStart('/');
 
-                zipFile.Save(memoryStream);
+                    zip.PutNextEntry(entry);
+                    using (var source = File.Open(pathToFile, FileMode.Open, FileAccess.Read,
+                                                  FileShare.ReadWrite | FileShare.Delete))
+                    {
+                        source.CopyTo(zip, 81920);
+                        bytesRead += source.Length;
+                    }
+
+                    added++;
+                }
             }
 
-            memoryStream.Seek(0L, SeekOrigin.Begin);
-            return memoryStream;
+            $"Zipped {added} entries ({bytesRead.ToFileSize()}) from '{root}' into {destination.Length.ToFileSize()}{(skipped > 0 ? $", skipped {skipped} excluded" : "")}".LogDebug();
+
+            destination.Seek(0L, SeekOrigin.Begin);
+            return destination;
         }
     }
 }

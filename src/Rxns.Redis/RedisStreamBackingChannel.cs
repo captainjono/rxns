@@ -67,14 +67,37 @@ namespace Rxns.Redis
         /// <summary>How often the consumer's backlog is sampled, in ms.</summary>
         private const int BacklogSampleMs = 5000;
 
+        /// <summary>
+        /// Entries retained per stream, applied at XADD. Null leaves the stream unbounded.
+        ///
+        /// <para>Acknowledging an entry clears it from the consumer group's pending list and
+        /// leaves it on the stream, and nothing here ever calls XTRIM or XDEL - so without a cap
+        /// a stream holds every event ever published for the life of the server, in memory, and
+        /// whatever RDB persistence is configured writes all of it to disk on every snapshot.</para>
+        ///
+        /// <para>What the backlog is actually for is a consumer that is not there yet: a group is
+        /// created at "0-0", so a host that boots after its publishers replays from the beginning.
+        /// That sets the floor - the cap only has to outlast a boot gap or a restart, not a run.</para>
+        ///
+        /// <para>A process-wide default rather than a constructor argument for the same reason
+        /// <c>SignalRRxnManagerBridge.LogBridgeMode</c> is: it is a property of the deployment,
+        /// not of one stream, and the host sets it once before any channel is built. Pass
+        /// <c>maxStreamLength</c> to override it for a single channel.</para>
+        /// </summary>
+        public static int? DefaultMaxStreamLength = null;
+
+        private readonly int? _maxStreamLength;
+
         public RedisStreamBackingChannel(
             string redisConnectionString,
             string streamName,
             string consumerGroup = null,
             bool publishOnly = false,
-            RedisStreamMode? mode = null)
+            RedisStreamMode? mode = null,
+            int? maxStreamLength = null)
         {
             _streamName = streamName;
+            _maxStreamLength = maxStreamLength ?? DefaultMaxStreamLength;
             _consumerGroup = consumerGroup ?? $"{streamName}-group";
             _consumerId = MakeConsumerId(Environment.MachineName);
             // Mode wins when explicitly set; otherwise fall back to the legacy
@@ -158,12 +181,15 @@ namespace Rxns.Redis
                 var json = RxnExtensions.SerialiseImpl(message);
                 var typeName = message.GetType().AssemblyQualifiedName;
 
+                // Approximate trimming on purpose: MAXLEN ~ lets redis stop at a whole node
+                // boundary, which is amortised O(1). An exact MAXLEN walks the stream on every
+                // publish, which is the wrong cost to pay on the hot path to save a few entries.
                 _db.StreamAdd(_streamName, new NameValueEntry[]
                 {
                     new NameValueEntry("type", typeName),
                     new NameValueEntry("data", json),
                     new NameValueEntry("from", _consumerId)
-                });
+                }, messageId: null, maxLength: _maxStreamLength, useApproximateMaxLength: true);
             }
             catch (Exception ex)
             {
