@@ -355,7 +355,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 var departing = _routes.FirstOrDefault(route => route.Value == Context.ConnectionId).Key;
 
                 if (departing != null)
-                    RemoveRoute(departing, Context.ConnectionId);
+                    RemoveRouteOwnedBy(departing, Context.ConnectionId);
             });
 
             return base.OnDisconnectedAsync(exception);
@@ -487,7 +487,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
-        public void RemoveRoute(string route) => RemoveRoute(route, null);
+        public void RemoveRoute(string route) => RemoveRouteOwnedBy(route, null);
 
         /// <summary>
         /// Drops a route, optionally only on behalf of the connection that still holds it.
@@ -502,7 +502,14 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
         /// <para>Passing the departing connection makes that case a no-op. Callers who genuinely
         /// mean "remove this route whoever owns it" pass nothing and keep the old behaviour.</para>
         /// </summary>
-        public void RemoveRoute(string route, string clientId)
+        /// <summary>
+        /// Not an overload of <see cref="RemoveRoute(string)"/>, and it cannot become one: this is
+        /// a SignalR hub, and the dispatcher refuses a hub with two methods of the same name -
+        /// "Duplicate definitions of 'RemoveRoute'. Overloading is not supported." It throws while
+        /// discovering hub methods, which is before the host finishes starting, so the arena serves
+        /// a 500 to every caller including its own readiness probe and the load balancer's.
+        /// </summary>
+        private void RemoveRouteOwnedBy(string route, string clientId)
         {
             var rootRoute = route.AsRootRoute();
 

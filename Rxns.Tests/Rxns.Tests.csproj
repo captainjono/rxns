@@ -1,7 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- net10 so this can reference Rxns.WebApiNET5, which is net10 and carries the
+         SignalR hub. It also means the suite runs natively on an arm64 dev box, which has a
+         net10 runtime and no net8 one - that needed DOTNET_ROLL_FORWARD to run at all. -->
+    <TargetFramework>net10.0</TargetFramework>
 
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -17,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
+    <ProjectReference Include="..\Rxns.WebApiNET5\Rxns.WebApiNET5.csproj" />
   </ItemGroup>
 
 </Project>
