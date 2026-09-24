@@ -85,12 +85,41 @@ namespace Rxns.Tests
         public void should_queue_a_command_bound_for_another_route()
         {
             var statusStore = Substitute.For<IAppCmdManager>();
+
+            // Stubbed true because this node can reach the addressee. Without it the substitute
+            // answers false, the guard below returns early, and the test reads as a routing
+            // failure when nothing was ever going to be queued.
+            statusStore.CanRoute(Arg.Any<IRxnQuestion>()).Returns(true);
+
             var sut = SutFor(@"NoTenant\W1_0", statusStore);
             var cmd = QuestionFor(@"NoTenant\W2_0");
 
             Execute(sut, cmd);
 
             statusStore.Received().Add(cmd);
+        }
+
+        /// <summary>
+        /// A node only takes custody of someone else's command when it can actually deliver it.
+        ///
+        /// <para>Commands reach every node on the shared transport and each decides whose it is, so
+        /// the addressee already holds its own copy - there is nothing to forward. A worker that
+        /// queued it anyway parked it against a route it has no channel to, where nothing drains
+        /// it: on a two-VM cluster that swallowed half a dispatch while the orchestrator reported a
+        /// clean firing.</para>
+        /// </summary>
+        [TestMethod]
+        public void should_not_queue_a_command_it_has_no_way_to_deliver()
+        {
+            var statusStore = Substitute.For<IAppCmdManager>();
+            statusStore.CanRoute(Arg.Any<IRxnQuestion>()).Returns(false);
+
+            var sut = SutFor(@"NoTenant\W1_0", statusStore);
+            var cmd = QuestionFor(@"NoTenant\W2_0");
+
+            Execute(sut, cmd);
+
+            statusStore.DidNotReceive().Add(Arg.Any<IRxnQuestion>());
         }
 
         /// <summary>
