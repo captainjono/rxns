@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -349,10 +349,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 if (_routes.Count < 1)
                     return;
 
-                var key = _routes.Where(route => route.Value == Context.ConnectionId).Select((item, _) => item.Key);
+                // Resolved once, not three times. The query used to be left lazy and then walked
+                // again by Any() and again by First(), so the answer could change underneath the
+                // handler between the question and the act.
+                var departing = _routes.FirstOrDefault(route => route.Value == Context.ConnectionId).Key;
 
-                if (key.Any())
-                    RemoveRegistration(key.First());
+                if (departing != null)
+                    RemoveRoute(departing, Context.ConnectionId);
             });
 
             return base.OnDisconnectedAsync(exception);
@@ -484,10 +487,34 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
-        public void RemoveRoute(string route)
+        public void RemoveRoute(string route) => RemoveRoute(route, null);
+
+        /// <summary>
+        /// Drops a route, optionally only on behalf of the connection that still holds it.
+        ///
+        /// <para>Removal used to be unconditional and by name. A client that reconnects registers
+        /// its new connection against the same route, and the old connection's disconnect - which
+        /// can arrive afterwards - then deleted the registration the new one had just made. The
+        /// client stayed connected with no route, so everything addressed to it queued instead of
+        /// being delivered, and nothing in the log said so: the removal looks identical whether it
+        /// retired a dead connection or a live one.</para>
+        ///
+        /// <para>Passing the departing connection makes that case a no-op. Callers who genuinely
+        /// mean "remove this route whoever owns it" pass nothing and keep the old behaviour.</para>
+        /// </summary>
+        public void RemoveRoute(string route, string clientId)
         {
-            OnVerbose("Removed live route '{0}', commands will now be queued for status signals", route);
-            _routes.Remove(route.AsRootRoute());
+            var rootRoute = route.AsRootRoute();
+
+            if (clientId != null && _routes.TryGetValue(rootRoute, out var currentOwner) && currentOwner != clientId)
+            {
+                OnVerbose("Ignoring stale removal of route '{0}' from '{1}': it now belongs to '{2}'",
+                    rootRoute, clientId, currentOwner);
+                return;
+            }
+
+            OnVerbose("Removed live route '{0}', commands will now be queued for status signals", rootRoute);
+            _routes.Remove(rootRoute);
         }
 
         public void PublishFromClient(string clientId, string serializedEvent)
