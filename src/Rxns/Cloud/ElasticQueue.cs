@@ -58,7 +58,43 @@ namespace Rxns.Cloud
         {
             return Rxn.Create<IRxn>(() =>
             {
-                _workerConnections.Add(@event.Worker.Name, Workflow.RegisterWorker(@event.Worker));
+                // A worker can be discovered more than once: it reconnects, its route flaps, or its
+                // process restarts and announces itself again under the same name. None of that is
+                // exceptional, but _workerConnections is a ConcurrentDictionary held as an
+                // IDictionary, and IDictionary.Add throws when the key is already present.
+                //
+                // The throw did not stay local. This processor is subscribed once to a stream of
+                // discoveries, so the error did not skip one event - it ended the subscription, and
+                // every worker discovered after it was never registered at all. On a cold fleet the
+                // machines that finish booting later sit on the far side of that error: they come
+                // up, they heartbeat, they report themselves idle, and no work is ever placed on
+                // them. A hundred-machine run lost half its fleet to this and reported nothing.
+                //
+                // So a re-sighting replaces the previous registration rather than colliding with it.
+                // The old connection is disposed first, which withdraws the stale entry from the
+                // fan-out's own table before the new one is added, leaving exactly one registration
+                // per name whichever order the sightings arrive in.
+                var name = @event.Worker.Name;
+
+                if (_workerConnections.TryGetValue(name, out var previous))
+                {
+                    $"Worker {name} discovered again - replacing its previous registration".LogDebug();
+
+                    try
+                    {
+                        previous.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        // A registration that cannot be torn down must not cost us the new one, nor
+                        // the stream that carries every worker behind it.
+                        $"Worker {name} previous registration would not dispose: {ex.Message}".LogDebug();
+                    }
+
+                    _workerConnections.Remove(name);
+                }
+
+                _workerConnections[name] = Workflow.RegisterWorker(@event.Worker);
             });
         }
 
