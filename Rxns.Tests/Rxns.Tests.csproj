@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\src\Rxns\Rxns.csproj" />
     <ProjectReference Include="..\Rxns.WebApiNET5\Rxns.WebApiNET5.csproj" />
+    <ProjectReference Include="..\src\Rxns.Redis\Rxns.Redis.csproj" />
   </ItemGroup>
 
 </Project>

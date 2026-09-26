@@ -70,8 +70,16 @@ namespace Rxns.Redis
                     .Catch<IRxn, Exception>(e => Observable.Throw<IRxn>(e)
                         .DelaySubscription(ResubscribeDelay, TaskPoolScheduler.Default))
                     .Retry()
-                    .Do(rxn => _localBus.Publish(rxn)
-                        .Until(e => OnError(new Exception("Local bus republish failed", e))))
+                    .Do(rxn =>
+                    {
+                        // Says what actually came off the stream. Without it, an event that is
+                        // written by the worker and never acted on by the arena looks identical
+                        // to one that was never written - and the two have completely different
+                        // causes. This is the only point where the inbound side is observable.
+                        $"RedisInboundEventPump: <- {rxn.GetType().Name}".LogDebug();
+                        _localBus.Publish(rxn)
+                            .Until(e => OnError(new Exception("Local bus republish failed", e)));
+                    })
                     .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
 
                 _resources.Add(sub);

@@ -64,15 +64,32 @@ namespace Rxns.Redis
 
         private readonly Subject<ClientLifecycleEvent> _lifecycle = new();
 
-        // Stale-route detection: how long without a WorkerHeartbeat before we
-        // evict + emit Connected=false. Aligns roughly with SignalR's KeepAlive
-        // (20s server / 30s client) to keep the failure-detection window
-        // comparable across modes.
-        private static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(20);
-        private static readonly TimeSpan SweepInterval = TimeSpan.FromSeconds(5);
+        // No stale-route sweep, deliberately.
+        //
+        // This hub used to evict a route whose WorkerHeartbeat had not been seen for N seconds,
+        // synthesising the disconnect signal that Redis - unlike SignalR - does not have. The
+        // SignalR hub removes a route in OnDisconnectedAsync, which is evidence. A timer is a
+        // guess, and the guess was wrong in the only way that mattered.
+        //
+        // What it bought: nothing subscribes to ClientLifecycle anywhere in rxns or theBFG, so
+        // the Connected=false half was dead code. The only real effect was removing the route
+        // from the dispatch table.
+        //
+        // What it cost: heartbeats are published every 5s but were OBSERVED arriving at 22-25s
+        // with a 374s tail, because the arena's stream consumer falls behind - not because the
+        // workers were unwell. So every worker in a fleet got evicted repeatedly (151 times in a
+        // ten-device run, 392 in a hundred-device one), routes vanished, and dispatches could not
+        // land. Three rungs produced partial results that read as hangs and were not: the work
+        // never arrived. It also fed itself, since an eviction published an event onto the very
+        // stream whose backlog caused it.
+        //
+        // A route now lives until a heartbeat replaces it. A respawned worker re-registers on its
+        // next heartbeat - including the clientId-change case below - so the registry self-heals
+        // on evidence. A dead worker's route does persist; the answer to that is a dispatch that
+        // reports when it does not come back, not a route table guessing at liveness.
 
-        // Route -> last heartbeat seen. Sweep evicts entries older than
-        // HeartbeatTimeout.
+        // Route -> last heartbeat seen. Kept for diagnostics and for the clientId-change check;
+        // nothing expires on it any more.
         private readonly ConcurrentDictionary<string, DateTime> _lastHeartbeat = new();
 
         private CompositeDisposable _resources = new();
@@ -103,6 +120,11 @@ namespace Rxns.Redis
                 OnError(new Exception("Failed to publish a redis backlog sample", e)));
 
             OnInformation("RedisEventHub: stream='{0}' group='{1}'", RoutedCmdsStream, consumerGroup);
+
+            // Say the eviction policy out loud, once, at startup, so a run does not have to be
+            // inferred from the evictions it produced - which is exactly backwards, and is how a
+            // deadline shorter than actual heartbeat delivery went unnoticed through three rungs.
+            OnInformation("RedisEventHub: routes are heartbeat-registered and never time out - a dispatch that does not come back is reported by its own timeout, not by evicting the route");
             // Phase 7n4 refactor: register THIS channel with the cmd manager
             // so its Add() can dispatch via SendToClientAsync when a route
             // lives here. Cross-channel routing decisions (cmd entered via
@@ -168,52 +190,8 @@ namespace Rxns.Redis
                     }
                 }));
 
-            // Periodic sweep: evict routes whose last heartbeat is older than
-            // HeartbeatTimeout. Sample at SweepInterval so we don't spin a
-            // dedicated timer thread - rides Rx's default scheduler.
-            _resources.Add(Observable.Interval(SweepInterval)
-                .Subscribe(_ => SweepStaleRoutes()));
         }
 
-        private void SweepStaleRoutes()
-        {
-            try
-            {
-                var now = DateTime.UtcNow;
-                // Filter on the snapshot of (key, ageSeconds) so we don't read
-                // the dictionary again later — the previous code re-indexed
-                // _lastHeartbeat[route] at the OnVerbose line, which threw
-                // KeyNotFoundException whenever a concurrent registration
-                // (or a previous sweep iteration mid-foreach) had already
-                // removed the entry. The exception aborted the sweep BEFORE
-                // the TryRemove + RemoveRoute steps ran, so the next sweep
-                // tick saw the same stale entry and threw again — every 5
-                // seconds forever, flooding /systemstatus/log with
-                // "SweepStaleRoutes failed". Phase 7n3 caught this after a
-                // worker process was killed.
-                var stale = _lastHeartbeat
-                    .Where(kv => now - kv.Value > HeartbeatTimeout)
-                    .Select(kv => new { Route = kv.Key, AgeMs = (now - kv.Value).TotalMilliseconds })
-                    .ToList();
-                foreach (var s in stale)
-                {
-                    // Atomic remove-with-value: skip if a concurrent thread
-                    // already evicted. Idempotent across overlapping sweeps.
-                    if (!_lastHeartbeat.TryRemove(s.Route, out _))
-                        continue;
-                    OnVerbose("RedisEventHub: sweep evicting stale route '{0}' (last heartbeat {1:0}ms ago)", s.Route, s.AgeMs);
-                    try { RemoveRoute(s.Route); }
-                    catch (Exception removeEx)
-                    {
-                        OnError(new Exception($"RedisEventHub: RemoveRoute('{s.Route}') in sweep failed", removeEx));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError(new Exception("RedisEventHub.SweepStaleRoutes failed", ex));
-            }
-        }
 
         // ── IEventHub ─────────────────────────────────────────────────────────
 

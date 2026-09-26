@@ -138,10 +138,39 @@ namespace Rxns.Redis
                         RoutedCmdsStream,
                         ArenaCmdsConsumerGroup));
 
-                // Pump inbound stream events onto the local IRxnManager so
-                // RedisEventHub's type subscriptions fire for events sent
-                // by remote workers.
-                lifecycle.CreatesOncePerApp<RedisInboundEventPump>();
+                // Pump inbound stream events onto the LOCAL IRxnManager so RedisEventHub's type
+                // subscriptions fire for events sent by remote workers.
+                //
+                // Local, specifically - the tagged "local" manager rather than the default one.
+                // The default routes to central, and central here IS this redis stream, so every
+                // event the arena consumed was immediately written back to the stream it had just
+                // read it from. Self-loop suppression then discarded the copy on the way back in,
+                // so the work was invisible as well as wasted.
+                //
+                // Measured on a 100-device fleet: 148,330 entries, of which a 400-entry sample was
+                // 100% telemetry and 70% authored by the arena itself - a worker's own heartbeat
+                // appearing on the stream stamped from=<arena consumer id> is the fingerprint. The
+                // arena ran 46s behind a backlog it was more than half responsible for creating.
+                //
+                // Falls back to the default manager when no registry is wired, which is the
+                // pre-existing behaviour: a host without a local/central split has nowhere else to
+                // publish, and losing the pump entirely would be worse than the echo.
+                lifecycle.CreatesOncePerApp<RedisInboundEventPump>(cc =>
+                {
+                    IRxnManager<IRxn> localOnly = null;
+                    try { localOnly = cc.Resolve<IRxnManagerRegistry>()?.RxnsLocal; }
+                    catch (Exception ex)
+                    {
+                        $"RedisTransportModule: no IRxnManagerRegistry ({ex.GetType().Name}) - inbound pump will use the default manager".LogDebug();
+                    }
+
+                    if (localOnly == null)
+                        "RedisTransportModule: no local-tagged IRxnManager - inbound events will be republished to central, which echoes them onto this stream".LogDebug();
+
+                    return new RedisInboundEventPump(
+                        cc.Resolve<IAppStatusServiceClient>(),
+                        localOnly ?? cc.Resolve<IRxnManager<IRxn>>());
+                });
             }
             else
             {

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -60,6 +62,68 @@ namespace Rxns.Redis
         private ConnectionMultiplexer _redis;
         private IDatabase _db;
         private readonly Subject<T> _incoming = new Subject<T>();
+
+        /// <summary>
+        /// The thread subscribers are delivered on, so reading the stream and delivering off it
+        /// run at their own speeds.
+        ///
+        /// <para>Delivery used to happen inline on the poll loop: OnNext ran every subscriber -
+        /// the local bus, the tape repo and its disk writes, anything folding reports -
+        /// synchronously before the next entry could be read. One slow subscriber therefore set
+        /// the drain rate for the whole fleet, and no batch size fixes that. It is why one arena
+        /// consumer fell far enough behind that heartbeats published every 5s arrived at 22-25s,
+        /// with a 374s tail, and why three rungs finished partial without reporting an error.</para>
+        ///
+        /// <para>One scheduler, so one thread: events stay ordered and subscribers are never
+        /// invoked concurrently, which they were never written to tolerate. What changed is only
+        /// that reading no longer waits for delivering.</para>
+        /// </summary>
+        private readonly EventLoopScheduler _deliveryThread;
+
+        /// <summary>
+        /// The thread that reads the stream.
+        ///
+        /// <para>Its own thread, and deliberately not the thread pool. A pool thread doing a
+        /// blocking read competes with every other piece of work in the process, and under load
+        /// the pool is exactly what is starved - so the drain would slow down precisely when it
+        /// most needs not to.</para>
+        /// </summary>
+        private readonly EventLoopScheduler _pollThread;
+
+        /// <summary>Backlog sampling, off the poll thread so a sample can never delay a read.</summary>
+        private readonly IScheduler _sampleScheduler = NewThreadScheduler.Default;
+
+        /// <summary>Everything this channel started, disposed together.</summary>
+        private readonly CompositeDisposable _resources = new CompositeDisposable();
+
+        /// <summary>
+        /// Events handed to the delivery thread that it has not delivered yet.
+        ///
+        /// <para>Sampled next to the stream depth because together they say WHERE a backlog is.
+        /// Stream deep and this near zero is a slow reader; both deep is a slow subscriber holding
+        /// the reader up. Without the second number the two are indistinguishable from outside,
+        /// and last time that cost three rungs.</para>
+        /// </summary>
+        private int _undelivered;
+
+        /// <summary>Names the per-subscriber delivery threads, so a thread dump is readable.</summary>
+        private int _subscriberCount;
+
+        /// <summary>
+        /// How far delivery may fall behind the read before the drain stops reading.
+        ///
+        /// <para>This is the backpressure. Without it the poll loop reads and acks at full speed
+        /// regardless of whether anything is consuming, so a stalled subscriber converts a Redis
+        /// backlog - which is durable, measurable and survives a restart - into an in-memory queue
+        /// that is none of those things. Pausing instead leaves the entries in Redis where the
+        /// depth and pending counts still report them.</para>
+        ///
+        /// <para>Generous on purpose: this is a brake for a subscriber in trouble, not a throttle
+        /// on a healthy one. A run that sits near this limit has a consumer problem that no buffer
+        /// size will fix - watch the sampled undelivered count.</para>
+        /// </summary>
+        public const int MaxUndelivered = 50000;
+
         private CancellationTokenSource _cts;
         private IDeliveryScheme<T> _deliveryScheme;
         private readonly RedisStreamMode _mode;
@@ -141,8 +205,37 @@ namespace Rxns.Redis
             if (_mode != RedisStreamMode.PublishOnly)
             {
                 _cts = new CancellationTokenSource();
-                Task.Run(() => PollStream(_cts.Token));
-                Task.Run(() => SampleBacklog(_cts.Token));
+
+                // Named and background so a thread dump says which stream is behind, and so a
+                // stuck subscriber cannot hold the process open at shutdown.
+                _deliveryThread = new EventLoopScheduler(run => new Thread(run)
+                {
+                    IsBackground = true,
+                    Name = $"redis-deliver-{_streamName}"
+                });
+
+                _pollThread = new EventLoopScheduler(run => new Thread(run)
+                {
+                    IsBackground = true,
+                    Name = $"redis-poll-{_streamName}"
+                });
+
+                // Rx, not Task.Run.
+                //
+                // These were two fire-and-forget Task.Run calls. Nothing held the returned Task,
+                // so an exception escaping either loop faulted it silently: the channel simply
+                // stopped draining, for the life of the process, with no log line and no error -
+                // and from outside that is indistinguishable from a quiet stream. A consumer that
+                // can die without saying so is the worst shape this code can have, because every
+                // symptom then points somewhere else.
+                //
+                // Recursive scheduling on a dedicated thread instead: the scheduler owns the
+                // cadence, the subscription is held in _resources so disposal stops it, and an
+                // error reaches Until's handler where it is logged and the loop restarted.
+                _resources.Add(_pollThread.Schedule(TimeSpan.Zero, PollOnce));
+                _resources.Add(Observable
+                    .Interval(TimeSpan.FromMilliseconds(BacklogSampleMs), _sampleScheduler)
+                    .Subscribe(_ => SampleBacklogOnce()));
             }
         }
 
@@ -168,10 +261,41 @@ namespace Rxns.Redis
             if (_mode == RedisStreamMode.PublishOnly)
                 return Observable.Empty<T>();
 
-            // Poll loop already started in the ctor for subscribe-capable
-            // modes; Setup just hands back the inbound observable. Calling
-            // Setup multiple times is safe - we don't restart the poll.
-            return _incoming.AsObservable();
+            // Poll loop already started in the ctor for subscribe-capable modes; Setup just hands
+            // back the inbound sequence. Calling Setup twice is safe - it does not restart the poll.
+            //
+            // Each subscriber is trampolined onto ITS OWN thread.
+            //
+            // Sharing one delivery thread looked tidy and was a trap: a subscriber that blocks -
+            // a tape repo waiting on a disk, an HTTP forwarder waiting on a socket - owns that
+            // thread while it waits, so every OTHER subscriber stops receiving too. Meanwhile the
+            // poll loop, which never blocks, keeps reading and ACKING. Redis is then told the
+            // entries were handled while they sit in a queue nobody is draining: unbounded memory
+            // on one side, and on a crash the messages are simply gone, because acked means gone.
+            // One slow consumer taking the whole transport down with it is the failure this
+            // avoids.
+            //
+            // A thread per subscriber is affordable because subscribers are few and long-lived -
+            // this is the local bus, a tape repo, a report folder - not per-message work.
+            var mine = new EventLoopScheduler(run => new Thread(run)
+            {
+                IsBackground = true,
+                Name = $"redis-deliver-{_streamName}-{Interlocked.Increment(ref _subscriberCount)}"
+            });
+
+            return Observable.Create<T>(o =>
+            {
+                // The two Do's bracket the hand-off so its depth is a number the run can be read
+                // against: the first runs on the poll thread as an event goes in, the second on
+                // this subscriber's thread once it has actually had it.
+                var sub = _incoming
+                    .Do(_ => Interlocked.Increment(ref _undelivered))
+                    .ObserveOn(mine)
+                    .Do(_ => Interlocked.Decrement(ref _undelivered))
+                    .Subscribe(o);
+
+                return new CompositeDisposable(sub, mine);
+            });
         }
 
         public void Publish(T message)
@@ -198,145 +322,211 @@ namespace Rxns.Redis
             }
         }
 
-        private async Task PollStream(CancellationToken ct)
+        /// <summary>How long to wait before looking again when the stream had nothing.</summary>
+        private static readonly TimeSpan IdlePollDelay = TimeSpan.FromMilliseconds(50);
+
+        /// <summary>How long to wait before looking again after an error.</summary>
+        private static readonly TimeSpan ErrorPollDelay = TimeSpan.FromSeconds(1);
+
+        /// <summary>Set once the consumer group exists, so the cost is paid once rather than per read.</summary>
+        private bool _groupReady;
+
+        /// <summary>
+        /// One pass of the drain, then reschedules itself.
+        ///
+        /// <para>Recursive scheduling rather than a while loop in an async method. The loop's
+        /// cadence is the scheduler's business, disposal stops it between passes with nothing to
+        /// interrupt mid-read, and - the part that matters - a pass that throws cannot kill the
+        /// loop, because the next pass is scheduled in a finally.</para>
+        /// </summary>
+        private void PollOnce(Action<TimeSpan> again)
         {
-            $"Redis stream consumer started: {_streamName}/{_consumerGroup}/{_consumerId}".LogDebug();
+            var next = IdlePollDelay;
 
-            // Lazy consumer-group creation. Retries every 5s until redis is
-            // reachable AND the group is set up. AbortOnConnectFail=false
-            // means the ctor returned without confirming a connection, so the
-            // worker survives a redis-not-yet-up boot race; this loop bridges
-            // the gap.
-            //
-            // ReconnectIfDead: StackExchange.Redis's multiplexer state machine
-            // doesn't recover when the INITIAL connect never succeeded — it
-            // stays "Connecting" forever even after redis comes up. To break
-            // that, when an operation fails AND IsConnected is false, dispose
-            // the dead multiplexer and reconstruct against the same
-            // ConfigurationOptions. New multiplexer probes the now-up redis
-            // and connects cleanly.
-            var groupReady = false;
-            while (!groupReady && !ct.IsCancellationRequested)
+            try
             {
-                try
+                if (!EnsureGroup()) { again(ErrorPollDelay); return; }
+
+                // Delivery is behind: stop reading rather than acking into a queue nobody is
+                // draining. Re-checked on the next pass, so the drain resumes by itself the moment
+                // the subscriber catches up - no signalling, nothing to get wrong.
+                if (Volatile.Read(ref _undelivered) >= MaxUndelivered)
                 {
-                    _db.StreamCreateConsumerGroup(_streamName, _consumerGroup, "0-0", true);
-                    groupReady = true;
+                    $"Redis stream drain paused [{_streamName}]: {_undelivered} undelivered, at the {MaxUndelivered} limit - a subscriber is not keeping up".LogDebug();
+                    again(IdlePollDelay);
+                    return;
                 }
-                catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
-                {
-                    groupReady = true;
-                }
-                catch (Exception ex)
-                {
-                    $"Redis consumer group create deferred ({_streamName}/{_consumerGroup}): {ex.Message}".LogDebug();
-                    ReconnectIfDead();
-                    await Task.Delay(5000, ct);
-                }
+
+                var entries = _db.StreamReadGroup(
+                    _streamName,
+                    _consumerGroup,
+                    _consumerId,
+                    count: ReadBatchSize,
+                    noAck: false);
+
+                if (entries == null || entries.Length == 0) { again(IdlePollDelay); return; }
+
+                DispatchBatch(entries);
+
+                // Came back full, so there is very likely more waiting: look again immediately
+                // rather than sleeping into a backlog we already know about.
+                next = entries.Length >= ReadBatchSize ? TimeSpan.Zero : IdlePollDelay;
             }
-            $"Redis consumer group ready: {_streamName}/{_consumerGroup}".LogDebug();
-
-            while (!ct.IsCancellationRequested)
+            catch (Exception ex)
             {
+                $"Redis stream poll error [{_streamName}/{_consumerGroup}]: {ex.GetType().Name}: {ex.Message}".LogDebug();
+                ReconnectIfDead();
+                next = ErrorPollDelay;
+            }
+
+            again(next);
+        }
+
+        /// <summary>
+        /// Creates the consumer group, deferred until redis is actually reachable.
+        /// </summary>
+        /// <remarks>
+        /// Not done in the constructor: AbortOnConnectFail=false means the multiplexer returns
+        /// before confirming a connection, so a worker that booted ahead of the hub's redis would
+        /// throw on construction and take the whole process with it. From "0-0" so a consumer that
+        /// arrives late still replays the backlog rather than silently skipping it.
+        /// </remarks>
+        private bool EnsureGroup()
+        {
+            if (_groupReady) return true;
+
+            try
+            {
+                _db.StreamCreateConsumerGroup(_streamName, _consumerGroup, "0-0", true);
+                _groupReady = true;
+                $"Redis consumer group ready: {_streamName}/{_consumerGroup}".LogDebug();
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
+            {
+                _groupReady = true;
+                $"Redis consumer group ready: {_streamName}/{_consumerGroup}".LogDebug();
+            }
+            catch (Exception ex)
+            {
+                $"Redis consumer group create deferred ({_streamName}/{_consumerGroup}): {ex.Message}".LogDebug();
+                ReconnectIfDead();
+            }
+
+            return _groupReady;
+        }
+
+        /// <summary>
+        /// Hands one batch to the delivery thread and acks it.
+        /// </summary>
+        private void DispatchBatch(StreamEntry[] entries)
+        {
+            // Acks are collected and sent once per batch rather than one round-trip per entry.
+            // Per-entry acking made the drain rate a function of Redis RTT: every message cost a
+            // serialised round-trip whatever its size, so a busy stream could never be caught up
+            // with. Entries that throw are deliberately left out and stay pending, as before.
+            var toAck = new List<RedisValue>(entries.Length);
+
+            foreach (var entry in entries)
+            {
+                string entryTypeName = "<unread>";
+                string entryFromId = "<unread>";
+                string stage = "init";
                 try
                 {
-                    var entries = await _db.StreamReadGroupAsync(
-                        _streamName,
-                        _consumerGroup,
-                        _consumerId,
-                        count: 10,
-                        noAck: false);
+                    stage = "read-fields";
+                    var typeName = entry["type"].ToString();
+                    var json = entry["data"].ToString();
+                    var fromId = entry["from"].ToString();
+                    entryTypeName = typeName;
+                    entryFromId = fromId;
 
-                    if (entries == null || entries.Length == 0)
+                    // Self-loop suppression: an IRxnBackingChannel is a transport for OTHER nodes'
+                    // events. When the publisher and the consumer are the same channel instance,
+                    // republishing back onto _incoming creates an infinite cycle:
+                    //   Publish -> stream -> Poll -> _incoming -> RxnManager re-routes via central
+                    //   -> Publish -> ...
+                    // Skip-and-ack anything we sent ourselves; cross-process events arrive with a
+                    // different `from` and pass through normally.
+                    if (!string.IsNullOrEmpty(fromId) && fromId == _consumerId)
                     {
-                        await Task.Delay(50, ct);
+                        stage = "ack-self";
+                        toAck.Add(entry.Id);
                         continue;
                     }
 
-                    foreach (var entry in entries)
+                    stage = "type-resolve";
+                    var type = Type.GetType(typeName);
+                    if (type == null)
                     {
-                        string entryTypeName = "<unread>";
-                        string entryFromId   = "<unread>";
-                        string stage         = "init";
-                        try
-                        {
-                            stage = "read-fields";
-                            var typeName = entry["type"].ToString();
-                            var json = entry["data"].ToString();
-                            var fromId = entry["from"].ToString();
-                            entryTypeName = typeName;
-                            entryFromId   = fromId;
-
-                            // Self-loop suppression: an IRxnBackingChannel is a transport
-                            // for OTHER nodes' events. When the publisher and the consumer
-                            // are the same channel instance, republishing the message back
-                            // onto _incoming creates an infinite cycle:
-                            //   Publish → stream → Poll → _incoming → RxnManager re-routes
-                            //   via central → Publish → ...
-                            // Skip-and-ack anything we sent ourselves; cross-process events
-                            // arrive with a different `from` and pass through normally.
-                            if (!string.IsNullOrEmpty(fromId) && fromId == _consumerId)
-                            {
-                                stage = "ack-self";
-                                await _db.StreamAcknowledgeAsync(_streamName, _consumerGroup, entry.Id);
-                                continue;
-                            }
-
-                            stage = "type-resolve";
-                            var type = Type.GetType(typeName);
-                            if (type == null)
-                            {
-                                $"Unknown type in stream: {typeName}".LogDebug();
-                                await _db.StreamAcknowledgeAsync(_streamName, _consumerGroup, entry.Id);
-                                continue;
-                            }
-
-                            stage = "deserialise";
-                            var obj = RxnExtensions.DeserialiseImpl(type, json);
-                            stage = "emit";
-                            if (obj is T typed)
-                            {
-                                _incoming.OnNext(typed);
-                            }
-
-                            stage = "ack";
-                            await _db.StreamAcknowledgeAsync(_streamName, _consumerGroup, entry.Id);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Detail context (type/from/stage) so post-mortems can tell
-                            // whether the error is a serialisation issue, a downstream
-                            // subscriber NRE, or an ack-side network blip.
-                            $"Error processing stream entry {entry.Id} stage='{stage}' type='{entryTypeName}' from='{entryFromId}': {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}".LogDebug();
-                        }
+                        $"Unknown type in stream: {typeName}".LogDebug();
+                        toAck.Add(entry.Id);
+                        continue;
                     }
+
+                    stage = "deserialise";
+                    var obj = RxnExtensions.DeserialiseImpl(type, json);
+                    stage = "emit";
+                    if (obj is T typed)
+                    {
+                        // Queues onto the delivery thread and returns - see Setup. This used to run
+                        // every subscriber inline, which made the slowest of them the speed limit
+                        // for the whole stream.
+                        _incoming.OnNext(typed);
+                    }
+                    else
+                    {
+                        // Deserialised to null, or to something this channel does not carry. This
+                        // used to fall through to the ack below in total silence, so a stream that
+                        // was being read perfectly could deliver nothing at all and look healthy
+                        // from every angle: group caught up, pending zero, no errors.
+                        $"Dropped stream entry {entry.Id}: {typeName} deserialised to {(obj == null ? "null" : obj.GetType().FullName)}, which is not a {typeof(T).Name}".LogDebug();
+                    }
+
+                    stage = "ack";
+                    toAck.Add(entry.Id);
                 }
-                catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
-                    $"Redis stream poll error [{_streamName}/{_consumerGroup}]: {ex.GetType().Name}: {ex.Message}".LogDebug();
-                    ReconnectIfDead();
-                    await Task.Delay(1000, ct);
+                    // Detail context (type/from/stage) so post-mortems can tell whether the error
+                    // is a serialisation issue, a downstream subscriber NRE, or an ack-side blip.
+                    $"Error processing stream entry {entry.Id} stage='{stage}' type='{entryTypeName}' from='{entryFromId}': {ex.GetType().Name}: {ex.Message}".LogDebug();
                 }
             }
+
+            if (toAck.Count > 0)
+                _db.StreamAcknowledge(_streamName, _consumerGroup, toAck.ToArray());
         }
 
+        /// <summary>
+        /// Rebuilds the multiplexer when it is dead.
+        /// </summary>
+        /// <remarks>
+        /// StackExchange.Redis's state machine does not recover when the INITIAL connect never
+        /// succeeded - it stays "Connecting" forever even after redis comes up. Disposing and
+        /// reconstructing against freshly parsed options is what breaks that, and re-parsing
+        /// matters: carrying the old options forward carries their cached endpoint-failure state
+        /// into the new multiplexer, which then sits in the same limbo.
+        /// </remarks>
         private void ReconnectIfDead()
         {
             try
             {
                 if (_redis == null || _redis.IsConnected) return;
-                $"Redis multiplexer dead (IsConnected=false) — reconnecting [{_streamName}]".LogDebug();
+                $"Redis multiplexer dead (IsConnected=false) - reconnecting [{_streamName}]".LogDebug();
                 try { _redis.Dispose(); } catch { }
-                // Re-parse options so we don't carry forward any cached
-                // endpoint-failure state that could keep the new multiplexer
-                // in the same Connecting/NotStarted limbo.
+
                 var fresh = ConfigurationOptions.Parse(_connectionString);
-                fresh.AbortOnConnectFail   = false;
+                fresh.AbortOnConnectFail = false;
                 fresh.ReconnectRetryPolicy = new LinearRetry(30000);
-                fresh.KeepAlive            = 5;
+                fresh.KeepAlive = 5;
                 _redis = ConnectionMultiplexer.Connect(fresh);
-                _db    = _redis.GetDatabase();
+                _db = _redis.GetDatabase();
+
+                // The group lives on the server, but this consumer has to re-create it if the
+                // server itself was replaced, so make the next pass check again rather than
+                // assume.
+                _groupReady = false;
+
                 $"Redis reconnect: new multiplexer IsConnected={_redis.IsConnected} [{_streamName}]".LogDebug();
             }
             catch (Exception ex)
@@ -346,48 +536,33 @@ namespace Rxns.Redis
         }
 
         /// <summary>
-        /// Publishes how far behind the consumer is, every few seconds, as plain time-series metrics.
-        ///
-        /// <para>Backpressure is invisible without this. When the hub cannot keep up, work does not
-        /// fail - it queues, which is the whole reason to prefer a stream over synchronous HTTP - but
-        /// a queue nobody measures looks the same as a healthy system right up until it does not. The
-        /// stream depth and the group's unacknowledged count are the two numbers that say whether the
-        /// cluster is keeping pace, and they belong on the same timeline as the client latency the
-        /// perf report already plots.</para>
-        ///
-        /// <para>Emitted onto the inbound stream rather than published back to Redis: these describe
-        /// the transport, so routing them through the transport they describe would add to the load
-        /// being measured and risk the self-loop the poll path guards against.</para>
+        /// One backlog sample. Driven by an Rx interval rather than a sleep loop.
         /// </summary>
-        private async Task SampleBacklog(CancellationToken ct)
+        private void SampleBacklogOnce()
         {
-            while (!ct.IsCancellationRequested)
+            try
             {
+                if (_db == null) return;
+
+                Emit($"redis.{_streamName}.depth", _db.StreamLength(_streamName));
+
+                // See _undelivered: read next to the depth above, the pair says whether a backlog
+                // is on the reading side or the delivering side.
+                Emit($"redis.{_streamName}.undelivered", Volatile.Read(ref _undelivered));
+
                 try
                 {
-                    await Task.Delay(BacklogSampleMs, ct).ConfigureAwait(false);
-                    if (_db == null) continue;
-
-                    Emit($"redis.{_streamName}.depth", _db.StreamLength(_streamName));
-
-                    try
-                    {
-                        Emit($"redis.{_streamName}.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
-                    }
-                    catch
-                    {
-                        // No consumer group yet, or a server without XPENDING. Depth alone still says
-                        // whether the stream is growing, so do not lose the sample over it.
-                    }
+                    Emit($"redis.{_streamName}.pending", _db.StreamPending(_streamName, _consumerGroup).PendingMessageCount);
                 }
-                catch (OperationCanceledException)
+                catch
                 {
-                    return;
+                    // No consumer group yet, or a server without XPENDING. Depth alone still says
+                    // whether the stream is growing, so do not lose the sample over it.
                 }
-                catch (Exception ex)
-                {
-                    $"Redis backlog sample failed [{_streamName}]: {ex.Message}".LogDebug();
-                }
+            }
+            catch (Exception ex)
+            {
+                $"Redis backlog sample failed [{_streamName}]: {ex.Message}".LogDebug();
             }
         }
 
@@ -399,6 +574,21 @@ namespace Rxns.Redis
         /// lossless run printed "redis backlog: no samples" and no exported hub carried one.
         /// The owner sets this to put them on a bus something records.
         /// </summary>
+        /// <summary>
+        /// Entries read per poll.
+        ///
+        /// <para>Sized so one hub can drain a fleet's telemetry rather than fall behind it. The old
+        /// value of 10, combined with an ack round-trip per entry, made the drain rate a function
+        /// of Redis latency instead of throughput - every message cost a serialised round-trip
+        /// whatever its size, so a busy stream could never be caught up with.</para>
+        ///
+        /// <para>Raising this alone would not have been enough. Delivery used to run inline on the
+        /// poll loop, which made the slowest subscriber the speed limit for the whole stream no
+        /// matter how much was read at once; the delivery thread is the half of the fix that
+        /// addresses that.</para>
+        /// </summary>
+        public const int ReadBatchSize = 200;
+
         public Action<T> MetricSink { get; set; }
 
         /// <summary>
@@ -435,6 +625,12 @@ namespace Rxns.Redis
                     _db.StreamDeleteConsumer(_streamName, _consumerGroup, _consumerId);
             }
             catch { /* best-effort cleanup */ }
+
+            // Stops the delivery thread. Anything still queued on it is dropped, which is correct
+            // at shutdown - the alternative is a dispose that waits on whatever slow subscriber
+            // caused the queue in the first place.
+            _deliveryThread?.Dispose();
+
             _incoming?.Dispose();
             _redis?.Dispose();
         }
