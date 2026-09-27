@@ -214,18 +214,31 @@ namespace Rxns.Cloud.Intelligence
         {
             var key = _getWorkQueueKey(work);
 
-            // Untagged work is work that could run anywhere, which is exactly the work worth
-            // spreading. Tagged work has been aimed somewhere deliberately and is left alone.
-            if (string.IsNullOrEmpty(key) || key == UntaggedQueueKey)
-            {
-                var machine = LeastLoadedMachine();
-                if (machine != null)
-                {
-                    _takenByMachine.AddOrUpdate(machine, 1, (_, n) => n + 1);
-                    key = MachineQueueKey(machine);
-                    $"PullFanout.Fanout: {typeof(T).Name} -> machine '{machine}'".LogDebug();
-                }
-            }
+            // Untagged work stays untagged, and is claimed by whichever worker is free to take it.
+            //
+            // It used to be assigned to the least loaded machine here, at enqueue, and that is a
+            // real improvement on one axis: assignment does not depend on which machine's read loop
+            // happens to wake first, so the spread is deterministic. The pull-time bias it replaced
+            // (ShouldYieldToAnotherMachine, still below) only spread work about half the time.
+            //
+            // But assigning at enqueue decides where work runs using the machines that exist at that
+            // instant, and that decision is never revisited. Work bound to _machine:vm-1 can only
+            // ever be pulled by a worker subscribed to that key, so a machine that joins afterwards
+            // subscribes to its own empty queue and to _untagged - which enqueue has just emptied -
+            // and sits idle beside work it is able to run.
+            //
+            // On a hundred-device run that cost half the fleet: ~50 machines had registered when the
+            // dispatch went out, all 100 units were bound two-deep across those 50, and the 50 that
+            // finished booting two minutes later were given nothing. The arena knew them - they
+            // heartbeat fifty times each - but there was no longer any work they could reach.
+            //
+            // So the binding goes and the spread becomes a bias again. A free worker pulls; a busy
+            // one does not; nothing is promised to a machine before a machine asks for it. The
+            // spread is less even than assignment made it, and that is the trade being taken
+            // deliberately: a fast machine taking a second item is work getting done, while work
+            // reserved for a machine that cannot take it is work not getting done at all.
+            //
+            // Tagged work is untouched - it was aimed somewhere on purpose.
 
             if (string.IsNullOrEmpty(key)) key = UntaggedQueueKey;
 
