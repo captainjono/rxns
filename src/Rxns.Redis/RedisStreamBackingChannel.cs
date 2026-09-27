@@ -78,7 +78,11 @@ namespace Rxns.Redis
         /// invoked concurrently, which they were never written to tolerate. What changed is only
         /// that reading no longer waits for delivering.</para>
         /// </summary>
-        private readonly EventLoopScheduler _deliveryThread;
+        /// <summary>
+        /// Where subscribers observe. The task pool by default, matching every other backing
+        /// channel in rxns; settable so a test can pin delivery to a scheduler it controls.
+        /// </summary>
+        public IScheduler DeliveryScheduler { get; set; } = TaskPoolScheduler.Default;
 
         /// <summary>
         /// The thread that reads the stream.
@@ -124,6 +128,12 @@ namespace Rxns.Redis
         /// </summary>
         public const int MaxUndelivered = 50000;
 
+        /// <summary>
+        /// This channel's own limit. Defaults to <see cref="MaxUndelivered"/>; settable per channel
+        /// so the brake can be exercised without publishing fifty thousand messages to watch it.
+        /// </summary>
+        private readonly int _maxUndelivered;
+
         private CancellationTokenSource _cts;
         private IDeliveryScheme<T> _deliveryScheme;
         private readonly RedisStreamMode _mode;
@@ -158,9 +168,11 @@ namespace Rxns.Redis
             string consumerGroup = null,
             bool publishOnly = false,
             RedisStreamMode? mode = null,
-            int? maxStreamLength = null)
+            int? maxStreamLength = null,
+            int? maxUndelivered = null)
         {
             _streamName = streamName;
+            _maxUndelivered = maxUndelivered ?? MaxUndelivered;
             _maxStreamLength = maxStreamLength ?? DefaultMaxStreamLength;
             _consumerGroup = consumerGroup ?? $"{streamName}-group";
             _consumerId = MakeConsumerId(Environment.MachineName);
@@ -206,13 +218,6 @@ namespace Rxns.Redis
             {
                 _cts = new CancellationTokenSource();
 
-                // Named and background so a thread dump says which stream is behind, and so a
-                // stuck subscriber cannot hold the process open at shutdown.
-                _deliveryThread = new EventLoopScheduler(run => new Thread(run)
-                {
-                    IsBackground = true,
-                    Name = $"redis-deliver-{_streamName}"
-                });
 
                 _pollThread = new EventLoopScheduler(run => new Thread(run)
                 {
@@ -264,38 +269,25 @@ namespace Rxns.Redis
             // Poll loop already started in the ctor for subscribe-capable modes; Setup just hands
             // back the inbound sequence. Calling Setup twice is safe - it does not restart the poll.
             //
-            // Each subscriber is trampolined onto ITS OWN thread.
+            // Delivery on the task pool, which is what every other channel in rxns does and says
+            // why: "We want this channel to be async by default, using the taskpool to schedule
+            // observation logic. This will stop any errors from breaking the channel."
             //
-            // Sharing one delivery thread looked tidy and was a trap: a subscriber that blocks -
-            // a tape repo waiting on a disk, an HTTP forwarder waiting on a socket - owns that
-            // thread while it waits, so every OTHER subscriber stops receiving too. Meanwhile the
-            // poll loop, which never blocks, keeps reading and ACKING. Redis is then told the
-            // entries were handled while they sit in a queue nobody is draining: unbounded memory
-            // on one side, and on a crash the messages are simply gone, because acked means gone.
-            // One slow consumer taking the whole transport down with it is the failure this
-            // avoids.
+            // This channel used to give each subscriber an EventLoopScheduler of its own. That does
+            // isolate subscribers from each other - a blocked one owns only its own thread - but it
+            // hands a dedicated thread to code this channel does not control, so a subscriber that
+            // blocks forever leaks that thread for the life of the process, and a subscriber that
+            // throws takes its loop down with it. The pool has neither problem: a blocked callback
+            // occupies a pool thread the pool can grow past, and a poison one cannot own a loop
+            // there is no loop to own.
             //
-            // A thread per subscriber is affordable because subscribers are few and long-lived -
-            // this is the local bus, a tape repo, a report folder - not per-message work.
-            var mine = new EventLoopScheduler(run => new Thread(run)
-            {
-                IsBackground = true,
-                Name = $"redis-deliver-{_streamName}-{Interlocked.Increment(ref _subscriberCount)}"
-            });
-
-            return Observable.Create<T>(o =>
-            {
-                // The two Do's bracket the hand-off so its depth is a number the run can be read
-                // against: the first runs on the poll thread as an event goes in, the second on
-                // this subscriber's thread once it has actually had it.
-                var sub = _incoming
-                    .Do(_ => Interlocked.Increment(ref _undelivered))
-                    .ObserveOn(mine)
-                    .Do(_ => Interlocked.Decrement(ref _undelivered))
-                    .Subscribe(o);
-
-                return new CompositeDisposable(sub, mine);
-            });
+            // The per-subscriber counters that bracketed the hand-off are gone with it. They fed a
+            // single shared limit, so one subscriber that stopped taking delivery drove that count
+            // to the limit alone and paused the poll loop for everybody - measured at 18 of 200
+            // messages reaching a subscriber that was doing nothing but accept them.
+            return _incoming
+                .ObserveOn(DeliveryScheduler)
+                .SubscribeOn(DeliveryScheduler);
         }
 
         public void Publish(T message)
@@ -350,9 +342,9 @@ namespace Rxns.Redis
                 // Delivery is behind: stop reading rather than acking into a queue nobody is
                 // draining. Re-checked on the next pass, so the drain resumes by itself the moment
                 // the subscriber catches up - no signalling, nothing to get wrong.
-                if (Volatile.Read(ref _undelivered) >= MaxUndelivered)
+                if (Volatile.Read(ref _undelivered) >= _maxUndelivered)
                 {
-                    $"Redis stream drain paused [{_streamName}]: {_undelivered} undelivered, at the {MaxUndelivered} limit - a subscriber is not keeping up".LogDebug();
+                    $"Redis stream drain paused [{_streamName}]: {_undelivered} undelivered, at the {_maxUndelivered} limit - a subscriber is not keeping up".LogDebug();
                     again(IdlePollDelay);
                     return;
                 }
@@ -468,10 +460,13 @@ namespace Rxns.Redis
                     stage = "emit";
                     if (obj is T typed)
                     {
-                        // Queues onto the delivery thread and returns - see Setup. This used to run
-                        // every subscriber inline, which made the slowest of them the speed limit
-                        // for the whole stream.
-                        _incoming.OnNext(typed);
+                        // Through the postman, not around it. Setup is handed an IDeliveryScheme
+                        // and this channel used to store it and never call it, so whatever delivery
+                        // guarantee a caller asked for was silently discarded and everything got
+                        // the same hand-rolled behaviour. LocalBackingChannel has always done this
+                        // properly - _postman.Deliver(message, e => BackingChannel.OnNext(e)) - and
+                        // that is the seam any real guarantee belongs behind.
+                        _deliveryScheme.Deliver(typed, e => _incoming.OnNext(e));
                     }
                     else
                     {
@@ -626,10 +621,11 @@ namespace Rxns.Redis
             }
             catch { /* best-effort cleanup */ }
 
-            // Stops the delivery thread. Anything still queued on it is dropped, which is correct
-            // at shutdown - the alternative is a dispose that waits on whatever slow subscriber
-            // caused the queue in the first place.
-            _deliveryThread?.Dispose();
+            // Nothing to stop on the delivery side any more: subscribers observe on the task pool,
+            // which this channel does not own and must not tear down. Anything still queued there
+            // is dropped when the subject completes, which is correct at shutdown - the alternative
+            // is a dispose that waits on whatever slow subscriber caused the queue in the first
+            // place.
 
             _incoming?.Dispose();
             _redis?.Dispose();
