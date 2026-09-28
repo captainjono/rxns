@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reactive.Linq;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
@@ -161,19 +161,32 @@ namespace Rxns.WebApiNET5
             {
 
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                // 45s between pings, and a client is not given up on for 120s.
+                //
+                // The pair has to hold ClientTimeout >= 2 x KeepAlive or a peer is declared dead
+                // between pings under any load at all. It used to be a 20s ping against the 30s
+                // default, which is 1.5x - and on a 100-device rung the arena took 33.3 SECONDS to
+                // answer one request, so the leg carrying dispatch and results was severed nine
+                // times over before it gave up. 120s is three and a half times that worst case.
+                //
+                // Fewer pings also matters at fleet scale: a ping every 20s across a hundred
+                // connections is traffic the arena answers instead of doing work.
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
                 // MaximumReceiveMessageSize is deliberately NOT set here - see the
                 // PostConfigure below for why setting it in this delegate does not stick.
             })
             .AddHubOptions<SystemMetricsHub>(c =>
             {
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
             })
             .AddHubOptions<ReportHub>(c =>
             {
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
             });
 
             // PostConfigure, not the AddHubOptions delegate above, and this is not a style
