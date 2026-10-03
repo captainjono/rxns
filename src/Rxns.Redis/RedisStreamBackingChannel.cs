@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
@@ -190,15 +190,7 @@ namespace Rxns.Redis
             // Caller-supplied options string still wins for any explicitly
             // set field; we only fill in unset / weaker defaults.
             _connectionString = redisConnectionString;
-            _opts = ConfigurationOptions.Parse(redisConnectionString);
-            _opts.AbortOnConnectFail = false;
-            _opts.ReconnectRetryPolicy = new LinearRetry(30000);
-            // KeepAlive triggers the background reconnect probe. Default 60s
-            // means a multiplexer that fails to connect at construct stays
-            // dead for a full minute before attempting to reconnect even after
-            // redis comes up. 5s gives near-immediate recovery once the boot
-            // race resolves.
-            if (_opts.KeepAlive <= 0 || _opts.KeepAlive > 5) _opts.KeepAlive = 5;
+            _opts = BuildOptions(redisConnectionString);
             _redis = ConnectionMultiplexer.Connect(_opts);
             _db = _redis.GetDatabase();
 
@@ -493,6 +485,47 @@ namespace Rxns.Redis
         }
 
         /// <summary>
+        /// The connection options every multiplexer here is built with - construct and reconnect
+        /// alike, so the two cannot drift apart.
+        ///
+        /// <para>A caller-supplied options string still wins for any field it sets explicitly;
+        /// these only raise defaults that are too weak, never lower a deliberate choice.</para>
+        /// </summary>
+        private static ConfigurationOptions BuildOptions(string connectionString)
+        {
+            var opts = ConfigurationOptions.Parse(connectionString);
+
+            // Never throw on construction: a worker that boots before redis must wait for it, not
+            // die, and the same behaviour covers transient network hiccups in steady state.
+            opts.AbortOnConnectFail = false;
+            opts.ReconnectRetryPolicy = new LinearRetry(30000);
+
+            // KeepAlive drives the background reconnect probe. The 60s default leaves a multiplexer
+            // that failed at construct dead for a full minute after redis comes back; 5s recovers
+            // as soon as the boot race resolves.
+            if (opts.KeepAlive <= 0 || opts.KeepAlive > 5) opts.KeepAlive = 5;
+
+            // SE.Redis defaults ConnectTimeout and SyncTimeout to 5s - generous on a LAN, far too
+            // tight for a worker that is not one hop from redis. Measured on an Azure macOS guest
+            // reaching the host's redis across a qemu user-mode NAT: TCP connected and a raw PING
+            // returned +PONG instantly, while the client looped forever on
+            //
+            //   UnableToConnect ... no connection became available (5000ms)
+            //
+            // so the worker registered, reported healthy, and consumed nothing for 31 minutes. A
+            // 60s floor costs a healthy fleet nothing; it only changes how long a client waits
+            // before calling a reachable server unreachable.
+            const int MinTimeoutMs = 60000;
+            if (opts.ConnectTimeout < MinTimeoutMs) opts.ConnectTimeout = MinTimeoutMs;
+            if (opts.SyncTimeout < MinTimeoutMs) opts.SyncTimeout = MinTimeoutMs;
+
+            // One retry against a longer budget is still one chance; several ride out a NAT stall.
+            if (opts.ConnectRetry < 5) opts.ConnectRetry = 5;
+
+            return opts;
+        }
+
+        /// <summary>
         /// Rebuilds the multiplexer when it is dead.
         /// </summary>
         /// <remarks>
@@ -510,10 +543,11 @@ namespace Rxns.Redis
                 $"Redis multiplexer dead (IsConnected=false) - reconnecting [{_streamName}]".LogDebug();
                 try { _redis.Dispose(); } catch { }
 
-                var fresh = ConfigurationOptions.Parse(_connectionString);
-                fresh.AbortOnConnectFail = false;
-                fresh.ReconnectRetryPolicy = new LinearRetry(30000);
-                fresh.KeepAlive = 5;
+                // The SAME builder as construction. Built separately before, so the timeout floor
+                // applied only on the first connect and a reconnect silently reverted to SE.Redis's
+                // 5s default - meaning the very path that exists to recover from a stall was the one
+                // guaranteed to re-enter it.
+                var fresh = BuildOptions(_connectionString);
                 _redis = ConnectionMultiplexer.Connect(fresh);
                 _db = _redis.GetDatabase();
 
