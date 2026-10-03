@@ -78,7 +78,7 @@ namespace Rxns.Hosting.Updates
         }
     }
 
-    public class LocalAppUpdateServer : ReportsStatus, IAppUpdateManager, IRxnPublisher<IRxn>
+    public class LocalAppUpdateServer : ReportsStatus, IAppUpdateManager, IRxnPublisher<IRxn>, ICanIssueUpdateLocations
     {
         private readonly ICommandService _cmdHub;
         private readonly IRxnAppInfo _systemInfo;
@@ -140,6 +140,21 @@ namespace Rxns.Hosting.Updates
 
                     return appUpdate;
                 });
+        }
+
+        /// <summary>
+        /// Where the update is, when the storage behind this server can say.
+        ///
+        /// <para>Passed straight through rather than answered here: whether there is a location at
+        /// all is a property of the backend - a filesystem repo has none a remote machine could use
+        /// - and this server's job is to expose the capability, not to invent it. A backend that
+        /// does not implement it yields nothing and every caller falls back to the bytes.</para>
+        /// </summary>
+        public IObservable<Uri> GetUpdateLocation(string system, string version, TimeSpan validFor)
+        {
+            return _client is ICanIssueUpdateLocations locations
+                ? locations.GetUpdateLocation(system, version, validFor)
+                : Observable.Empty<Uri>();
         }
 
         public IObservable<Stream> GetUpdate(string systemName, string version)

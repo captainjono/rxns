@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Reactive;
 using System.Text;
@@ -275,6 +276,51 @@ namespace Rxns.Hosting.Updates
         //   Failed      — exception bubbling out
         // Bytes copied are also fed into UpdateNetworkCounters.AddIn so the
         // bfgHostResourceMonitor's AppResourceInfo emission can compute a
+        /// <summary>
+        /// The bundle's bytes, from wherever is cheapest for whoever is serving them.
+        ///
+        /// <para>Asks the update service for a LOCATION first, and only falls back to asking it for
+        /// the bytes. The two differ by who pays: a host serving a fleet moves the bundle once per
+        /// machine, which on a hundred-device run was 7.1GB of egress from the two cores that were
+        /// also taking heartbeats and serving status. A backend that can hand out a URL moves it
+        /// once, to storage, and the fleet fetches from there.</para>
+        ///
+        /// <para>Falling back rather than failing is the whole adoption story: a backend that
+        /// cannot issue locations - a filesystem repo has none a remote machine could use, and an
+        /// HTTP client's would be the host being relieved - simply does not implement the
+        /// capability, or returns nothing, and this behaves exactly as it always has.</para>
+        ///
+        /// <para>The window is sized to the run rather than to the download. A machine that boots
+        /// late into a long run asks for its payload long after the dispatch went out, and a URL
+        /// that expired while it was booting fails in a way nobody can reproduce.</para>
+        /// </summary>
+        private Stream PayloadFor(string system, string version)
+        {
+            if (_updateService is ICanIssueUpdateLocations locations)
+            {
+                try
+                {
+                    var at = locations.GetUpdateLocation(system, version, TimeSpan.FromHours(4))
+                                      .FirstOrDefault();
+                    if (at != null)
+                    {
+                        OnVerbose($"Fetching {system}@{version} from {at.Host} rather than from the update host");
+                        using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) })
+                            return new MemoryStream(http.GetByteArrayAsync(at).GetAwaiter().GetResult());
+                    }
+                }
+                catch (Exception e)
+                {
+                    // The location is an optimisation. Losing it costs a slower download, and
+                    // turning that into a failed dispatch would make the fleet less reliable than
+                    // it was before the optimisation existed.
+                    OnVerbose($"Could not fetch {system}@{version} from its issued location ({e.Message}) - asking the update host for the bytes");
+                }
+            }
+
+            return _updateService.GetUpdate(system, version).Wait();
+        }
+
         // snapshot BytesInPerSec rate.
         private void DoDownloadAndExtract(string system, string version, string targetPath, IRxnAppCfg cfg)
         {
@@ -288,7 +334,7 @@ namespace Rxns.Hosting.Updates
                 // netstandard2.0 and netstandard2.1.
                 using (var ms = new MemoryStream())
                 {
-                    var content = _updateService.GetUpdate(system, version).Wait();
+                    var content = PayloadFor(system, version);
 
                     // Manual chunked copy so we can count bytes + emit Extracting
                     // progress without re-reading the stream. Chunk size 64KB is

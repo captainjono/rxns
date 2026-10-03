@@ -2,10 +2,11 @@
 using System.IO;
 using System.Net.Http;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 
 namespace Rxns.Hosting.Updates
 {
-    public class HttpUpdateServiceClient : AuthenticatedServiceClient, IUpdateStorageClient
+    public class HttpUpdateServiceClient : AuthenticatedServiceClient, IUpdateStorageClient, ICanIssueUpdateLocations
     {
         private readonly IAppServiceRegistry _cfg;
 
@@ -45,6 +46,31 @@ namespace Rxns.Hosting.Updates
                     resp.EnsureSuccessStatusCode();
                     return resp.Content.ReadAsStreamAsync();
                 });
+        }
+
+        /// <summary>
+        /// Asks the host where the update is, so the bytes need not come through it.
+        ///
+        /// <para>An empty sequence means "there is nowhere else" - either this host is not
+        /// offloading, or it is an older build with no such endpoint - and the caller falls back to
+        /// <see cref="GetUpdate"/>. Treating a 404 as an answer rather than an error is what lets a
+        /// new worker talk to an old host.</para>
+        /// </summary>
+        public IObservable<Uri> GetUpdateLocation(string system, string version, TimeSpan validFor)
+        {
+            return Connection.Call(client => client.GetAsync(
+                    WithBaseUrl($"updates/{system}/{version ?? "Latest"}/location?validForSeconds={(int)validFor.TotalSeconds}")))
+                .SelectMany(resp =>
+                {
+                    if (!resp.IsSuccessStatusCode)
+                        return Observable.Empty<Uri>();
+
+                    return resp.Content.ReadAsStringAsync().ToObservable()
+                               .SelectMany(body => string.IsNullOrWhiteSpace(body)
+                                   ? Observable.Empty<Uri>()
+                                   : Observable.Return(new Uri(body.Trim().Trim('"'))));
+                })
+                .Catch<Uri, Exception>(_ => Observable.Empty<Uri>());
         }
 
         public IObservable<AppUpdateInfo[]> ListUpdates(string systemName, int top = 3)
