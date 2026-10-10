@@ -263,10 +263,13 @@ namespace Rxns.WebApiNET5
                 {
                     "Launching App in WebApi host".LogDebug();
                     
+                    // Until() resubscribes once on an error: the failsafe that brings the app back up after a crash during
+                    // start. The re-run is safe because RxnCreator connects each processor and publisher at most once per
+                    // process. The error is reported, not just logged at debug: a start that needed its failsafe is news.
                     appReadyToRun // the apps supervisor
                         .SelectMany(h => h.Run(new AutofacAppContainer(container)))
                         .Do(rxnAppContext => { "App started".LogDebug(); })
-                        .Until();
+                        .Until(e => ReportStatus.Log.OnError(e, "App start failed - the supervisor starts it again"));
                 });
             }).AsImplementedInterfaces().SingleInstance();
 

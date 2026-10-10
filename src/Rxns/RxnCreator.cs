@@ -347,6 +347,43 @@ namespace Rxns
         }
         public static Func<string, RxnMode, IResolveTypes, IReactor<IRxn>> getReactorByName = (reactorName, cfg, con) => con.Resolve<IManageReactors>().StartReactor(reactorName, cfg).Reactor;
 
+        /// <summary>
+        /// Every processor, publisher and reaction instance already connected in this process.
+        ///
+        /// <para>An app start is a cold observable run under <c>Until()</c>, which resubscribes once on an error - the
+        /// failsafe that brings an app back up after a crash during start. The resubscription runs the post-build wiring
+        /// again over the same container, and without this every singleton the first attempt had already connected was
+        /// connected a second time: each command processed twice, each publisher (timers, tickers) running twice, and on a
+        /// bus a zombie set of processors holding work it never finished. Instances are claimed here before they are
+        /// connected, so a re-run skips what is wired and still wires what the failed attempt never reached.</para>
+        ///
+        /// <para>Keyed weakly by the instance: a new container (a test, an app restarted from scratch) brings new
+        /// instances, which wire as normal.</para>
+        /// </summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> Wired =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();
+
+        /// <summary>Claim an instance for wiring: false if this process has already connected it. Atomic (Add throws on a duplicate key).</summary>
+        private static bool ClaimWiring(object instance)
+        {
+            if (instance == null) return false;
+            try
+            {
+                Wired.Add(instance, null);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Give a claim back when connecting failed, so a later attempt can wire it.</summary>
+        private static void ReleaseWiring(object instance)
+        {
+            if (instance != null) Wired.Remove(instance);
+        }
+
         public static IDisposable StartRxnPublishers(IReportStatus logger, IResolveTypes container, Type[] events)
         {
             var startedProcessors = new List<dynamic>();
@@ -399,7 +436,13 @@ namespace Rxns
                             return Disposable.Empty;
                         }
 
-                        IDisposableExtensions.DisposedBy(reactor.Connect(publisher), resources);
+                        if (!ClaimWiring((object)publisher))
+                        {
+                            logger.OnVerbose($"Publisher '{publisher.GetType().Name}' is already connected in this process - not connecting it again");
+                            continue;
+                        }
+                        try { IDisposableExtensions.DisposedBy(reactor.Connect(publisher), resources); }
+                        catch { ReleaseWiring((object)publisher); throw; }
                     }
                     startedProcessors.AddRange(distinctProcessors); //so we need to keep a list processors we see so we dont attach them twice
 
@@ -459,7 +502,13 @@ namespace Rxns
                             return getReactorByName(outOfProcessReactor, RxnMode.OutOfProcess, container);
                         }
 
-                        IDisposableExtensions.DisposedBy(reactor.Connect((IReactTo<IRxn>)reaction, eventDelivery), reactors);
+                        if (!ClaimWiring(reaction))
+                        {
+                            logger.OnVerbose($"Reaction '{reaction.GetType().Name}' is already connected in this process - not connecting it again");
+                            continue;
+                        }
+                        try { IDisposableExtensions.DisposedBy(reactor.Connect((IReactTo<IRxn>)reaction, eventDelivery), reactors); }
+                        catch { ReleaseWiring(reaction); throw; }
 
                         reactors.Add(reactor);
                     }
@@ -549,10 +598,17 @@ namespace Rxns
                                 continue;
                             }
 
+                            if (!ClaimWiring((object)p))
+                            {
+                                logger.OnVerbose($"Processor '{p.GetType().Name}' is already connected in this process - not connecting it again");
+                                continue;
+                            }
+
                             logger.OnInformation($"Connecting {reactor.Name}");
 
                             //this method will hookup ALL process methods of a processor in one call
-                            IDisposableExtensions.DisposedBy(reactor.Connect((object)p, eventDelivery), resources);
+                            try { IDisposableExtensions.DisposedBy(reactor.Connect((object)p, eventDelivery), resources); }
+                            catch { ReleaseWiring((object)p); throw; }
                         }
                         catch (Exception pe)
                         {
