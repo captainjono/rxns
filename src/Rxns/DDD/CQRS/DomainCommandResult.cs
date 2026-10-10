@@ -41,7 +41,7 @@ namespace Rxns.DDD.CQRS
             return new DomainCommandResult<T>(cmdId, result, sideEffects);
         }
 
-        public string InResponseTo { get; }
+        public string InResponseTo { get; set; }
 
         public override string ToString()
         {
