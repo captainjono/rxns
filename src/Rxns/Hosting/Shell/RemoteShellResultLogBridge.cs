@@ -58,20 +58,58 @@ namespace Rxns.Hosting.Shell
         public const string ArenaPrefix = "arena.";
 
 
+        /// <summary>
+        /// Keeps one command's output from evicting everything else in the status ring.
+        ///
+        /// <para>The ring is a bounded, shared buffer - the same one every other reporter writes
+        /// to. A single <c>dir /s</c> streams megabytes, and unbounded that pushes out the arena
+        /// events someone is usually reading the log to find. Truncating marks what was cut so a
+        /// short answer is never mistaken for a complete one; the full stream is on the hub, which
+        /// is where an operator watching output interactively already is.</para>
+        /// </summary>
+        private const int MaxLoggedChars = 4000;
+
+        private static string ForLog(string s)
+        {
+            var oneLine = (s ?? string.Empty).Replace("\r", string.Empty).Replace("\n", "\\n");
+            return oneLine.Length <= MaxLoggedChars
+                ? oneLine
+                : oneLine.Substring(0, MaxLoggedChars) + $"...[truncated, {oneLine.Length} chars]";
+        }
+
         public IObservable<IRxn> Process(RemoteShellPartialResult e)
         {
-            var stdout = (e.Stdout ?? string.Empty).Replace("\r", string.Empty).Replace("\n", "\\n");
-            var stderr = (e.Stderr ?? string.Empty).Replace("\r", string.Empty).Replace("\n", "\\n");
+            // Reported to ReportStatus.Log, not with LogDebug and not on this instance's own
+            // channel. LogDebug is the static console sink - it reaches the arena's stdout, and so
+            // a file on the VM, but never /systemstatus/log, which is the endpoint this class
+            // exists to feed. Reporting on `this` looks right and is just as dead: ReportsStatus
+            // drops a message outright when its channel has no observers, and nothing subscribes
+            // to this type's - only reporters the container wires up are aggregated. Proved on a
+            // local arena: the bridge was constructed and subscribed, the worker shipped its
+            // result, and the log still never mentioned the command.
+            //
+            // ReportStatus.Log is the app-wide reporter ("AppLog") that the status log demonstrably
+            // carries, so a line put there is a line the poller can find. With this in place a
+            // remote shell round-trips on a plain SignalR arena - no Redis, nothing lossless - in
+            // about two and a half seconds, which is what `thebfg arena shell` had never managed.
+            var stdout = ForLog(e.Stdout);
+            var stderr = ForLog(e.Stderr);
             if (stdout.Length > 0)
-                $"{ArenaPrefix}RemoteShell[{e.InResponseTo}] stdout: {stdout}".LogDebug();
+                ReportStatus.Log.OnVerbose($"{ArenaPrefix}RemoteShell[{e.InResponseTo}] stdout: {stdout}");
             if (stderr.Length > 0)
-                $"{ArenaPrefix}RemoteShell[{e.InResponseTo}] stderr: {stderr}".LogDebug();
+                ReportStatus.Log.OnVerbose($"{ArenaPrefix}RemoteShell[{e.InResponseTo}] stderr: {stderr}");
             return Rxn.Empty<IRxn>();
         }
 
         public IObservable<IRxn> Process(RemoteShellResult e)
         {
-            $"{ArenaPrefix}RemoteShell[{e.InResponseTo}] exit: {e.ExitCode}".LogDebug();
+            // Information rather than Verbose: this is the line that tells a caller the command is
+            // over, so it has to survive whatever verbosity the arena is running at. Its stderr
+            // carries the reason when a command produced no result at all.
+            var stderr = ForLog(e.Stderr);
+            if (stderr.Length > 0)
+                ReportStatus.Log.OnInformation($"{ArenaPrefix}RemoteShell[{e.InResponseTo}] stderr: {stderr}");
+            ReportStatus.Log.OnInformation($"{ArenaPrefix}RemoteShell[{e.InResponseTo}] exit: {e.ExitCode}");
             return Rxn.Empty<IRxn>();
         }
     }

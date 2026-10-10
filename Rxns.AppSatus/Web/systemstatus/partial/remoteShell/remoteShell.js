@@ -1,4 +1,4 @@
-angular.module('systemstatus').controller('RemoteShellCtrl', function ($scope, $timeout, $stateParams, testArenaApi, eventHubService) {
+﻿angular.module('systemstatus').controller('RemoteShellCtrl', function ($scope, $timeout, $stateParams, testArenaApi, eventHubService) {
 
     var MAX_LINES = 500;
 
@@ -112,9 +112,11 @@ angular.module('systemstatus').controller('RemoteShellCtrl', function ($scope, $
     // `$scope.lines.push` throws "cannot read properties of undefined".
     var subscriptions = [];
 
-    subscriptions.push(eventHubService.statusInitial.subscribe(function (appStatusByTenant) {
+    // Merges rather than replaces, so it needs nothing from the page marker - every page is
+    // just more workers to fold in.
+    subscriptions.push(eventHubService.statusInitial.subscribe(function (initial) {
         $scope.$apply(function () {
-            var list = flattenMachines(appStatusByTenant);
+            var list = flattenMachines(initial.statuses);
             for (var i = 0; i < list.length; i++) { mergeWorker(list[i]); }
             if (!$scope.selectedRoute && $scope.workers.length > 0) {
                 $scope.selectedRoute = $scope.workers[0].route;

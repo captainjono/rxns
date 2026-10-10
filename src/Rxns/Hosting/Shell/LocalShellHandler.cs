@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text;
@@ -14,30 +14,37 @@ namespace Rxns.Hosting.Shell
 {
     /// <summary>
     /// Runs RemoteShellCmd in the current process via a persistent
-    /// <see cref="PersistentShell"/> (one cmd.exe / bash per process,
-    /// commands piped in via stdin). Each call shares shell state with
-    /// the previous one so <c>cd</c>, env vars, and aliases survive —
-    /// the UX is "real terminal" rather than fresh-subshell-per-cmd.
+    /// <see cref="PersistentShell"/> (one cmd.exe / bash per process, commands piped in via
+    /// stdin). Each call shares shell state with the previous one so <c>cd</c>, env vars and
+    /// aliases survive - the UX is "real terminal" rather than fresh-subshell-per-cmd.
     ///
-    /// While a command is running, output is streamed back as
-    /// <see cref="RemoteShellPartialResult"/> events. The shell's
-    /// <see cref="PersistentShell.Lines"/> observable is rate-limited
-    /// per <see cref="IRemoteShellStreamCfg"/> via <c>.Buffer</c> so a
-    /// chatty cmd (50 KB <c>cat</c>, <c>dir /s</c>) collapses into a
-    /// handful of partials instead of flooding SignalR with one frame
-    /// per line — which previously caused mid-burst transport blips.
+    /// <para>While a command is running, output is streamed back as
+    /// <see cref="RemoteShellPartialResult"/> events, rate-limited per
+    /// <see cref="IRemoteShellStreamCfg"/> via <c>.Buffer</c> so a chatty cmd (50 KB <c>cat</c>,
+    /// <c>dir /s</c>) collapses into a handful of partials instead of flooding SignalR with one
+    /// frame per line - which previously caused mid-burst transport blips. The buffer is closed by
+    /// the command's own stream ending, so the tail is delivered rather than raced for.</para>
     ///
-    /// The terminal <see cref="RemoteShellResult"/> carries exit code +
-    /// cwd plus any fatal error; its Stdout/Stderr are empty so the UI
-    /// doesn't double-render the last partial.
+    /// <para>The terminal <see cref="RemoteShellResult"/> carries exit code + cwd plus any fatal
+    /// error; its Stdout/Stderr are empty so the UI doesn't double-render the last partial - except
+    /// on a timeout, where Stderr is the only place the operator would otherwise learn that the
+    /// command produced no result at all.</para>
     ///
-    /// Registered as a singleton IServiceCommandHandler on BOTH the hub
-    /// and worker defs so the ServiceCommandExecutor can resolve a handler
-    /// regardless of which role is the target. Not gated on cluster-worker
-    /// availability — shell is diagnostic, not "work."
+    /// <para>Registered as a singleton IServiceCommandHandler on BOTH the hub and worker defs so
+    /// the ServiceCommandExecutor can resolve a handler regardless of which role is the target. Not
+    /// gated on cluster-worker availability - shell is diagnostic, not "work."</para>
     /// </summary>
     public class LocalShellHandler : IServiceCommandHandler<RemoteShellCmd>, IDisposable
     {
+        /// <summary>
+        /// How long a single command may take before the shell is written off.
+        ///
+        /// <para>Generous rather than tight: exceeding it is not "slow", it is "this shell will
+        /// never answer again", and the recovery is to throw the process away. A legitimate slow
+        /// command being mistaken for a wedge costs a rebuilt shell and a lost cwd.</para>
+        /// </summary>
+        public static TimeSpan CommandTimeout = TimeSpan.FromSeconds(30);
+
         private readonly IRxnManager<IRxn> _rxnManager;
         private readonly IRxnAppInfo _appInfo;
         private readonly IRemoteShellStreamCfg _streamCfg;
@@ -51,26 +58,49 @@ namespace Rxns.Hosting.Shell
             _streamCfg = streamCfg;
         }
 
-        private PersistentShell GetOrCreateShell()
+        /// <summary>
+        /// Yields a shell that is fit to run a command, building a new one when the current one is
+        /// not.
+        ///
+        /// <para><see cref="PersistentShell.NeedsRebuild"/> covers both ways a shell stops being
+        /// usable: the process died, or a command timed out and left it mid-parse. The second is
+        /// the one that used to be missed - the shell was still alive, so it was handed back and
+        /// swallowed every command after it.</para>
+        /// </summary>
+        private IObservable<PersistentShell> GetOrCreateShell()
         {
-            lock (_shellLock)
+            return Observable.Defer(() =>
             {
-                // Auto-rebuild on a dead shell. Without this guard the next
-                // RemoteShellCmd throws "Persistent shell has exited" forever
-                // — operator's UI silently broken until the worker restarts.
-                if (_shell != null && !_shell.IsAlive)
+                lock (_shellLock)
                 {
-                    "PersistentShell process had exited; disposing and rebuilding".LogDebug();
-                    try { _shell.Dispose(); } catch { }
-                    _shell = null;
+                    if (_shell != null && _shell.NeedsRebuild)
+                    {
+                        "PersistentShell needs rebuilding (exited, or wedged by a command that never returned); disposing".LogDebug();
+                        try { _shell.Dispose(); } catch { }
+                        _shell = null;
+                    }
+                    if (_shell != null) return Observable.Return(_shell);
                 }
-                if (_shell == null)
-                {
-                    _shell = new PersistentShell();
-                    "PersistentShell started for RemoteShellCmd handler".LogDebug();
-                }
-                return _shell;
-            }
+
+                return PersistentShell.Create()
+                    .Select(built =>
+                    {
+                        lock (_shellLock)
+                        {
+                            // Another command may have built one while this was starting. Keep the
+                            // one already published so both callers share a shell, and discard the
+                            // loser rather than leaking its process.
+                            if (_shell == null || _shell.NeedsRebuild)
+                            {
+                                _shell = built;
+                                "PersistentShell started for RemoteShellCmd handler".LogDebug();
+                                return built;
+                            }
+                        }
+                        try { built.Dispose(); } catch { }
+                        return _shell;
+                    });
+            });
         }
 
         private void ResetShell()
@@ -85,130 +115,127 @@ namespace Rxns.Hosting.Shell
         public IObservable<CommandResult> Handle(RemoteShellCmd command)
         {
             return Rxn.DfrCreate<CommandResult>(() =>
-            {
-                var cmd = command.DecodedCmd;
-                var workerName = _appInfo?.Name ?? Environment.MachineName;
-                int sequence = 0;
-                int totalOutBytes = 0, totalErrBytes = 0;
-                int exitCode = -1;
-                string cwd = null;
-                string fatalErr = null;
-
-                // Bounded retry: shell death rebuilds on next GetOrCreate.
-                // We retry the cmd ONCE so a transient death doesn't lose it,
-                // never more so a poisonous cmd can't loop forever.
-                for (int attempt = 1; attempt <= 2; attempt++)
-                {
-                    IDisposable lineSub = null;
-                    try
+                RunOnce(command)
+                    // Bounded retry: a shell that died between acquiring it and writing to it is a
+                    // transient we can absorb, and rebuilding is what the next acquire does anyway.
+                    // Exactly one retry, so a command that kills the shell cannot loop forever. A
+                    // TIMEOUT never reaches here - it completes normally with a timed-out result,
+                    // because re-running a command that may still be executing would double any
+                    // side effect it has already had.
+                    .Catch<CommandResult, Exception>(first =>
                     {
-                        var shell = GetOrCreateShell();
-
-                        // Subscribe to the shell's line stream for the
-                        // duration of THIS cmd (PersistentShell._gate
-                        // guarantees no overlap with another cmd's
-                        // subscription). Buffer collapses bursts:
-                        //   - close every BufferDuration window, OR
-                        //   - close every MaxLinesPerPartial lines.
-                        // The byte-cap from cfg is enforced at emit time.
-                        // Net effect: 50 KB / 1000-line `cat` produces ~5
-                        // partials at default cfg instead of 1000 SignalR
-                        // messages, which is what was causing transport
-                        // bounces under load.
-                        lineSub = shell.Lines
-                            .Buffer(_streamCfg.BufferDuration, _streamCfg.MaxLinesPerPartial)
-                            .Where(b => b.Count > 0)
-                            .Do(batch =>
-                            {
-                                var stdoutSb = new StringBuilder();
-                                var stderrSb = new StringBuilder();
-                                foreach (var line in batch)
-                                {
-                                    if (line.Kind == PersistentShell.StreamKind.Stderr)
-                                    {
-                                        stderrSb.AppendLine(line.Text);
-                                        Interlocked.Add(ref totalErrBytes, line.Text.Length + 1);
-                                    }
-                                    else
-                                    {
-                                        stdoutSb.AppendLine(line.Text);
-                                        Interlocked.Add(ref totalOutBytes, line.Text.Length + 1);
-                                    }
-                                }
-                                // Producer-side truncation: keep each IRxn comfortably
-                                // under the SignalR transport cap (24 KB per side). If
-                                // the buffer has more, the bridge's BufferUntilSize
-                                // emits the next batch sooner — so we never lose a
-                                // line, just split across more partials.
-                                const int MaxBytesPerStream = 16 * 1024;
-                                var stdoutText = stdoutSb.ToString();
-                                var stderrText = stderrSb.ToString();
-                                if (stdoutText.Length > MaxBytesPerStream)
-                                    stdoutText = stdoutText.Substring(0, MaxBytesPerStream) + "\n...[partial truncated]";
-                                if (stderrText.Length > MaxBytesPerStream)
-                                    stderrText = stderrText.Substring(0, MaxBytesPerStream) + "\n...[partial truncated]";
-                                var partial = new RemoteShellPartialResult
-                                {
-                                    Worker       = workerName,
-                                    Stdout       = stdoutText,
-                                    Stderr       = stderrText,
-                                    Sequence     = Interlocked.Increment(ref sequence),
-                                    InResponseTo = command.Id
-                                };
-                                // Bridge handles disconnect-buffering + requeue
-                                // on InvokeAsync failure (Rxn.MakeReliable inside
-                                // SignalRRxnManagerBridge), so this Publish never
-                                // silently drops a partial — worst case the bridge
-                                // queues until reconnect.
-                                _rxnManager.Publish(partial).Until();
-                            })
-                            .Until(err => $"RemoteShell[{command.Id}] line stream error: {err.Message}".LogDebug());
-
-                        var task = shell.RunAsync(cmd, TimeSpan.FromSeconds(30));
-                        task.Wait();
-                        (exitCode, cwd) = task.Result;
-
-                        // After the shell hits its markers, give Buffer a
-                        // last window to flush the tail before tearing
-                        // down the subscription. Without this delay the
-                        // last partial of a fast cmd gets dropped because
-                        // we dispose lineSub before the window closes.
-                        Thread.Sleep((int)_streamCfg.BufferDuration.TotalMilliseconds + 50);
-
-                        fatalErr = null;
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        var inner = (ex as AggregateException)?.InnerException ?? ex;
-                        $"RemoteShell[{command.Id}] attempt {attempt}/2 failed: {inner.GetType().Name}: {inner.Message}".LogDebug();
-                        fatalErr = inner.ToString();
+                        $"RemoteShell[{command.Id}] attempt 1/2 failed: {first.GetType().Name}: {first.Message}".LogDebug();
                         ResetShell();
-                        if (attempt == 2) break;
-                    }
-                    finally
-                    {
-                        try { lineSub?.Dispose(); } catch { }
-                    }
-                }
+                        return RunOnce(command)
+                            .Catch<CommandResult, Exception>(second =>
+                            {
+                                $"RemoteShell[{command.Id}] attempt 2/2 failed: {second.GetType().Name}: {second.Message}".LogDebug();
+                                ResetShell();
+                                return Observable.Return(PublishAndSummarise(command, -1, null, second.ToString(), 0, 0, 0));
+                            });
+                    }));
+        }
 
-                var result = new RemoteShellResult
+        private IObservable<CommandResult> RunOnce(RemoteShellCmd command)
+        {
+            var cmd = command.DecodedCmd;
+            var workerName = _appInfo?.Name ?? Environment.MachineName;
+            var sequence = 0;
+            var totalOutBytes = 0;
+            var totalErrBytes = 0;
+
+            return GetOrCreateShell().SelectMany(shell => shell
+                .Run(cmd, CommandTimeout)
+                // One subscription to the command, two readers of it: the partial emitter and the
+                // terminal result. Publish keeps them on the same sequence, so the buffer below is
+                // completed by the command ending rather than by a timer the caller hopes is long
+                // enough - which is what used to drop the last partial of a fast command.
+                .Publish(frames =>
                 {
-                    Worker       = workerName,
-                    Cmd          = cmd,
-                    Stdout       = string.Empty,
-                    Stderr       = fatalErr ?? string.Empty,
-                    ExitCode     = exitCode,
-                    Cwd          = cwd,
-                    InResponseTo = command.Id
-                };
-                _rxnManager.Publish(result).Until();
+                    var partials = frames
+                        .Where(f => !f.IsResult)
+                        .Select(f => f.Output)
+                        .Buffer(_streamCfg.BufferDuration, _streamCfg.MaxLinesPerPartial)
+                        .Where(b => b.Count > 0)
+                        .Do(batch =>
+                        {
+                            var stdoutSb = new StringBuilder();
+                            var stderrSb = new StringBuilder();
+                            foreach (var line in batch)
+                            {
+                                if (line.Kind == PersistentShell.StreamKind.Stderr)
+                                {
+                                    stderrSb.AppendLine(line.Text);
+                                    Interlocked.Add(ref totalErrBytes, line.Text.Length + 1);
+                                }
+                                else
+                                {
+                                    stdoutSb.AppendLine(line.Text);
+                                    Interlocked.Add(ref totalOutBytes, line.Text.Length + 1);
+                                }
+                            }
 
-                $"RemoteShell[{command.Id}] exit: {exitCode} ({totalOutBytes}B out / {totalErrBytes}B err in {sequence} partials)".LogDebug();
+                            // Producer-side truncation: keep each IRxn comfortably under the
+                            // SignalR transport cap. If a buffer holds more, the next batch is
+                            // emitted sooner - no line is lost, it is split across more partials.
+                            var stdoutText = Cap(stdoutSb.ToString());
+                            var stderrText = Cap(stderrSb.ToString());
 
-                var summary = $"shell [{exitCode}] {totalOutBytes}B out / {totalErrBytes}B err / {sequence} partials";
-                return Observable.Return(CommandResult.Success(summary).AsResultOf(command));
-            });
+                            // The bridge handles disconnect-buffering and requeue on failure, so
+                            // this Publish never silently drops a partial - worst case it queues
+                            // until reconnect.
+                            _rxnManager.Publish(new RemoteShellPartialResult
+                            {
+                                Worker = workerName,
+                                Stdout = stdoutText,
+                                Stderr = stderrText,
+                                Sequence = Interlocked.Increment(ref sequence),
+                                InResponseTo = command.Id
+                            }).Until();
+                        })
+                        .IgnoreElements()
+                        .Select(_ => default(PersistentShell.Frame));
+
+                    return partials.Merge(frames.Where(f => f.IsResult));
+                })
+                .LastAsync()
+                .Select(result => PublishAndSummarise(
+                    command,
+                    result.ExitCode,
+                    result.Cwd,
+                    result.TimedOut
+                        ? $"The command produced no result within {CommandTimeout.TotalSeconds:0}s. The shell was left mid-parse - an unbalanced quote does this - and has been discarded; the next command gets a new one, with cwd and environment reset."
+                        : null,
+                    sequence, totalOutBytes, totalErrBytes)));
+        }
+
+        private string Cap(string s)
+        {
+            const int MaxBytesPerStream = 16 * 1024;
+            return s.Length > MaxBytesPerStream
+                ? s.Substring(0, MaxBytesPerStream) + "\n...[partial truncated]"
+                : s;
+        }
+
+        private CommandResult PublishAndSummarise(RemoteShellCmd command, int exitCode, string cwd,
+            string errText, int sequence, int totalOutBytes, int totalErrBytes)
+        {
+            _rxnManager.Publish(new RemoteShellResult
+            {
+                Worker = _appInfo?.Name ?? Environment.MachineName,
+                Cmd = command.DecodedCmd,
+                Stdout = string.Empty,
+                Stderr = errText ?? string.Empty,
+                ExitCode = exitCode,
+                Cwd = cwd,
+                InResponseTo = command.Id
+            }).Until();
+
+            $"RemoteShell[{command.Id}] exit: {exitCode} ({totalOutBytes}B out / {totalErrBytes}B err in {sequence} partials)".LogDebug();
+
+            return CommandResult
+                .Success($"shell [{exitCode}] {totalOutBytes}B out / {totalErrBytes}B err / {sequence} partials")
+                .AsResultOf(command);
         }
 
         public void Dispose()
