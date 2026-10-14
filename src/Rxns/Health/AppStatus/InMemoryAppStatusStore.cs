@@ -69,22 +69,46 @@ namespace Rxns.Health.AppStatus
 
         public string LogDir { get; set; }
         
+        /// <summary>
+        /// Where a tenant's uploaded artefacts live. One directory per tenant, so a run is
+        /// addressable by the name it was uploaded under in either storage mode.
+        /// </summary>
+        private string TenantDir(string tenantId)
+        {
+            var dir = Path.Combine(LogDir, tenantId ?? "");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            return dir;
+        }
+
         public IObservable<string> SaveLog(string tenantId, Stream log, string file)
         {
-            if (!Directory.Exists(LogDir))
-                Directory.CreateDirectory(LogDir);
+            var tenantDir = TenantDir(tenantId);
+            var destination = Path.Combine(tenantDir, file);
 
-            var logId = $"{tenantId}/{file}";
-            var destinationDir = Path.Combine(LogDir, logId);
-
-
-            if (_cfg.ShouldAutoUnzipLogs)
+            if (!_cfg.ShouldAutoUnzipLogs)
             {
-                destinationDir = destinationDir.Substring(0, destinationDir.Length - 4);
+                // Stored as it arrived. The upload is already a compressed archive and every
+                // reader of it - the report aggregator, the portal, a later export - can read it
+                // that way, so expanding it buys nothing and costs the difference between the
+                // archive and its contents on a disk the host shares with the run.
+                //
+                // Create rather than CreateNew: an upload that failed part-way is retried, and
+                // CreateNew turns the retry into a permanent failure over the partial file it
+                // just wrote. Names carry the system, the run and a millisecond stamp, so the
+                // only realistic collision is an upload with itself.
+                using (var f = File.Open(destination, FileMode.Create, FileAccess.ReadWrite, FileShare.Delete))
+                {
+                    log.CopyTo(f);
+                }
 
-                Directory.CreateDirectory(destinationDir);
-                return _zipService.GetFiles(log)
-                    .Do(f =>
+                return file.ToObservable();
+            }
+
+            var destinationDir = destination.Substring(0, destination.Length - 4);
+            Directory.CreateDirectory(destinationDir);
+
+            return _zipService.GetFiles(log)
+                .Do(f =>
                 {
                     //todo: makeasync
                     using (var fl = File.Open(Path.Combine(destinationDir, f.Name), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Delete))
@@ -93,27 +117,11 @@ namespace Rxns.Health.AppStatus
                     }
                 })
                 .LastOrDefaultAsync().Select(_ => file);
-            }
-            else
-            {
-                //todo: makeasync
-                using (var f = File.Open($"{destinationDir}", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.Delete))
-                {
-                    log.CopyTo(f);
-                }
-            }
-
-            return file.ToObservable();
         }
 
         public IObservable<Stream> GetLogs(string tenantId, string file)
         {
-            if (!Directory.Exists(LogDir))
-            {
-                Directory.CreateDirectory(LogDir);
-            }
-
-            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine(LogDir, $"{ tenantId}-{file}")))
+            return Rxn.Create(() => _fs.GetReadableFile(_fs.PathCombine(TenantDir(tenantId), file)))
                 .Catch<Stream, Exception>(e =>
                 {
                     ReportStatus.Log.OnWarning($"While downloading update {e}");
@@ -124,20 +132,26 @@ namespace Rxns.Health.AppStatus
 
         public IObservable<AppLogInfo[]> ListLogs(string tenantId, int top = 3)
         {
-            if (!_fs.ExistsDirectory(_fs.PathCombine(LogDir)))
+            if (!_fs.ExistsDirectory(LogDir))
                 return Rxn.Empty<AppLogInfo[]>();
 
-            return _fs.GetFiles(LogDir,
-                tenantId.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
-                    ? "*.zip"
-                    : $"{tenantId}-*.zip").OrderByDescending(f => f.LastWriteTime).Take(top).Select(f =>
-            {
-                
-                return new AppLogInfo()
-                { 
-                    Name = f.Name
-                };
-            }).ToArray().ToObservable().Catch<AppLogInfo[], Exception>(_ => Rxn.Empty<AppLogInfo[]>());
+            // A run is a .zip when the store keeps uploads as they arrive and a directory when it
+            // expands them, so both are listed. Names are what SaveLog wrote, which is what
+            // GetLogs takes back.
+            var tenants = tenantId.IsNullOrWhiteSpace("all").Equals("all", StringComparison.OrdinalIgnoreCase)
+                ? Directory.GetDirectories(LogDir)
+                : new[] { TenantDir(tenantId) };
+
+            return tenants
+                .Where(Directory.Exists)
+                .SelectMany(t => Directory.GetFileSystemEntries(t))
+                .Select(e => new FileInfo(e))
+                .OrderByDescending(f => f.LastWriteTime)
+                .Take(top)
+                .Select(f => new AppLogInfo() { Name = f.Name })
+                .ToArray()
+                .ToObservable()
+                .Catch<AppLogInfo[], Exception>(_ => Rxn.Empty<AppLogInfo[]>());
         }
 
         public void Add(LogMessage<string> message)

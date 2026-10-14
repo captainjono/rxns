@@ -145,6 +145,34 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
+        /// <summary>
+        /// Where the bundle is, so the caller can fetch it without coming through here.
+        ///
+        /// <para>404 when this host has nowhere else to point at, which is the normal answer and
+        /// not an error - the caller falls back to asking for the bytes. Said as a status rather
+        /// than an empty 200 so an older client, which has never heard of this route and gets the
+        /// same 404 from routing itself, behaves identically to a new one talking to a host that is
+        /// not offloading.</para>
+        ///
+        /// <para>The URL usually carries its own authority, so it is a credential with a shape and
+        /// a lifetime. The caller says how long it needs; the window belongs to the work, because a
+        /// machine that boots late into a long run still has to find a live URL when it finally
+        /// asks.</para>
+        /// </summary>
+        [Route("updates/{systemName}/{version}/location")]
+        [HttpGet]
+        public async Task<IActionResult> Location(string systemName, string version, int validForSeconds = 3600)
+        {
+            if (!(_updateManager is ICanIssueUpdateLocations locations))
+                return NotFound();
+
+            var at = await locations
+                .GetUpdateLocation(systemName, version, TimeSpan.FromSeconds(Math.Max(60, validForSeconds)))
+                .FirstOrDefaultAsync();
+
+            return at == null ? (IActionResult)NotFound() : Content(at.ToString(), "text/plain");
+        }
+
         [Route("updates/{systemName}/latest")]
         [HttpGet]
         public async Task<IActionResult> GetLatestUpdate(string systemName)

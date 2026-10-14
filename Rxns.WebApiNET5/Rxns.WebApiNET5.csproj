@@ -45,4 +45,11 @@
     <File Include="ConfigureAndStartAspnetCore.cs" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <!-- The batch-failure policy is internal: it is a decision, not API surface, and the test
+         that pins it needs to reach it without a live hub connection. -->
+    <InternalsVisibleTo Include="Rxns.Tests" />
+  </ItemGroup>
+
 </Project>

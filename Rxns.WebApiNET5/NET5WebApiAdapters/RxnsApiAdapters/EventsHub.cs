@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -262,10 +262,50 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
+        /// <summary>Set once the effective limits have been reported, so they are logged per process.</summary>
+        private static int _limitsReported;
+
+        /// <summary>
+        /// Logs the size limit this hub will ACTUALLY enforce, read from the service provider that
+        /// built this hub instance.
+        ///
+        /// <para>There is already a startup diagnostic that prints a number for this, resolved from
+        /// the application's own container, and it has been reporting 32768 in the very same run
+        /// that logs the 4 MB assignment being made. Only one of those two numbers governs what
+        /// the transport does, and it is this one: SignalR resolves HubOptions from the request's
+        /// provider, so that is the only place worth reading it from.</para>
+        ///
+        /// <para>Deliberately logged on connect rather than at startup. The value is a property of
+        /// the provider that constructs the hub, and before a connection exists there is no such
+        /// provider to ask - which is precisely how the startup version came to be asking a
+        /// different one.</para>
+        /// </summary>
+        private void ReportEffectiveLimitsOnce()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _limitsReported, 1) != 0) return;
+
+            try
+            {
+                var services = Context.GetHttpContext()?.RequestServices;
+                var opts = services?.GetService(typeof(Microsoft.Extensions.Options.IOptions<HubOptions<EventsHub>>))
+                    as Microsoft.Extensions.Options.IOptions<HubOptions<EventsHub>>;
+
+                var limit = opts?.Value?.MaximumReceiveMessageSize;
+
+                $"EventsHub enforcing MaximumReceiveMessageSize={(limit.HasValue ? limit.Value.ToString() : "<framework default>")} (read from the connection's own service provider - this is the value that governs, unlike any resolved from the app container)".LogDebug();
+            }
+            catch (Exception ex)
+            {
+                $"EventsHub: could not read its own effective limits - {ex.GetType().Name}: {ex.Message}".LogDebug();
+            }
+        }
+
         public override Task OnConnectedAsync()
         {
             this.ReportExceptions(() =>
             {
+                ReportEffectiveLimitsOnce();
+
                 OnInformation("EventsHub.OnConnectedAsync: {0} user={1}", Context.ConnectionId, Context.User == null ? "null" : Context.User.Identity?.Name ?? "anon");
                 _lifecycle.OnNext(new ClientLifecycleEvent { ClientId = Context.ConnectionId, Connected = true });
 
@@ -291,27 +331,187 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
         };
 
+        /// <summary>
+        /// One tenant's slice of a StatusInitialSubscribe page.
+        ///
+        /// <para>Named rather than anonymous so a page can be rebuilt holding a subset of a
+        /// tenant's systems. The property names ARE the wire contract - the JSON protocol
+        /// camelCases them to tenant/systems, which is what the portal reads.</para>
+        /// </summary>
+        internal sealed class TenantStatus
+        {
+            public string Tenant { get; set; }
+            public object[] Systems { get; set; }
+
+            /// <summary>
+            /// Which page of the initial push this piece belongs to, and how many there are.
+            ///
+            /// <para>Carried ON the payload rather than as a second SendAsync argument, which is
+            /// where it started. The JavaScript client ignores arguments its handler does not
+            /// declare, so a browser could not tell the difference - but the .NET client binds
+            /// strictly on the registered handler's parameter count and DROPS an invocation that
+            /// carries more than it expects. Every worker uses the .NET client. An extra argument
+            /// therefore cut the workers off from status entirely while the portal kept working,
+            /// which is the least visible way this could have broken.</para>
+            /// </summary>
+            public int Page { get; set; }
+            public int Of { get; set; }
+        }
+
+        /// <summary>
+        /// The largest initial-status page we will put on the wire, in bytes.
+        ///
+        /// <para>Far below the hub's 4 MB ceiling on purpose. The measurement here counts the
+        /// systems and not the protocol's own framing, and it is taken with a serializer
+        /// configured like the wire's rather than with the wire's itself, so it is close but not
+        /// exact. A budget at the ceiling would turn that small inaccuracy into the failure this
+        /// exists to prevent; a budget this far under makes the gap irrelevant.</para>
+        /// </summary>
+        internal const int StatusPageBudgetBytes = 256 * 1024;
+
+        /// <summary>Braces, property names and quotes a tenant costs before any of its systems.</summary>
+        private const int TenantFrameBytes = 64;
+
+        /// <summary>
+        /// Splits the initial status into pages that each fit inside <paramref name="budgetBytes"/>.
+        ///
+        /// <para>This used to be one message holding every tenant and every system, built and
+        /// pushed on connect. That is fine for a portal watching a handful of machines and
+        /// quadratic for a fleet: each of a hundred workers connects, and each is handed a
+        /// description of the other ninety-nine. Past some fleet size the message crosses the
+        /// hub's limit, the server closes the connection to say so, the client reconnects, and
+        /// the same oversized message is built again - a registration loop that reports itself
+        /// as ordinary reconnects.</para>
+        ///
+        /// <para>Paging is at SYSTEM granularity, not tenant. A fleet is normally one tenant, so
+        /// splitting only between tenants would not split anything at all.</para>
+        ///
+        /// <para>Measurement is injected so the split can be tested without a serializer.</para>
+        /// </summary>
+        internal static List<TenantStatus[]> PageStatus(IReadOnlyList<TenantStatus> tenants, Func<object, int> measure, int budgetBytes)
+        {
+            var pages = new List<TenantStatus[]>();
+            var page = new List<TenantStatus>();
+            var pageBytes = 0;
+
+            void ClosePage()
+            {
+                if (page.Count == 0) return;
+                pages.Add(page.ToArray());
+                page = new List<TenantStatus>();
+                pageBytes = 0;
+            }
+
+            foreach (var tenant in tenants ?? Array.Empty<TenantStatus>())
+            {
+                var systems = tenant.Systems ?? Array.Empty<object>();
+                var frame = TenantFrameBytes + (tenant.Tenant?.Length ?? 0);
+
+                var current = new List<object>();
+                var currentBytes = frame;
+
+                foreach (var system in systems)
+                {
+                    var bytes = measure(system);
+
+                    // Close the page before adding a system that would overflow it - but never
+                    // close an empty one. A single system larger than the whole budget has to
+                    // travel alone rather than be dropped or loop forever: dropping it loses a
+                    // worker from the portal silently, which is the failure mode this replaces.
+                    if (pageBytes + currentBytes + bytes > budgetBytes && (pageBytes > 0 || current.Count > 0))
+                    {
+                        if (current.Count > 0)
+                        {
+                            page.Add(new TenantStatus { Tenant = tenant.Tenant, Systems = current.ToArray() });
+                            pageBytes += currentBytes;
+                            current = new List<object>();
+                            currentBytes = frame;
+                        }
+
+                        ClosePage();
+                    }
+
+                    current.Add(system);
+                    currentBytes += bytes;
+                }
+
+                // An empty tenant is carried rather than dropped: it is how the portal learns a
+                // tenant exists with nothing reporting under it.
+                if (current.Count > 0 || systems.Length == 0)
+                {
+                    page.Add(new TenantStatus { Tenant = tenant.Tenant, Systems = current.ToArray() });
+                    pageBytes += currentBytes;
+                }
+            }
+
+            ClosePage();
+
+            // An empty store still sends one page. The portal replaces its list on page 1, so
+            // sending nothing at all would leave a stale fleet on screen instead of an empty one.
+            if (pages.Count == 0) pages.Add(Array.Empty<TenantStatus>());
+
+            return pages;
+        }
+
+        private static int MeasureWireBytes(object o)
+        {
+            return System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(o, _wireJson).Length;
+        }
+
         private void SendInitalStatus(IClientProxy caller)
         {
             _statusStore.FirstAsync().Subscribe(this, s =>
             {
-                var payload = BuildStatusPayload(s);
-                var json = System.Text.Json.JsonSerializer.Serialize(payload, _wireJson);
-                OnInformation("EventsHub.SendInitalStatus: StatusInitialSubscribe push, entries={0}, wirePayload={1}", s?.Count ?? -1, json.Length > 800 ? json.Substring(0, 800) + "...TRUNCATED" : json);
-                caller.SendAsync("StatusInitialSubscribe", payload);
+                var pages = PageStatus(BuildStatusPayload(s), MeasureWireBytes, StatusPageBudgetBytes);
+
+                // Deliberately no longer serializing the whole payload to log 800 characters of
+                // it. At fleet size that was megabytes of work on every connect, done only so a
+                // log line could throw nearly all of it away again.
+                OnInformation("EventsHub.SendInitalStatus: StatusInitialSubscribe push, entries={0}, pages={1}", s?.Count ?? -1, pages.Count);
+
+                SendStatusPagesAsync(caller, pages)
+                    .ContinueWith(t => OnError(new Exception(
+                            $"EventsHub.SendInitalStatus: failed sending {pages.Count} status page(s)",
+                            t.Exception?.GetBaseException())),
+                        TaskContinuationOptions.OnlyOnFaulted);
             });
         }
 
-        private static object[] BuildStatusPayload(Dictionary<SystemStatusEvent, object[]> s)
+        /// <summary>
+        /// Sends the pages in order, one at a time.
+        ///
+        /// <para>Awaited, unlike the single send it replaces. SendAsync reports a refusal through
+        /// its Task and nowhere else, so discarding it made a failed initial push
+        /// indistinguishable from an empty cluster - the portal simply showed nothing, with no
+        /// line in the log to say why.</para>
+        ///
+        /// <para>Still exactly ONE argument, as it has always been. See TenantStatus.Page for why
+        /// the page marker cannot become a second one.</para>
+        /// </summary>
+        internal static async Task SendStatusPagesAsync(IClientProxy caller, IReadOnlyList<TenantStatus[]> pages)
+        {
+            for (var i = 0; i < pages.Count; i++)
+            {
+                foreach (var tenant in pages[i])
+                {
+                    tenant.Page = i + 1;
+                    tenant.Of = pages.Count;
+                }
+
+                await caller.SendAsync("StatusInitialSubscribe", pages[i]);
+            }
+        }
+
+        private static TenantStatus[] BuildStatusPayload(Dictionary<SystemStatusEvent, object[]> s)
         {
             return s.Distinct(new TenantOnlyStatusComparer())
-                .Select(x => new
+                .Select(x => new TenantStatus
                 {
                     Tenant = x.Key?.Tenant ?? string.Empty,
                     Systems = s.Keys
                         .Where(k => k.Tenant == x.Key?.Tenant)
                         .OrderBy(o => o.SystemName)
-                        .Select(y => new
+                        .Select(y => (object)new
                         {
                             System = y,
                             Meta = ToSafeMetaArray(s[y])
@@ -349,10 +549,13 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
                 if (_routes.Count < 1)
                     return;
 
-                var key = _routes.Where(route => route.Value == Context.ConnectionId).Select((item, _) => item.Key);
+                // Resolved once, not three times. The query used to be left lazy and then walked
+                // again by Any() and again by First(), so the answer could change underneath the
+                // handler between the question and the act.
+                var departing = _routes.FirstOrDefault(route => route.Value == Context.ConnectionId).Key;
 
-                if (key.Any())
-                    RemoveRegistration(key.First());
+                if (departing != null)
+                    RemoveRouteOwnedBy(departing, Context.ConnectionId);
             });
 
             return base.OnDisconnectedAsync(exception);
@@ -484,10 +687,41 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters.RxnsApiAdapters
             }
         }
 
-        public void RemoveRoute(string route)
+        public void RemoveRoute(string route) => RemoveRouteOwnedBy(route, null);
+
+        /// <summary>
+        /// Drops a route, optionally only on behalf of the connection that still holds it.
+        ///
+        /// <para>Removal used to be unconditional and by name. A client that reconnects registers
+        /// its new connection against the same route, and the old connection's disconnect - which
+        /// can arrive afterwards - then deleted the registration the new one had just made. The
+        /// client stayed connected with no route, so everything addressed to it queued instead of
+        /// being delivered, and nothing in the log said so: the removal looks identical whether it
+        /// retired a dead connection or a live one.</para>
+        ///
+        /// <para>Passing the departing connection makes that case a no-op. Callers who genuinely
+        /// mean "remove this route whoever owns it" pass nothing and keep the old behaviour.</para>
+        /// </summary>
+        /// <summary>
+        /// Not an overload of <see cref="RemoveRoute(string)"/>, and it cannot become one: this is
+        /// a SignalR hub, and the dispatcher refuses a hub with two methods of the same name -
+        /// "Duplicate definitions of 'RemoveRoute'. Overloading is not supported." It throws while
+        /// discovering hub methods, which is before the host finishes starting, so the arena serves
+        /// a 500 to every caller including its own readiness probe and the load balancer's.
+        /// </summary>
+        private void RemoveRouteOwnedBy(string route, string clientId)
         {
-            OnVerbose("Removed live route '{0}', commands will now be queued for status signals", route);
-            _routes.Remove(route.AsRootRoute());
+            var rootRoute = route.AsRootRoute();
+
+            if (clientId != null && _routes.TryGetValue(rootRoute, out var currentOwner) && currentOwner != clientId)
+            {
+                OnVerbose("Ignoring stale removal of route '{0}' from '{1}': it now belongs to '{2}'",
+                    rootRoute, clientId, currentOwner);
+                return;
+            }
+
+            OnVerbose("Removed live route '{0}', commands will now be queued for status signals", rootRoute);
+            _routes.Remove(rootRoute);
         }
 
         public void PublishFromClient(string clientId, string serializedEvent)

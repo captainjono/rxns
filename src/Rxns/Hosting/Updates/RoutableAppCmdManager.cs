@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -106,10 +106,36 @@ namespace Rxns.Hosting.Updates
             return _originators.TryRemove(commandId, out var route) ? route : null;
         }
 
+        /// <summary>
+        /// Queues a command for a route nothing currently owns, under the same normalised key the
+        /// flush will later look for.
+        ///
+        /// <para>Everything else that matches a route normalises it - the channel lookup, the route
+        /// registry, the polling set - and this queue alone used the destination exactly as written.
+        /// A worker that says "NoTenant\W1_0" in one message and "notenant\w1_0" in the next is
+        /// then two different routes to this dictionary, so a command queued under one spelling is
+        /// invisible to a flush under the other. It stays queued forever while the worker sits
+        /// connected and idle, and whoever asked waits for a result that was never sent.</para>
+        /// </summary>
+        private int Queue(IRxnQuestion cmd)
+        {
+            var q = _pending.GetOrAdd(PendingKey(cmd.Destination), _ => new ConcurrentQueue<IRxnQuestion>());
+            q.Enqueue(cmd);
+            return q.Count;
+        }
+
+        private static string PendingKey(string route) => (route ?? string.Empty).AsRoute();
+
         public IEnumerable<IRxnQuestion> FlushCommands(string route)
         {
             if (string.IsNullOrEmpty(route)) return System.Linq.Enumerable.Empty<IRxnQuestion>();
-            if (!_pending.TryRemove(route, out var queue)) return System.Linq.Enumerable.Empty<IRxnQuestion>();
+
+            // Drained in place rather than removed and then drained. Taking the queue out of the
+            // dictionary first leaves a window where a concurrent Add still holds a reference to it
+            // and enqueues into an object nothing can reach any more - the command is not delivered,
+            // not queued, and not reported. Emptying it where it sits means a late arrival stays
+            // findable by the next flush.
+            if (!_pending.TryGetValue(PendingKey(route), out var queue)) return System.Linq.Enumerable.Empty<IRxnQuestion>();
 
             var drained = new List<IRxnQuestion>();
             while (queue.TryDequeue(out var cmd)) drained.Add(cmd);
@@ -162,7 +188,7 @@ namespace Rxns.Hosting.Updates
                         return;
                     }
 
-            _pending.GetOrAdd(cmds.Destination ?? string.Empty, _ => new ConcurrentQueue<IRxnQuestion>()).Enqueue(cmds);
+            Queue(cmds);
         }
 
         public bool RouteResult(string destination, IRxn result)
@@ -292,10 +318,8 @@ namespace Rxns.Hosting.Updates
             // No channel owned the route — queue for later. A future
             // RegisterRoute or heartbeat-driven registration will pick
             // these up via FlushCommands when Add reruns for that route.
-            var routeKey = cmds.Destination ?? string.Empty;
-            var q = _pending.GetOrAdd(routeKey, _ => new ConcurrentQueue<IRxnQuestion>());
-            q.Enqueue(cmds);
-            $"RoutableAppCmdManager.Add: no channel owns route '{routeKey}' — queued (pending={q.Count})".LogDebug();
+            var pending = Queue(cmds);
+            $"RoutableAppCmdManager.Add: no channel owns route '{cmds.Destination}' — queued (pending={pending})".LogDebug();
         }
     }
 }

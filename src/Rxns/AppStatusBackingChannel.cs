@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -22,7 +23,13 @@ namespace Rxns
         {
             _publishBuffer.Buffer(forEventsToCollectInBufffer ?? TimeSpan.FromSeconds(2), forBuffer ?? Scheduler.Default).Where(l => l.Count > 0).Subscribe(this, e =>
             {
-                OnVerbose("Publishing '{0}' messages", e.Count);
+                // LogDebug, not OnVerbose. This channel reports into the very manager it backs, so
+                // anything it says through the reporter chain goes nowhere a human will look - and
+                // this is the only line in the process that says whether events are leaving for the
+                // other side at all. Its silence used to be indistinguishable from a cluster with
+                // nothing to say, which is how a worker that shipped no results for a whole run
+                // looked exactly like a worker that had finished its work.
+                $"AppStatusBackingChannel: shipping {e.Count} event(s) central: {string.Join(", ", e.Select(x => x.GetType().Name).Distinct())}".LogDebug();
                 eventService.Publish(e).Subscribe();
             }).DisposedBy(this);
         }

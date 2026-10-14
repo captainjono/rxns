@@ -67,6 +67,11 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
         private readonly ConcurrentQueue<object[]> _pendingPublishes = new ConcurrentQueue<object[]>();
         private int _droppedPending;
 
+        // Events dropped because one of them, alone, exceeds what the server will accept. Counted
+        // separately from _droppedPending: that one means the buffer filled while offline, this
+        // one means the event can never be delivered no matter how long we wait.
+        private int _droppedOversize;
+
         // Per-batch byte-size cap fed to BufferUntilSize. Server-side MapHub
         // ApplicationMaxBufferSize / TransportMaxBufferSize / HubOptions.MaximumReceiveMessageSize
         // are 4 MB; 3 MB leaves a 1 MB safety margin for SignalR framing +
@@ -489,9 +494,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 {
                     if (t.IsFaulted)
                     {
-                        var inner = t.Exception?.GetBaseException();
-                        $"PublishBatch failed: {inner?.GetType().Name}: {inner?.Message} - re-queueing for next Connected window".LogDebug();
-                        EnqueuePending(serializedBatch);
+                        HandleBatchFailure(serializedBatch, t.Exception?.GetBaseException());
                     }
                 }, TaskContinuationOptions.ExecuteSynchronously);
             }
@@ -522,6 +525,10 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             var dropped = Interlocked.Exchange(ref _droppedPending, 0);
             if (dropped > 0)
                 $"SignalRRxnManagerBridge: dropped {dropped} pending publishes (offline-buffer cap {PendingPublishesCap}) — those events are lost".LogDebug();
+
+            var oversize = Interlocked.Exchange(ref _droppedOversize, 0);
+            if (oversize > 0)
+                $"SignalRRxnManagerBridge: dropped {oversize} event(s) too large for the server's message limit - raise the limit or shrink the event".LogDebug();
 
             // Snapshot the queue length up-front: PublishOrQueue may re-enqueue
             // failures, and we don't want to spin forever draining-and-requeuing
@@ -559,6 +566,97 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                 $"SignalRRxnManagerBridge: drained {drained} pending publishes after reconnect".LogDebug();
         }
 
+        /// <summary>What to do with a batch the server refused.</summary>
+        internal enum BatchFailure
+        {
+            /// <summary>Transient. Put it back and try again on the next connection.</summary>
+            Requeue,
+            /// <summary>Too large. Halve it - the pieces may fit where the whole did not.</summary>
+            Split,
+            /// <summary>Too large and indivisible. It can never be sent.</summary>
+            Drop
+        }
+
+        /// <summary>
+        /// Does this failure say the batch was too big for the server?
+        ///
+        /// <para>SignalR surfaces it as the connection being closed carrying an
+        /// InvalidDataException that names the limit, so the exception type alone does not
+        /// identify it and the message is the only place the cause appears. Matching on text is
+        /// unattractive; it is also what the transport gives us. The asymmetry decides it: a
+        /// false positive costs one needless split, a false negative is an unbreakable retry
+        /// loop.</para>
+        /// </summary>
+        internal static bool LooksTooLarge(Exception ex)
+        {
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                var m = e.Message;
+                if (string.IsNullOrEmpty(m)) continue;
+                if (m.IndexOf("maximum message size", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                if (m.IndexOf("message size", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    m.IndexOf("exceed", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// How a failed batch should be handled.
+        ///
+        /// <para>Everything used to be requeued unchanged, which is correct for a dropped
+        /// connection and catastrophic for an oversized payload: the server closes the
+        /// connection, the client reconnects, drains the same bytes, and is closed again. Each
+        /// step looks like an ordinary blip in the log, so a fleet can sit in that loop
+        /// indefinitely while reporting nothing worse than reconnects - which is exactly what a
+        /// hundred-instance run did, never registering a single worker.</para>
+        ///
+        /// <para>Splitting terminates: each round halves the batch, so it either fits or reaches
+        /// one item, and one item that will not fit is dropped rather than retried forever.</para>
+        /// </summary>
+        internal static BatchFailure PlanBatchFailure(object[] batch, Exception ex)
+        {
+            if (!LooksTooLarge(ex)) return BatchFailure.Requeue;
+            return (batch == null || batch.Length <= 1) ? BatchFailure.Drop : BatchFailure.Split;
+        }
+
+        /// <summary>Halves a batch, larger half second so an odd count keeps every item.</summary>
+        internal static void SplitBatch(object[] batch, out object[] first, out object[] second)
+        {
+            var half = batch.Length / 2;
+            first = new object[half];
+            second = new object[batch.Length - half];
+            Array.Copy(batch, 0, first, 0, first.Length);
+            Array.Copy(batch, half, second, 0, second.Length);
+        }
+
+        /// <summary>
+        /// Apply <see cref="PlanBatchFailure"/>. Split halves go back on the queue and are drained
+        /// on the next Connected transition - which the size rejection itself causes, since the
+        /// server closes the connection to report it.
+        /// </summary>
+        private void HandleBatchFailure(object[] serializedBatch, Exception ex)
+        {
+            switch (PlanBatchFailure(serializedBatch, ex))
+            {
+                case BatchFailure.Drop:
+                    Interlocked.Increment(ref _droppedOversize);
+                    $"PublishBatch: one event alone exceeds the server's message limit and was dropped - it cannot be delivered at any batch size. {ex?.GetBaseException().Message}".LogDebug();
+                    break;
+
+                case BatchFailure.Split:
+                    SplitBatch(serializedBatch, out var a, out var b);
+                    EnqueuePending(a);
+                    EnqueuePending(b);
+                    $"PublishBatch: {serializedBatch.Length} events refused for size, split into {a.Length} + {b.Length} for the next drain".LogDebug();
+                    break;
+
+                default:
+                    $"PublishBatch failed: {ex?.GetType().Name}: {ex?.Message} - re-queueing".LogDebug();
+                    EnqueuePending(serializedBatch);
+                    break;
+            }
+        }
+
         private async Task InvokeBatchAsync(HubConnection client, object[] serializedBatch)
         {
             try
@@ -572,8 +670,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
             }
             catch (Exception ex)
             {
-                $"PublishBatch (drain) failed: {ex.GetType().Name}: {ex.Message} - re-queueing".LogDebug();
-                EnqueuePending(serializedBatch);
+                HandleBatchFailure(serializedBatch, ex);
             }
         }
     }

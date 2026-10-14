@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,12 +14,12 @@ using Rxns.Logging;
 namespace Rxns.Hosting
 {
     /// <summary>
-    /// IAppStatusServiceClient impl for the self-hosted central / arena scenario:
+    /// IAppStatusServiceClient impl for the self-hosted central / hub scenario:
     /// "I am the central — there is no upstream to forward to".
     ///
     /// <para>
     /// Why this exists: the default <see cref="HttpAppStatusServiceClient"/> POSTs every
-    /// event to /events/publish. On a self-hosted arena that POST lands on the arena's
+    /// event to /events/publish. On a self-hosted hub that POST lands on the hub's
     /// OWN events controller, which republishes onto the local bus, the router fans it
     /// back to <see cref="AppStatusBackingChannel"/>, which buffers + POSTs again —
     /// infinite feedback loop with a 2s cadence (visible as e.g. RemoteShellResult
@@ -28,19 +28,19 @@ namespace Rxns.Hosting
     ///
     /// <para>
     /// <see cref="Publish"/>/<see cref="PublishError"/>/<see cref="PublishLog"/>/<see cref="DeleteError"/>
-    /// are no-ops: events originating on the arena are already on the local bus, no
+    /// are no-ops: events originating on the hub are already on the local bus, no
     /// forwarding needed.
     /// </para>
     ///
     /// <para>
     /// <see cref="PublishSystemStatus"/> writes directly to <see cref="ISystemStatusStore"/>
     /// in-process. Without this, <see cref="Health.AppStatus.SystemStatusPublisher"/>'s
-    /// per-tick call to it would no-op, the arena would never appear in its own
+    /// per-tick call to it would no-op, the hub would never appear in its own
     /// SystemStatusStore, and #/appStatusV2 would show only workers (regression caught
     /// by AppStatusV2Behaviour.arena_and_worker_heartbeats_reach_system_status_store).
     /// We take ISystemStatusStore directly rather than IAppStatusManager because the
     /// latter pulls in IAppUpdateManager → LocalAppUpdateServer → IRxnHostableApp,
-    /// which isn't registered on the arena.
+    /// which isn't registered on the hub.
     /// </para>
     /// </summary>
     public class NoOpAppStatusServiceClient : ReportsStatus, IAppStatusServiceClient
@@ -68,7 +68,7 @@ namespace Rxns.Hosting
         {
             // Mirror LocalAppStatusManager.AddOrUpdateStatus's log line so existing
             // tooling (TestArenaMonitor.ps1 -ArenaStatus, AppStatusV2Behaviour) still
-            // sees "Received status from '<tenant>\<system>'" for the arena's own
+            // sees "Received status from '<tenant>\<system>'" for the hub's own
             // heartbeat — the canonical signal that the store now holds an entry for
             // this system.
             OnInformation("Received status from '{0}\\{1}'", status.Tenant, status.SystemName);

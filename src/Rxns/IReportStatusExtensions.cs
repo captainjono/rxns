@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive.Disposables;
@@ -46,9 +46,19 @@ namespace System.Reactive.Linq
                 return reporter.SubscribeAll(i => Console.WriteLine(i), e => Console.WriteLine(e));
         }
 
+        /// <summary>
+        /// Sends a reporter's output to the console, off the thread that produced it.
+        ///
+        /// <para>Through <see cref="Rxns.Logging.ConsoleOut"/> rather than Console directly:
+        /// Console.Out is synchronized, so writing from the calling thread makes every logging
+        /// thread queue behind whatever the handle is attached to. On a host whose stdout is
+        /// redirected to a file that is a disk write inside a lock held by request threads.</para>
+        /// </summary>
         public static CompositeDisposable ReportToConsole(this IReportStatus reporter)
         {
-            return reporter.SubscribeAll(i => Console.WriteLine(i), e => Console.WriteLine(e));
+            return reporter.SubscribeAll(
+                i => Rxns.Logging.ConsoleOut.WriteLine(i?.ToString()),
+                e => Rxns.Logging.ConsoleOut.WriteLine(e?.ToString()));
         }
 
         public static CompositeDisposable SubscribeAll(this IEnumerable<IReportStatus> reporters, Action<LogMessage<string>> information = null, Action<LogMessage<Exception>> errors = null)

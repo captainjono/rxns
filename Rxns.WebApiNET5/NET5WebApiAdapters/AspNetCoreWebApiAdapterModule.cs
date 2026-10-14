@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Autofac;
 using Autofac.Features.OwnedInstances;
@@ -64,14 +64,7 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
                         // — and trips on incoming server-pushed events with a
                         // misleading "server closed the connection: maximum message
                         // size of 32768B was exceeded" wording. Both ends must match.
-                        var builder = new HubConnectionBuilder().WithUrl(url);
-                        builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(opts =>
-                        {
-                            opts.MaximumReceiveMessageSize = 4L * 1024 * 1024;
-                        });
-                        var connection = builder
-                            .WithAutomaticReconnect(new AlwaysRetryPolicy(() => TimeSpan.FromSeconds(1)))
-                            .Build();
+                        var connection = BuildHubConnection(url);
                         return new Owned<HubConnection>(connection, lifetime);
                     };
                 })
@@ -82,6 +75,54 @@ namespace Rxns.WebApiNET5.NET5WebApiAdapters
 
 
         }
+
+        /// <summary>
+        /// Builds the hub connection every client in the process uses, timeouts and all.
+        ///
+        /// <para>Public and named so a test can assert against the connection production actually
+        /// gets. Asserting against a copy of this configuration would have passed just as happily
+        /// while the real one carried SignalR's 30 second default - which is the timeout that
+        /// stopped a hundred-device rung at 35 results.</para>
+        /// </summary>
+        public static HubConnection BuildHubConnection(string url)
+        {
+            // Bump client-side receive cap to 4 MB to match the server's
+            // AddHubOptions<EventsHub> setting. SignalR's CLIENT default is
+            // also 32 KB - separate from the SERVER-side AddHubOptions cap -
+            // and trips on incoming server-pushed events with a misleading
+            // "server closed the connection: maximum message size of 32768B
+            // was exceeded" wording. Both ends must match.
+            var builder = new HubConnectionBuilder().WithUrl(url);
+            builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(opts =>
+            {
+                opts.MaximumReceiveMessageSize = 4L * 1024 * 1024;
+            });
+
+            var connection = builder
+                .WithAutomaticReconnect(new AlwaysRetryPolicy(() => TimeSpan.FromSeconds(1)))
+                .Build();
+
+            // The client gives up on a silent server after ServerTimeout, and its default is 30
+            // SECONDS. That is the timeout that ended a 100-device rung: the arena, busy serving
+            // the fleet, took 33.3s to answer one request, so the leg carrying every dispatch and
+            // every result was torn down - nine consecutive "Server timeout (30000.00ms) elapsed"
+            // before it reconnected into a run that never resumed. Results stopped at 35 of 100.
+            //
+            // 120s is three and a half times that worst case, and holds the rule the pair has to
+            // satisfy: ServerTimeout >= 2 x KeepAliveInterval, which is 45s. The old pairing was
+            // 30s against a 20s ping - 1.5x - so the margin was already too thin before the arena
+            // was under any load.
+            //
+            // A handshake has to survive the same congestion. 15s is the default, and a reconnect
+            // arriving mid-fan-out has no better chance of being answered quickly than the request
+            // that timed out in the first place.
+            connection.ServerTimeout = TimeSpan.FromSeconds(120);
+            connection.HandshakeTimeout = TimeSpan.FromSeconds(30);
+            connection.KeepAliveInterval = TimeSpan.FromSeconds(45);
+
+            return connection;
+        }
+
     }
     
     /// <summary>

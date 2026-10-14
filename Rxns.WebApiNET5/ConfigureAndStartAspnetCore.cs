@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Reactive.Linq;
 using Autofac;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Rxns.Autofac;
@@ -53,6 +54,37 @@ namespace Rxns.WebApiNET5
 
     public abstract class ConfigureAndStartAspnetCore : IRxnAppDef
     {
+        /// <summary>
+        /// The ceiling every hub message is allowed, in bytes.
+        ///
+        /// <para>SignalR enforces this in THREE independent places, and AddHubOptions only
+        /// covers one of them. Their defaults differ, which is what makes a partial fix look like
+        /// a complete one: HubOptions.MaximumReceiveMessageSize defaults to 32 KB (applied by
+        /// HubOptionsSetup - the raw options object leaves it null), while the endpoint's
+        /// ApplicationMaxBufferSize and TransportMaxBufferSize default to 64 KB each. Raise only
+        /// the hub limit and the next ceiling is 64 KB, reached silently.</para>
+        ///
+        /// <para>The failure is hard to read from either. A message over the hub limit closes the
+        /// connection naming the size; one over a buffer limit closes it without. Both then look
+        /// like a reconnect in the log rather than a refusal. Named once here so the three cannot
+        /// drift apart - they are only correct as a set.</para>
+        /// </summary>
+        internal const long HubMessageSizeLimitBytes = 4 * 1024 * 1024;
+
+        /// <summary>
+        /// The two limits AddHubOptions does not set.
+        /// </summary>
+        ///
+        /// <para>Applied at MapHub, where they are easy to omit and impossible to notice
+        /// missing: a hub with only MaximumReceiveMessageSize raised behaves correctly until a
+        /// payload passes 64 KB, and then refuses every one of them. Nothing near that size
+        /// occurs in development, so the gap only opens at fleet scale.</para>
+        internal static void ApplyHubTransportLimits(HttpConnectionDispatcherOptions o)
+        {
+            o.ApplicationMaxBufferSize = HubMessageSizeLimitBytes;
+            o.TransportMaxBufferSize   = HubMessageSizeLimitBytes;
+        }
+
         public abstract Func<string, Action<IRxnLifecycle>> App { get; }
         public abstract IRxnAppInfo AppInfo { get; }
         public abstract IWebApiCfg WebApiCfg { get; }
@@ -94,8 +126,22 @@ namespace Rxns.WebApiNET5
             {
                 if (asm != null) builder.AddApplicationPart(asm);
             }
-            s.AddRouting()
-            .AddSignalR(o =>
+            s.AddRouting();
+            AddRxnsSignalR(s);
+        }
+
+        /// <summary>
+        /// Every SignalR registration, in one place a test can call.
+        ///
+        /// <para>Split out of ConfigureServices because the size limits it sets are only
+        /// meaningful as RESOLVED options - an AddHubOptions delegate can run, log the value it
+        /// assigned, and still lose to something registered after it, which is invisible at the
+        /// call site and shows up only as a hub refusing a large message at scale. Testing that
+        /// needs the real chain against a real container, not a copy of it here.</para>
+        /// </summary>
+        internal static void AddRxnsSignalR(IServiceCollection s)
+        {
+            s.AddSignalR(o =>
                 {
                     o.EnableDetailedErrors = true;
                 })
@@ -115,28 +161,81 @@ namespace Rxns.WebApiNET5
             {
 
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
-                // Default 32 KB is too small for batched IRxn publishes —
-                // a single PublishBatch from a chatty cmd (cat 500 KB,
-                // RemoteShellPartialResult floods) trivially exceeds it
-                // and the server tears down the whole connection. 4 MB
-                // gives the bridge headroom even with Newtonsoft
-                // type-info overhead per IRxn.
-                c.MaximumReceiveMessageSize = 4 * 1024 * 1024;
-                $"AddHubOptions<EventsHub>: MaximumReceiveMessageSize set to {c.MaximumReceiveMessageSize} bytes".LogDebug();
-
+                // 45s between pings, and a client is not given up on for 120s.
+                //
+                // The pair has to hold ClientTimeout >= 2 x KeepAlive or a peer is declared dead
+                // between pings under any load at all. It used to be a 20s ping against the 30s
+                // default, which is 1.5x - and on a 100-device rung the arena took 33.3 SECONDS to
+                // answer one request, so the leg carrying dispatch and results was severed nine
+                // times over before it gave up. 120s is three and a half times that worst case.
+                //
+                // Fewer pings also matters at fleet scale: a ping every 20s across a hundred
+                // connections is traffic the arena answers instead of doing work.
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
+                // MaximumReceiveMessageSize is deliberately NOT set here - see the
+                // PostConfigure below for why setting it in this delegate does not stick.
             })
             .AddHubOptions<SystemMetricsHub>(c =>
             {
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
             })
             .AddHubOptions<ReportHub>(c =>
             {
                 c.EnableDetailedErrors = true;
-                c.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                c.KeepAliveInterval = TimeSpan.FromSeconds(45);
+                c.ClientTimeoutInterval = TimeSpan.FromSeconds(120);
             });
 
+            // PostConfigure, not the AddHubOptions delegate above, and this is not a style
+            // preference.
+            //
+            // The default 32 KB is far too small for batched IRxn publishes - one PublishBatch
+            // from a chatty command trivially exceeds it and the server tears the whole
+            // connection down. So it gets raised. The catch is WHERE.
+            //
+            // AddHubOptions contributes one IConfigureOptions<HubOptions<THub>> among several;
+            // SignalR's own HubOptionsSetup<THub> is another, and it copies the global 32 KB
+            // default over whatever it finds. Which of the two wins is decided purely by the
+            // order the container hands them to OptionsFactory. Under the plain ServiceCollection
+            // that order puts ours last and the 4 MB sticks. This host does not serve from the
+            // ServiceCollection - it calls UseServiceProviderFactory(new
+            // AutofacServiceProviderFactory()), and Autofac's ordering puts HubOptionsSetup last
+            // instead. The assignment ran, logged its 4 MB, and was then overwritten back to
+            // 32768 before a single message was sized against it.
+            //
+            // IPostConfigureOptions is defined to run after EVERY IConfigureOptions, so this is
+            // the one place the value cannot be undone by something registered elsewhere. It is
+            // also why the arena's startup diagnostic has been correctly reporting 32768 for so
+            // long while the log two lines above it said 4194304: both were true.
+            // The floor for EVERY hub, including ones added later and ones defined in hosts that
+            // cannot reach this method at all.
+            //
+            // IAspnetCoreCfg gives a host a hook on IApplicationBuilder and nothing on
+            // IServiceCollection, so a host that maps its own hub can raise that hub's two
+            // endpoint buffers at MapHub and has no way to raise the third limit. theBFG's
+            // progress hub sat in exactly that state: both buffers set to 4 MB beside a comment
+            // saying the matching AddHubOptions was "registered by ConfigureServices override",
+            // and no such override anywhere - it could not have existed. The hub ran on the
+            // 32 KB default, which is the ceiling that actually bites first.
+            //
+            // Setting the global rather than adding a per-hub registration is deliberate: the
+            // repeated failure here is a hub whose limits nobody raised, and a floor removes that
+            // possibility instead of relying on each new hub remembering. HubOptionsSetup<THub>
+            // copies this into every per-hub HubOptions, so one value reaches all of them.
+            s.PostConfigure<Microsoft.AspNetCore.SignalR.HubOptions>(o =>
+            {
+                o.MaximumReceiveMessageSize = HubMessageSizeLimitBytes;
+                $"SignalR: MaximumReceiveMessageSize floor for all hubs pinned to {o.MaximumReceiveMessageSize} bytes".LogDebug();
+            });
+
+            s.PostConfigure<Microsoft.AspNetCore.SignalR.HubOptions<EventsHub>>(o =>
+            {
+                o.MaximumReceiveMessageSize = HubMessageSizeLimitBytes;
+                $"EventsHub: MaximumReceiveMessageSize pinned to {o.MaximumReceiveMessageSize} bytes (post-configure, so nothing can overwrite it)".LogDebug();
+            });
         }
 
 
@@ -164,10 +263,13 @@ namespace Rxns.WebApiNET5
                 {
                     "Launching App in WebApi host".LogDebug();
                     
+                    // Until() resubscribes once on an error: the failsafe that brings the app back up after a crash during
+                    // start. The re-run is safe because RxnCreator connects each processor and publisher at most once per
+                    // process. The error is reported, not just logged at debug: a start that needed its failsafe is news.
                     appReadyToRun // the apps supervisor
                         .SelectMany(h => h.Run(new AutofacAppContainer(container)))
                         .Do(rxnAppContext => { "App started".LogDebug(); })
-                        .Until();
+                        .Until(e => ReportStatus.Log.OnError(e, "App start failed - the supervisor starts it again"));
                 });
             }).AsImplementedInterfaces().SingleInstance();
 
@@ -213,8 +315,7 @@ namespace Rxns.WebApiNET5
                         HttpTransportType.WebSockets |
                         HttpTransportType.LongPolling;
                     // See EventsHub mapping below for the three-limits explanation.
-                    o.ApplicationMaxBufferSize = 4 * 1024 * 1024;
-                    o.TransportMaxBufferSize   = 4 * 1024 * 1024;
+                    ApplyHubTransportLimits(o);
                 });
                 endpoints.MapHub<EventsHub>("/eventsHub", o =>
                 {
@@ -227,10 +328,12 @@ namespace Rxns.WebApiNET5
                     //   3. HttpConnectionDispatcherOptions.TransportMaxBufferSize    (default 32 KB)
                     // (2) and (3) are the per-connection transport buffers — when a
                     // PublishBatch frame exceeds them, the server tears down the
-                    // connection with "InvalidDataException: maximum message size of
-                    // 32768B was exceeded" before HubOptions even sees the frame.
-                    o.ApplicationMaxBufferSize = 4 * 1024 * 1024;
-                    o.TransportMaxBufferSize   = 4 * 1024 * 1024;
+                    // connection before HubOptions ever sees the frame. Note these
+                    // default to 64 KB, not to the 32 KB that appears in
+                    // "InvalidDataException: maximum message size of 32768B was
+                    // exceeded" - that text comes from the hub limit above, which is a
+                    // separate check. Both have to be raised; neither implies the other.
+                    ApplyHubTransportLimits(o);
                 });
 
                 endpoints.MapHub<SystemMetricsHub>("/systemMetricsHub", o =>
@@ -239,8 +342,7 @@ namespace Rxns.WebApiNET5
                         HttpTransportType.WebSockets |
                         HttpTransportType.LongPolling;
                     // See EventsHub mapping above for the three-limits explanation.
-                    o.ApplicationMaxBufferSize = 4 * 1024 * 1024;
-                    o.TransportMaxBufferSize   = 4 * 1024 * 1024;
+                    ApplyHubTransportLimits(o);
                 });
 
                 endpoints.MapHub<AppStatusLogHub>("/appStatusLogHub", o =>
@@ -251,8 +353,7 @@ namespace Rxns.WebApiNET5
                     // Mirror EventsHub's 4 MB buffers — log volume on chatty reporters
                     // can spike, and we don't want SignalR to tear down the portal
                     // connection on a per-frame size limit.
-                    o.ApplicationMaxBufferSize = 4 * 1024 * 1024;
-                    o.TransportMaxBufferSize   = 4 * 1024 * 1024;
+                    ApplyHubTransportLimits(o);
                 });
             });
             

@@ -114,6 +114,15 @@ namespace Rxns.Hosting
         }
           
         //var memInfo = "PhysMem: 5807M used (1458M wired), 10G unused.";
+        /// <summary>
+        /// Memory in use, as a percentage - the same thing <c>ParseCpu</c> returns and the same
+        /// thing every other platform's service reports.
+        ///
+        /// <para>This used to return the free share as a fraction, which is wrong twice over: the
+        /// wrong quantity and the wrong scale. A Mac at 63% memory reported 0.37, so a machine
+        /// under real pressure was indistinguishable from an idle one, and the closer it came to
+        /// running out the lower its number went.</para>
+        /// </summary>
         public float ParseMem(string topMemInfo)
         {
             if (topMemInfo.IsNullOrWhitespace()) return 0;
@@ -122,7 +131,8 @@ namespace Rxns.Hosting
             var used = tokens[1].IsNullOrWhiteSpace("0").AsFloat();
             var unused = tokens[5].IsNullOrWhiteSpace("0").AsFloat();
 
-            return unused / (used + unused);
+            var total = used + unused;
+            return total == 0 ? 0 : used / total * 100;
         }
 
         public void SetProcessPriority(int priority)

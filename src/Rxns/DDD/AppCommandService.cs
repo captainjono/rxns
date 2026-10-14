@@ -104,7 +104,7 @@ namespace Rxns.DDD
         {
             if (route.IsNullOrWhitespace() || !route.Contains("\\"))
             {
-                // Local cmd path (Reload, Export, etc. that the arena
+                // Local cmd path (Reload, Export, etc. that the hub
                 // executes itself). We still need to track the originator
                 // so the CommandResult gets routed back to the UI client
                 // that issued the cmd. Parse → track each command's Id →

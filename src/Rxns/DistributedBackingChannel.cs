@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reactive.Linq;
 using Rxns.Health;
@@ -57,7 +57,7 @@ namespace Rxns
                     // Catch-all skips events already covered by a typed route.
                     // Without this guard a typed event hits BOTH the typed route
                     // (which fans to Central + Local) AND the fallthrough route
-                    // (Local) — every AppResourceInfo arriving at the arena
+                    // (Local) — every AppResourceInfo arriving at the hub
                     // double-publishes to RxnsLocal, doubling subscriber work
                     // and producing two "matched route" log lines per event.
                     var catchAll = new EventPublisherBuilder(o => !typed.Any(t => t.IsAssignableFrom(o.GetType())))

@@ -185,7 +185,7 @@ namespace Rxns
         /// child running.
         ///
         /// <paramref name="env"/> merges extra environment variables into the child
-        /// before start (useful for passing per-child identity / arena URL without
+        /// before start (useful for passing per-child identity / hub URL without
         /// stuffing everything into args).
         ///
         /// <paramref name="noWindow"/> sets <c>CreateNoWindow=true</c> so a detached
@@ -210,9 +210,9 @@ namespace Rxns
                 var reactorProcess = new ProcessStartInfo
                 {
                     ErrorDialog = false,
-                    // Caller-supplied CWD takes precedence — used by BFG's test-arena
+                    // Caller-supplied CWD takes precedence - used by hosts that run a test
                     // launcher to put `dotnet test` inside the per-run logDir so any
-                    // `testresults/` the test writes lands inside the dir BFG ships.
+                    // harness, so `testresults/` lands inside the directory the host ships.
                     WorkingDirectory = workingDirectory ?? new FileInfo(pathToProcess).DirectoryName,
                     FileName = pathToProcess,
                     Arguments = args,

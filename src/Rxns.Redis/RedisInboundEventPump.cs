@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -19,7 +19,7 @@ namespace Rxns.Redis
     /// <see cref="RedisAppStatusServiceClient.Incoming"/> observable - the
     /// inbound side that delivers events from OTHER processes - was never
     /// subscribed to anywhere, so heartbeats / route registrations / typed
-    /// events from workers never surfaced on the arena's local bus. The
+    /// events from workers never surfaced on the hub's local bus. The
     /// existing single-worker tests passed because SignalR's bridge was also
     /// running and quietly delivered the same events; multi-worker exposed
     /// the gap because SignalR can carry only one connection's events
@@ -70,8 +70,16 @@ namespace Rxns.Redis
                     .Catch<IRxn, Exception>(e => Observable.Throw<IRxn>(e)
                         .DelaySubscription(ResubscribeDelay, TaskPoolScheduler.Default))
                     .Retry()
-                    .Do(rxn => _localBus.Publish(rxn)
-                        .Until(e => OnError(new Exception("Local bus republish failed", e))))
+                    .Do(rxn =>
+                    {
+                        // Says what actually came off the stream. Without it, an event that is
+                        // written by the worker and never acted on by the arena looks identical
+                        // to one that was never written - and the two have completely different
+                        // causes. This is the only point where the inbound side is observable.
+                        $"RedisInboundEventPump: <- {rxn.GetType().Name}".LogDebug();
+                        _localBus.Publish(rxn)
+                            .Until(e => OnError(new Exception("Local bus republish failed", e)));
+                    })
                     .Until(e => OnError(new Exception("RedisInboundEventPump dispatch failed", e)));
 
                 _resources.Add(sub);

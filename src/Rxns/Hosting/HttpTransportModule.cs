@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Rxns.DDD.Commanding;
@@ -19,7 +19,7 @@ namespace Rxns.Hosting
     ///
     /// <para>
     /// Use as a sibling to <see cref="AppStatusCoreModule"/> when the host
-    /// posts events to a remote arena over HTTP (the original Rxns default).
+    /// posts events to a remote hub over HTTP (the original Rxns default).
     /// Mutually exclusive with <c>RedisTransportModule</c>; the composition
     /// root picks one based on configuration so there's no last-registration
     /// fight.

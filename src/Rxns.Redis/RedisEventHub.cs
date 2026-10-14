@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,14 +22,14 @@ namespace Rxns.Redis
     /// Redis-backed implementation of <see cref="IEventHub"/>. Symmetric
     /// counterpart to the SignalR-backed <c>EventsHub</c> (in
     /// Rxns.WebApiNET5). Wired in by <see cref="RedisTransportModule"/> on
-    /// arena hosts; consumers binding to <see cref="IEventHub"/> /
+    /// hub hosts; consumers binding to <see cref="IEventHub"/> /
     /// <see cref="IAppCmdManager"/> resolve to this instance instead of the
     /// SignalR hub, so cluster-internal command routing rides Redis Streams
     /// instead of SignalR.
     ///
     /// Scope of this scaffold:
-    ///   - Route map (route -> clientId) is in-memory per arena. Single-
-    ///     arena deployments only; multi-arena would need the map in
+    ///   - Route map (route -> clientId) is in-memory per hub. Single-
+    ///     hub deployments only; multi-hub would need the map in
     ///     Redis.
     ///   - <see cref="SendToClientAsync"/> / <see cref="BroadcastAsync"/>
     ///     publish a <see cref="RoutedEnvelope"/> to the host-supplied
@@ -44,7 +44,7 @@ namespace Rxns.Redis
     /// </summary>
     public class RedisEventHub : ReportsStatus, IEventHub, IRxnService, IDisposable
     {
-        // Stream the arena publishes routed commands to. Workers in lossless
+        // Stream the hub publishes routed commands to. Workers in lossless
         // mode subscribe and filter by ClientId. Separate from the typed-events
         // stream (UnitTestResult, AppHeartbeat, ...) so command-routing traffic
         // doesn't interleave with telemetry. Concrete name is host-supplied.
@@ -64,15 +64,32 @@ namespace Rxns.Redis
 
         private readonly Subject<ClientLifecycleEvent> _lifecycle = new();
 
-        // Stale-route detection: how long without a WorkerHeartbeat before we
-        // evict + emit Connected=false. Aligns roughly with SignalR's KeepAlive
-        // (20s server / 30s client) to keep the failure-detection window
-        // comparable across modes.
-        private static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(20);
-        private static readonly TimeSpan SweepInterval = TimeSpan.FromSeconds(5);
+        // No stale-route sweep, deliberately.
+        //
+        // This hub used to evict a route whose WorkerHeartbeat had not been seen for N seconds,
+        // synthesising the disconnect signal that Redis - unlike SignalR - does not have. The
+        // SignalR hub removes a route in OnDisconnectedAsync, which is evidence. A timer is a
+        // guess, and the guess was wrong in the only way that mattered.
+        //
+        // What it bought: nothing subscribes to ClientLifecycle anywhere in rxns or theBFG, so
+        // the Connected=false half was dead code. The only real effect was removing the route
+        // from the dispatch table.
+        //
+        // What it cost: heartbeats are published every 5s but were OBSERVED arriving at 22-25s
+        // with a 374s tail, because the arena's stream consumer falls behind - not because the
+        // workers were unwell. So every worker in a fleet got evicted repeatedly (151 times in a
+        // ten-device run, 392 in a hundred-device one), routes vanished, and dispatches could not
+        // land. Three rungs produced partial results that read as hangs and were not: the work
+        // never arrived. It also fed itself, since an eviction published an event onto the very
+        // stream whose backlog caused it.
+        //
+        // A route now lives until a heartbeat replaces it. A respawned worker re-registers on its
+        // next heartbeat - including the clientId-change case below - so the registry self-heals
+        // on evidence. A dead worker's route does persist; the answer to that is a dispatch that
+        // reports when it does not come back, not a route table guessing at liveness.
 
-        // Route -> last heartbeat seen. Sweep evicts entries older than
-        // HeartbeatTimeout.
+        // Route -> last heartbeat seen. Kept for diagnostics and for the clientId-change check;
+        // nothing expires on it any more.
         private readonly ConcurrentDictionary<string, DateTime> _lastHeartbeat = new();
 
         private CompositeDisposable _resources = new();
@@ -103,6 +120,11 @@ namespace Rxns.Redis
                 OnError(new Exception("Failed to publish a redis backlog sample", e)));
 
             OnInformation("RedisEventHub: stream='{0}' group='{1}'", RoutedCmdsStream, consumerGroup);
+
+            // Say the eviction policy out loud, once, at startup, so a run does not have to be
+            // inferred from the evictions it produced - which is exactly backwards, and is how a
+            // deadline shorter than actual heartbeat delivery went unnoticed through three rungs.
+            OnInformation("RedisEventHub: routes are heartbeat-registered and never time out - a dispatch that does not come back is reported by its own timeout, not by evicting the route");
             // Phase 7n4 refactor: register THIS channel with the cmd manager
             // so its Add() can dispatch via SendToClientAsync when a route
             // lives here. Cross-channel routing decisions (cmd entered via
@@ -111,7 +133,7 @@ namespace Rxns.Redis
             _appCmds.RegisterChannel(this);
 
             // Subscribe to worker heartbeat / removal events on the local bus.
-            // They arrive here because the arena's RedisAppStatusServiceClient.Incoming
+            // They arrive here because the hub's RedisAppStatusServiceClient.Incoming
             // is wired into the local bus by the AppStatusBackingChannel -> any
             // IRxn workers publish via the typed-events stream lands locally.
             //
@@ -140,7 +162,7 @@ namespace Rxns.Redis
                     // Heartbeat = registration: register on first sighting,
                     // refresh _lastHeartbeat on every subsequent tick. The
                     // first heartbeat is what populates _routes - arrives
-                    // ~200ms after worker boot. Self-healing: if the arena
+                    // ~200ms after worker boot. Self-healing: if the hub
                     // restarts while a worker stays alive, the next heartbeat
                     // re-registers the route automatically.
                     //
@@ -168,52 +190,8 @@ namespace Rxns.Redis
                     }
                 }));
 
-            // Periodic sweep: evict routes whose last heartbeat is older than
-            // HeartbeatTimeout. Sample at SweepInterval so we don't spin a
-            // dedicated timer thread - rides Rx's default scheduler.
-            _resources.Add(Observable.Interval(SweepInterval)
-                .Subscribe(_ => SweepStaleRoutes()));
         }
 
-        private void SweepStaleRoutes()
-        {
-            try
-            {
-                var now = DateTime.UtcNow;
-                // Filter on the snapshot of (key, ageSeconds) so we don't read
-                // the dictionary again later — the previous code re-indexed
-                // _lastHeartbeat[route] at the OnVerbose line, which threw
-                // KeyNotFoundException whenever a concurrent registration
-                // (or a previous sweep iteration mid-foreach) had already
-                // removed the entry. The exception aborted the sweep BEFORE
-                // the TryRemove + RemoveRoute steps ran, so the next sweep
-                // tick saw the same stale entry and threw again — every 5
-                // seconds forever, flooding /systemstatus/log with
-                // "SweepStaleRoutes failed". Phase 7n3 caught this after a
-                // worker process was killed.
-                var stale = _lastHeartbeat
-                    .Where(kv => now - kv.Value > HeartbeatTimeout)
-                    .Select(kv => new { Route = kv.Key, AgeMs = (now - kv.Value).TotalMilliseconds })
-                    .ToList();
-                foreach (var s in stale)
-                {
-                    // Atomic remove-with-value: skip if a concurrent thread
-                    // already evicted. Idempotent across overlapping sweeps.
-                    if (!_lastHeartbeat.TryRemove(s.Route, out _))
-                        continue;
-                    OnVerbose("RedisEventHub: sweep evicting stale route '{0}' (last heartbeat {1:0}ms ago)", s.Route, s.AgeMs);
-                    try { RemoveRoute(s.Route); }
-                    catch (Exception removeEx)
-                    {
-                        OnError(new Exception($"RedisEventHub: RemoveRoute('{s.Route}') in sweep failed", removeEx));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                OnError(new Exception("RedisEventHub.SweepStaleRoutes failed", ex));
-            }
-        }
 
         // ── IEventHub ─────────────────────────────────────────────────────────
 
@@ -385,11 +363,11 @@ namespace Rxns.Redis
     ///
     /// Workers consuming the stream filter by <see cref="Route"/> first and
     /// fall back to <see cref="ClientId"/>. Filtering by route closes the
-    /// ~700ms in-flight gap between worker death and the arena's heartbeat-
+    /// ~700ms in-flight gap between worker death and the hub's heartbeat-
     /// driven clientId update — a cmd dispatched in that window carries the
     /// dead clientId, but the route still matches the live consumer that
     /// respawned under the same systemName. Pre-route-field envelopes
-    /// (older arena builds) leave Route null; consumers fall back to
+    /// (older hub builds) leave Route null; consumers fall back to
     /// clientId match for back-compat.
     /// </summary>
     public class RoutedEnvelope : IRxn

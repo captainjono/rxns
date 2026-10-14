@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using Rxns.Health.AppStatus;
@@ -63,7 +63,7 @@ namespace Rxns.Hosting.Updates
         ///
         /// <para>Without this <see cref="CanRoute"/> reads "no channel owns it" as "nothing here can
         /// ever deliver it" and the command is dropped on the floor. True for a worker holding a
-        /// sibling's command; false for the arena those workers poll.</para>
+        /// sibling's command; false for the hub those workers poll.</para>
         /// </summary>
         void RegisterPollingRoute(string route);
 
@@ -102,7 +102,7 @@ namespace Rxns.Hosting.Updates
         /// to find one that owns the destination route, then dispatches via
         /// <see cref="IEventHub.SendToClientAsync"/>. Replaces the previous
         /// design where each channel had its own <c>Add</c> + cmd-tracking
-        /// dicts (which fragmented routing across SignalR + Redis arenas).
+        /// dicts (which fragmented routing across SignalR + Redis hubs).
         /// </summary>
         void RegisterChannel(Rxns.Hosting.IEventHub channel);
     }

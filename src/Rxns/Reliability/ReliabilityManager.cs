@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -81,7 +81,7 @@ namespace Rxns.Reliability
 
             // Assigning HttpStratergy here as well threw away the policy built directly above, so
             // every HTTP call in the system retried on TimeoutException alone. A transient 5xx - a
-            // busy arena answering a fleet that is all shipping its tapes at once - was never
+            // busy hub answering a fleet that is all shipping its tapes at once - was never
             // retried, and the reliability layer looked present while doing nothing for the case it
             // was written for.
             SqlStratery = Policy
@@ -132,7 +132,7 @@ namespace Rxns.Reliability
                 // The status carries the verdict - see IsTransient.
                 case HttpException http: return IsTransient(http.StatusCode);
                 // A socket, DNS or connection-refused blip. Common and worth another go: a worker
-                // often calls while the arena is still coming up.
+                // often calls while the hub is still coming up.
                 case HttpRequestException _: return true;
                 // ThrowExceptions rethrows a faulted task's AggregateException, so the reason we
                 // care about is usually one level down.

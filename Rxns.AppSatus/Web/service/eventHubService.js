@@ -1,4 +1,4 @@
-angular.module('portal').factory('eventHubService', function ($localStorage, rxnPortalConfiguration, rx) {
+﻿angular.module('portal').factory('eventHubService', function ($localStorage, rxnPortalConfiguration, rx) {
 
 
     var log = new rx.Subject();
@@ -24,8 +24,26 @@ angular.module('portal').factory('eventHubService', function ($localStorage, rxn
         log.onNext(remoteEvents);
     });
 
+    // The initial status arrives in pages when it is too large for one message - a fleet of
+    // workers all reporting under one tenant gets there long before a portal watching a handful
+    // of machines does. Each tenant object in the page carries page/of; a server that predates
+    // paging sends neither, so treat their absence as "one page of one".
+    //
+    // The marker rides on the payload rather than arriving as a second argument because the
+    // .NET SignalR client - which every worker uses - drops an invocation carrying more
+    // arguments than its handler declares. Only the browser would have tolerated that.
+    //
+    // Emitted as an envelope rather than as the bare array because a subscriber has to know
+    // whether it is looking at a fresh status or the continuation of one, and only page 1 means
+    // "replace what you have".
     hub.on("StatusInitialSubscribe", function (remoteEvents) {
-        statusInitial.onNext(remoteEvents);
+        var statuses = remoteEvents || [];
+        var marker = statuses[0] || {};
+        statusInitial.onNext({
+            statuses: statuses,
+            page: marker.page || 1,
+            of: marker.of || 1
+        });
     });
 
     hub.on("StatusUpdatesSubscribe", function (remoteEvents) {

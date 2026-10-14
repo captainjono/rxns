@@ -66,6 +66,20 @@ namespace System
                 return obj;
             }
 
+            /// <summary>
+            /// The same for a set of them, which the List and IReportStatus overloads already allow
+            /// and this one did not - so a caller holding several subscriptions had to loop, or keep
+            /// a List it did not otherwise want.
+            /// </summary>
+            public static IEnumerable<T> DisposedBy<T>(this IEnumerable<T> objs, CompositeDisposable disposables) where T : IDisposable
+            {
+                foreach (var obj in objs)
+                    if (obj != null)
+                        disposables.Add(obj);
+
+                return objs;
+            }
+
 
             public static List<IDisposable> DisposedWith(this IDisposable obj, Action action)
             {

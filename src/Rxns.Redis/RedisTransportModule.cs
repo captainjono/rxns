@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Rxns.Cloud;
 using Rxns.Health;
@@ -22,12 +22,12 @@ namespace Rxns.Redis
     /// <list type="bullet">
     ///   <item><see cref="RedisAppStatusServiceClient"/> as <c>IAppStatusServiceClient</c>
     ///         - the canonical cross-process publish surface. Mode is
-    ///         <c>Bidirectional</c> for arena hosts (consume + publish) and
+    ///         <c>Bidirectional</c> for hub hosts (consume + publish) and
     ///         <c>PublishOnly</c> for worker hosts (publish only; inbound
     ///         routed cmds ride a separate stream via
     ///         <see cref="RedisRoutedCmdConsumer"/>).</item>
     ///   <item><see cref="RedisEventHub"/> as <c>IEventHub</c> /
-    ///         <c>IAppCmdManager</c> on arena hosts - cluster-internal
+    ///         <c>IAppCmdManager</c> on hub hosts - cluster-internal
     ///         command routing publishes to the host-supplied
     ///         routed-cmds stream.</item>
     ///   <item><see cref="RedisRoutedCmdConsumer"/> on worker hosts -
@@ -41,7 +41,7 @@ namespace Rxns.Redis
     ///
     /// <para>
     /// The <see cref="HostKind"/> selector tells the module whether to wire
-    /// the arena-shape (Bidirectional client + EventHub + pump) or the
+    /// the hub-shape (Bidirectional client + EventHub + pump) or the
     /// worker-shape (PublishOnly client + RoutedCmdConsumer). One module
     /// type, one config knob - no last-wins ordering hacks because the
     /// composition root just doesn't include the HTTP module when Redis is
@@ -50,9 +50,11 @@ namespace Rxns.Redis
     /// </summary>
     public class RedisTransportModule : IAppModule
     {
+        /// <summary>Which side of the transport a host sits on: the one that owns the
+        /// inbound stream and its consumer group, or one of the many that feed it.</summary>
         public enum HostKind
         {
-            Arena,
+            Hub,
             Worker
         }
 
@@ -68,7 +70,7 @@ namespace Rxns.Redis
             string redisConnectionString,
             HostKind kind,
             string eventStream,
-            string arenaConsumerGroup,
+            string hubConsumerGroup,
             string workerConsumerGroup,
             string routedCmdsStream,
             string arenaCmdsConsumerGroup,
@@ -77,7 +79,7 @@ namespace Rxns.Redis
             RedisConnectionString = redisConnectionString;
             Kind = kind;
             EventStream = eventStream;
-            ConsumerGroup = kind == HostKind.Arena ? arenaConsumerGroup : workerConsumerGroup;
+            ConsumerGroup = kind == HostKind.Hub ? hubConsumerGroup : workerConsumerGroup;
             RoutedCmdsStream = routedCmdsStream;
             ArenaCmdsConsumerGroup = arenaCmdsConsumerGroup;
             WorkerCmdsConsumerGroupPrefix = workerCmdsConsumerGroupPrefix;
@@ -87,18 +89,18 @@ namespace Rxns.Redis
         {
             $"RedisTransportModule: kind={Kind} stream='{EventStream}' group='{ConsumerGroup}'".LogDebug();
 
-            // IAppStatusServiceClient: Bidirectional for arena, PublishOnly
+            // IAppStatusServiceClient: Bidirectional for hub, PublishOnly
             // for worker. Eager-start of the inbound poll happens in the
             // channel's ctor for any subscribe-capable mode (closes the
             // publish-before-listening race).
             lifecycle.CreatesOncePerApp<IAppStatusServiceClient>(cc =>
             {
-                var mode = Kind == HostKind.Arena
+                var mode = Kind == HostKind.Hub
                     ? RedisStreamMode.Bidirectional
                     : RedisStreamMode.PublishOnly;
 
                 // Bind an HTTP fallback for binary log uploads. Redis Streams
-                // carry structured events; per-test log zips ride the arena's
+                // carry structured events; per-test log zips ride the hub's
                 // /systemstatus/logs/.../publish multipart endpoint, which
                 // works identically under both transports. Without this,
                 // ShipLogForTest silently drops every worker's tape archive
@@ -123,7 +125,7 @@ namespace Rxns.Redis
                     httpFallback: httpFallback);
             });
 
-            if (Kind == HostKind.Arena)
+            if (Kind == HostKind.Hub)
             {
                 // Cluster-internal command routing.
                 lifecycle.CreatesOncePerApp<RedisEventHub>(cc =>
@@ -136,16 +138,45 @@ namespace Rxns.Redis
                         RoutedCmdsStream,
                         ArenaCmdsConsumerGroup));
 
-                // Pump inbound stream events onto the local IRxnManager so
-                // RedisEventHub's type subscriptions fire for events sent
-                // by remote workers.
-                lifecycle.CreatesOncePerApp<RedisInboundEventPump>();
+                // Pump inbound stream events onto the LOCAL IRxnManager so RedisEventHub's type
+                // subscriptions fire for events sent by remote workers.
+                //
+                // Local, specifically - the tagged "local" manager rather than the default one.
+                // The default routes to central, and central here IS this redis stream, so every
+                // event the arena consumed was immediately written back to the stream it had just
+                // read it from. Self-loop suppression then discarded the copy on the way back in,
+                // so the work was invisible as well as wasted.
+                //
+                // Measured on a 100-device fleet: 148,330 entries, of which a 400-entry sample was
+                // 100% telemetry and 70% authored by the arena itself - a worker's own heartbeat
+                // appearing on the stream stamped from=<arena consumer id> is the fingerprint. The
+                // arena ran 46s behind a backlog it was more than half responsible for creating.
+                //
+                // Falls back to the default manager when no registry is wired, which is the
+                // pre-existing behaviour: a host without a local/central split has nowhere else to
+                // publish, and losing the pump entirely would be worse than the echo.
+                lifecycle.CreatesOncePerApp<RedisInboundEventPump>(cc =>
+                {
+                    IRxnManager<IRxn> localOnly = null;
+                    try { localOnly = cc.Resolve<IRxnManagerRegistry>()?.RxnsLocal; }
+                    catch (Exception ex)
+                    {
+                        $"RedisTransportModule: no IRxnManagerRegistry ({ex.GetType().Name}) - inbound pump will use the default manager".LogDebug();
+                    }
+
+                    if (localOnly == null)
+                        "RedisTransportModule: no local-tagged IRxnManager - inbound events will be republished to central, which echoes them onto this stream".LogDebug();
+
+                    return new RedisInboundEventPump(
+                        cc.Resolve<IAppStatusServiceClient>(),
+                        localOnly ?? cc.Resolve<IRxnManager<IRxn>>());
+                });
             }
             else
             {
                 // Worker reads routed commands from the dedicated
                 // routed-cmds stream + emits heartbeats (which double as
-                // route registration on the arena's RedisEventHub).
+                // route registration on the hub's RedisEventHub).
                 lifecycle.CreatesOncePerApp<RedisRoutedCmdConsumer>(cc =>
                     new RedisRoutedCmdConsumer(
                         RedisConnectionString,

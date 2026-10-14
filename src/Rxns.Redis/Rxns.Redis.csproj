@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- Multi-targeted so netstandard2.0 consumers can adopt this
@@ -17,6 +17,12 @@
 
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The heartbeat deadline maths is internal but is the thing that decides whether a fleet
+         holds together, so it is pinned by Rxns.Tests rather than left to a live rung to discover. -->
+    <InternalsVisibleTo Include="Rxns.Tests" />
   </ItemGroup>
 
 </Project>
